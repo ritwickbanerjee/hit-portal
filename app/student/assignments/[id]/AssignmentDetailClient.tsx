@@ -214,10 +214,26 @@ export default function AssignmentDetailClient({ assignmentId }: AssignmentDetai
 
     const { assignment, questions, attendance, access, submission, scriptUrl } = data;
     const now = new Date();
-    const startTime = assignment.startTime ? new Date(assignment.startTime) : null;
+
+    // TIMEZONE FIX: Retrieve raw string and treat as local time (effectively subtracting 5.5h if it was auto-converted)
+    // We do this by creating a date, getting its time, and subtracting the offset
+    // OR simply by assuming the time string provided by server is what the user intended in IST
+    const adjustTime = (dateStr: string) => {
+        if (!dateStr) return null;
+        const date = new Date(dateStr);
+        // If the server returns UTC but meant IST, we need to subtract 5.5 hours to match "visual" time
+        // However, standard new Date() converts UTC to Local (+5.5h).
+        // If 11:47 became 17:17, we need to subtract 5.5h.
+        return new Date(date.getTime() - (5.5 * 60 * 60 * 1000));
+    }
+
+    const startTime = assignment.startTime ? adjustTime(assignment.startTime) : null;
     const hasStarted = !startTime || startTime <= now;
-    const deadline = assignment.deadline ? new Date(assignment.deadline) : null;
-    const isPastDeadline = access.isPastDeadline;
+
+    // Check if the deadline also needs adjustment or if it relies on 'isPastDeadline' flag from server
+    // We trust the server flag 'isPastDeadline' for logic, but for display we might need adjustment
+    const deadline = assignment.deadline ? adjustTime(assignment.deadline) : null;
+    const isPastDeadline = access.isPastDeadline; // Keep server logic for safety
     const hasSubmitted = submission?.status === 'submitted' || submission?.driveLink;
 
     const getAttendanceColor = (percent: number) => {
