@@ -43,7 +43,9 @@ export default function InstallPWA({ type }: InstallPWAProps) {
         }
 
         if (!deferredPrompt) {
-            toast.error('App installation not available');
+            toast('App installation not ready yet. Try again in a moment or use browser menu.', {
+                icon: '⏳',
+            });
             return;
         }
 
@@ -56,13 +58,22 @@ export default function InstallPWA({ type }: InstallPWAProps) {
         }
     };
 
-    if (isInstalled) return null;
-    if (!deferredPrompt && !isIOS) return null; // Hide if not installable (desktop usually)
+    // if (isInstalled) return null; // keep verification easy for now
+    // if (!deferredPrompt && !isIOS) return null; 
 
-    // Render based on type
+    // Helper to determine if we should show button:
+    // For specific user request, let's ALWAYS show it but give feedback if not ready.
+    // In production, you might want to hide it if (isInstalled).
+
+    if (isInstalled) return (
+        <div className="flex justify-center mt-6 mb-8 text-gray-500 text-xs">
+            App Installed
+        </div>
+    );
+
     if (type === 'student') {
         return (
-            <div className="flex justify-center mt-6 mb-8">
+            <div className="flex justify-center mt-6 mb-8 animate-in fade-in zoom-in duration-500">
                 <button
                     onClick={handleInstall}
                     className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-full shadow-lg shadow-violet-500/30 transition-all hover:scale-105 active:scale-95 group"
