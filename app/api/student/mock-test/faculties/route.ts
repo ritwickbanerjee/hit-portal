@@ -25,6 +25,8 @@ export async function GET(req: Request) {
             course_code: course
         }).select('teacherName');
 
+        console.log(`[MOCK TEST] Attendance records found: ${attendanceRecords.length}`);
+
         // Extract unique faculty names
         const facultyNames = [...new Set(
             attendanceRecords
