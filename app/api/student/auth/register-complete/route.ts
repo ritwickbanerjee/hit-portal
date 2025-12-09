@@ -28,10 +28,20 @@ export async function POST(req: Request) {
         // Hash, Update, Verify
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        await Student.findByIdAndUpdate(student._id, {
+        // Update object
+        const updateData: any = {
             password: hashedPassword,
             isVerified: true
-        });
+        };
+
+        // If the Provided Email is different from the saved one, update it!
+        // This handles cases where Admin left it blank or put a placeholder.
+        if (student.email !== email) {
+            updateData.email = email;
+            console.log(`[Register Complete] Updating email for ${roll} from ${student.email} to ${email}`);
+        }
+
+        await Student.findByIdAndUpdate(student._id, updateData);
 
         // Cleanup
         await OTP.deleteMany({ email });

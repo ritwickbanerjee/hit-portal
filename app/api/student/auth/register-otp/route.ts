@@ -18,14 +18,15 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Student record not found. Please contact Admin.' }, { status: 404 });
         }
 
-        // 2. Security Check: Does email match?
-        // We check against the institute email (primary) or secondary if it exists (though usually strictly institute for first time)
-        // The prompt says "Student roll numbers present in admin database". Usually admin uploads with institute email.
+        // 2. Security Check: SKIPPED
+        // We allow students to provide their own email if the admin one is missing/wrong.
+        // The OTP verification ensures they own the email they provided.
         const providedEmail = email.toLowerCase().trim();
-        const studentEmail = student.email.toLowerCase();
+        const studentEmail = student.email ? student.email.toLowerCase() : '';
 
-        if (studentEmail !== providedEmail) {
-            return NextResponse.json({ error: 'Email does not match our records for this Roll Number.' }, { status: 403 });
+        // Log mismatch for audit but allow proceed
+        if (studentEmail && studentEmail !== providedEmail) {
+            console.log(`[Registration] Email mismatch: Admin(${studentEmail}) vs User(${providedEmail}). proceeding...`);
         }
 
         // 3. Check if already registered

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'react-hot-toast';
-import { Bell, LogOut, PieChart, PenTool, BookOpen, ChevronRight, Sparkles, Calendar } from 'lucide-react';
+import { Bell, LogOut, PieChart, PenTool, BookOpen, ChevronRight, Sparkles, Calendar, User, Mail, XCircle, Loader2 } from 'lucide-react';
 
 export default function StudentDashboard() {
     const [student, setStudent] = useState<any>(null);
@@ -14,6 +14,11 @@ export default function StudentDashboard() {
     const [unreadCount, setUnreadCount] = useState(0);
     const [showNotifications, setShowNotifications] = useState(false);
     const [greeting, setGreeting] = useState('');
+
+    // Email Update State
+    const [showEmailModal, setShowEmailModal] = useState(false);
+    const [newEmail, setNewEmail] = useState('');
+    const [updatingEmail, setUpdatingEmail] = useState(false);
 
     useEffect(() => {
         const storedStudent = localStorage.getItem('student');
@@ -60,7 +65,47 @@ export default function StudentDashboard() {
 
     const handleLogout = () => {
         localStorage.removeItem('student');
+        localStorage.removeItem('auth_token'); // Ensure token is also removed
         router.push('/student/login');
+    };
+
+    const handleUpdateEmail = async () => {
+        if (!newEmail || !newEmail.includes('@')) {
+            toast.error('Please enter a valid email');
+            return;
+        }
+
+        setUpdatingEmail(true);
+        try {
+            const token = localStorage.getItem('auth_token');
+            const res = await fetch('/api/student/profile/update-email', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    studentId: student._id,
+                    email: newEmail
+                })
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to update email');
+
+            // Update local state
+            const updatedStudent = { ...student, email: newEmail };
+            setStudent(updatedStudent);
+            localStorage.setItem('student', JSON.stringify(updatedStudent));
+
+            toast.success('Email updated successfully');
+            setShowEmailModal(false);
+            setNewEmail('');
+        } catch (error: any) {
+            toast.error(error.message);
+        } finally {
+            setUpdatingEmail(false);
+        }
     };
 
     if (!student) return null;
@@ -169,16 +214,76 @@ export default function StudentDashboard() {
                             )}
                         </div>
 
+                        {/* Edit Email Button */}
+                        <button
+                            onClick={() => setShowEmailModal(true)}
+                            className="p-2 sm:p-3 rounded-xl bg-blue-500/10 hover:bg-blue-500 text-blue-400 hover:text-white border border-blue-500/20 transition-all ml-2"
+                            title="Update Email"
+                        >
+                            <User className="h-4 w-4 sm:h-5 sm:w-5" />
+                        </button>
+
                         {/* Logout Button */}
                         <button
                             onClick={handleLogout}
-                            className="p-2 sm:p-3 rounded-xl bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white border border-red-500/20 transition-all"
+                            className="p-2 sm:p-3 rounded-xl bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white border border-red-500/20 transition-all ml-2"
+                            title="Sign Out"
                         >
                             <LogOut className="h-4 w-4 sm:h-5 sm:w-5" />
                         </button>
                     </div>
                 </div>
             </header>
+
+            {/* Email Update Modal */}
+            {showEmailModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+                    <div className="bg-[#0f1523] border border-white/10 rounded-2xl w-full max-w-md p-6 sm:p-8 shadow-2xl relative">
+                        <button
+                            onClick={() => setShowEmailModal(false)}
+                            className="absolute top-4 right-4 text-gray-500 hover:text-white"
+                        >
+                            <XCircle className="h-6 w-6" />
+                        </button>
+
+                        <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                            <Mail className="h-5 w-5 text-blue-400" />
+                            Update Email
+                        </h2>
+                        <p className="text-sm text-gray-400 mb-6">
+                            Current: <span className="text-blue-300">{student.email}</span>
+                        </p>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-medium text-gray-400 mb-1 ml-1">New Email Address</label>
+                                <input
+                                    type="email"
+                                    value={newEmail}
+                                    onChange={(e) => setNewEmail(e.target.value)}
+                                    placeholder="Enter new email"
+                                    className="w-full px-4 py-3 bg-black/20 border border-white/10 rounded-xl text-white focus:outline-none focus:border-blue-500 transition-colors"
+                                />
+                            </div>
+
+                            <button
+                                onClick={handleUpdateEmail}
+                                disabled={updatingEmail}
+                                className="w-full py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            >
+                                {updatingEmail ? (
+                                    <>
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                        Updating...
+                                    </>
+                                ) : (
+                                    'Save Changes'
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Main Content - Compact */}
             <main className="flex-1 w-full px-3 sm:px-6 py-4 sm:py-6 z-10">
