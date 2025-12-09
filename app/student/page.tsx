@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'react-hot-toast';
 import { Bell, LogOut, PieChart, PenTool, BookOpen, ChevronRight, Sparkles, Calendar, User, Mail, XCircle, Loader2 } from 'lucide-react';
+import InstallPWA from '@/components/InstallPWA';
 
 export default function StudentDashboard() {
     const [student, setStudent] = useState<any>(null);
@@ -358,9 +359,9 @@ export default function StudentDashboard() {
                         </Link>
 
                         {/* Resources Card - Centered on second row */}
-                        <div className="col-span-2 flex justify-center">
-                            <Link href="/student/resources" className="group" style={{ width: 'calc(50% - 0.25rem)' }}>
-                                <div className="h-full p-3 sm:p-6 rounded-xl sm:rounded-2xl bg-gradient-to-br from-purple-900/40 to-pink-900/20 border border-purple-500/20 hover:border-purple-400/50 transition-all hover:scale-[1.02] flex flex-col items-center text-center">
+                        <div className="col-span-2 flex flex-col items-center">
+                            <Link href="/student/resources" className="group w-full flex justify-center mb-4">
+                                <div className="h-full w-[calc(50%-0.25rem)] p-3 sm:p-6 rounded-xl sm:rounded-2xl bg-gradient-to-br from-purple-900/40 to-pink-900/20 border border-purple-500/20 hover:border-purple-400/50 transition-all hover:scale-[1.02] flex flex-col items-center text-center">
                                     <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center mb-2 sm:mb-4 shadow-lg">
                                         <BookOpen className="h-5 w-5 sm:h-7 sm:w-7 text-white" />
                                     </div>
@@ -372,6 +373,9 @@ export default function StudentDashboard() {
                                     </div>
                                 </div>
                             </Link>
+
+                            {/* PWA Install Button */}
+                            <InstallPWA type="student" />
                         </div>
                     </div>
                 </div>
