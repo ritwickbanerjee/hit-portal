@@ -7,7 +7,12 @@ const JWT_SECRET = process.env.JWT_SECRET || 'fallback-dev-secret-change-this-in
 const key = new TextEncoder().encode(JWT_SECRET);
 
 export async function middleware(req: NextRequest) {
-    // 1. Check for the token in cookies
+    // 1. Skip middleware for auth routes
+    if (req.nextUrl.pathname.startsWith('/api/student/auth')) {
+        return NextResponse.next();
+    }
+
+    // 2. Check for the token in cookies
     const token = req.cookies.get('auth_token')?.value;
 
     if (!token) {
