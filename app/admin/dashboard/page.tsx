@@ -265,15 +265,18 @@ export default function AdminDashboard() {
                 if (!newConfig.attendanceRules) newConfig.attendanceRules = {};
                 newConfig.attendanceRules[key] = currentAssignmentRule;
 
-                // Save Teacher Assignment
-                if (teacherInput.name && teacherInput.email) {
+                // Save Teacher Assignment (Auto-assign Current Admin)
+                if (adminEmail) {
                     if (!newConfig.teacherAssignments) newConfig.teacherAssignments = {};
                     if (!newConfig.teacherAssignments[key]) newConfig.teacherAssignments[key] = [];
 
+                    const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+                    const teacherData = { name: currentUser.name || 'Admin', email: adminEmail };
+
                     // Add if not exists
-                    const exists = newConfig.teacherAssignments[key].some((t: any) => t.email === teacherInput.email);
+                    const exists = newConfig.teacherAssignments[key].some((t: any) => t.email === teacherData.email);
                     if (!exists) {
-                        newConfig.teacherAssignments[key].push(teacherInput);
+                        newConfig.teacherAssignments[key].push(teacherData);
                     }
                 }
             }
@@ -649,20 +652,13 @@ export default function AdminDashboard() {
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
                             <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-1">Faculty Name</label>
-                                <input
-                                    type="text" placeholder="e.g. Dr. Smith"
-                                    className="block w-full rounded-md border-0 bg-gray-700 py-2 px-3 text-white ring-1 ring-inset ring-gray-600 focus:ring-2 focus:ring-blue-500"
-                                    value={teacherInput.name} onChange={e => setTeacherInput({ ...teacherInput, name: e.target.value })}
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-1">Faculty Email</label>
-                                <input
-                                    type="email" placeholder="faculty@example.com"
-                                    className="block w-full rounded-md border-0 bg-gray-700 py-2 px-3 text-white ring-1 ring-inset ring-gray-600 focus:ring-2 focus:ring-blue-500"
-                                    value={teacherInput.email} onChange={e => setTeacherInput({ ...teacherInput, email: e.target.value })}
-                                />
+                                <label className="block text-sm font-medium text-gray-300 mb-1">Teacher</label>
+                                <div className="flex items-center gap-2 p-2 bg-gray-700/50 rounded border border-gray-600">
+                                    <span className="text-gray-300 text-sm">Assign to:</span>
+                                    <span className="text-blue-400 font-semibold text-sm">
+                                        {JSON.parse(localStorage.getItem('user') || '{}').name || 'Me'}
+                                    </span>
+                                </div>
                             </div>
                         </div>
 
