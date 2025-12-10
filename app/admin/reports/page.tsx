@@ -896,15 +896,24 @@ Treat this matter with extreme urgency.`;
                                                             </td>
 
                                                             <td className="px-3 py-3 text-center border-l border-white/5">
-                                                                <div className="flex justify-center gap-3">
+                                                                <div className="flex justify-center gap-2">
                                                                     {/* Email Student */}
-                                                                    <a
-                                                                        href={`mailto:${student.email}`}
-                                                                        className="text-slate-500 hover:text-indigo-400 transition-colors bg-white/5 p-1.5 rounded-md hover:bg-white/10"
-                                                                        title="Email Student"
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            if (student.email?.endsWith('@heritageit.edu.in')) {
+                                                                                copyToClipboard(student.email);
+                                                                            }
+                                                                        }}
+                                                                        disabled={!student.email?.endsWith('@heritageit.edu.in')}
+                                                                        className={`p-1.5 rounded-md transition-all ${student.email?.endsWith('@heritageit.edu.in')
+                                                                                ? 'text-indigo-400 bg-indigo-500/10 shadow-[0_0_8px_rgba(99,102,241,0.4)] hover:bg-indigo-500/20 hover:text-indigo-300 hover:shadow-[0_0_12px_rgba(99,102,241,0.6)] cursor-copy'
+                                                                                : 'text-slate-600 bg-white/5 opacity-40 cursor-not-allowed'
+                                                                            }`}
+                                                                        title={student.email?.endsWith('@heritageit.edu.in') ? `Copy Email: ${student.email}` : 'Invalid Institutional Email'}
                                                                     >
                                                                         <Mail className="h-4 w-4" />
-                                                                    </a>
+                                                                    </button>
+
                                                                     {/* Text Student */}
                                                                     <button
                                                                         onClick={() => copyStudentText(student, percent, startDate, endDate)}
@@ -913,14 +922,24 @@ Treat this matter with extreme urgency.`;
                                                                     >
                                                                         <MessageSquare className="h-4 w-4" />
                                                                     </button>
+
                                                                     {/* Email Guardian */}
-                                                                    <a
-                                                                        href={`mailto:${student.guardian_email}`}
-                                                                        className="text-slate-500 hover:text-emerald-400 transition-colors bg-white/5 p-1.5 rounded-md hover:bg-white/10"
-                                                                        title="Email Guardian"
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            if (student.guardian_email) {
+                                                                                copyToClipboard(student.guardian_email);
+                                                                            }
+                                                                        }}
+                                                                        disabled={!student.guardian_email}
+                                                                        className={`p-1.5 rounded-md transition-all ${student.guardian_email
+                                                                                ? 'text-emerald-400 bg-emerald-500/10 shadow-[0_0_8px_rgba(16,185,129,0.4)] hover:bg-emerald-500/20 hover:text-emerald-300 hover:shadow-[0_0_12px_rgba(16,185,129,0.6)] cursor-copy'
+                                                                                : 'text-slate-600 bg-white/5 opacity-40 cursor-not-allowed'
+                                                                            }`}
+                                                                        title={student.guardian_email ? `Copy Guardian Email: ${student.guardian_email}` : 'No Guardian Email Required'}
                                                                     >
                                                                         <Shield className="h-4 w-4" />
-                                                                    </a>
+                                                                    </button>
+
                                                                     {/* Text Guardian */}
                                                                     <button
                                                                         onClick={() => copyGuardianText(student, percent, startDate, endDate)}
