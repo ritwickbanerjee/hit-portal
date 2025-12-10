@@ -11,9 +11,10 @@ interface Props {
     onSuccess: () => void;
     user: any;
     context: { courses: string[], depts: string[], years: string[] };
+    isGlobalAdmin: boolean;
 }
 
-export default function RandomizedTab({ onSuccess, user, context }: Props) {
+export default function RandomizedTab({ onSuccess, user, context, isGlobalAdmin }: Props) {
     const [loading, setLoading] = useState(false);
     const [topics, setTopics] = useState<string[]>([]);
     const [allQuestions, setAllQuestions] = useState<any[]>([]);
@@ -58,8 +59,11 @@ export default function RandomizedTab({ onSuccess, user, context }: Props) {
     const fetchData = async () => {
         if (!user?.email) return;
         try {
+            const headers: any = { 'X-User-Email': user.email };
+            if (isGlobalAdmin) headers['X-Global-Admin-Key'] = 'globaladmin_25';
+
             const qRes = await fetch('/api/admin/questions', {
-                headers: { 'X-User-Email': user.email }
+                headers
             });
             if (qRes.ok) {
                 const qs = await qRes.json();
@@ -89,9 +93,13 @@ export default function RandomizedTab({ onSuccess, user, context }: Props) {
         const toastId = toast.loading('Publishing randomized assignment...');
 
         try {
+
+            const headers: any = { 'Content-Type': 'application/json', 'X-User-Email': user.email };
+            if (isGlobalAdmin) headers['X-Global-Admin-Key'] = 'globaladmin_25';
+
             const res = await fetch('/api/admin/assignments', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 body: JSON.stringify({
                     type: 'randomized',
                     title: `${formData.title} (${formData.targetCourse}) (Faculty: ${user.name})`,

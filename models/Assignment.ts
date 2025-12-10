@@ -9,6 +9,7 @@ const AssignmentSchema = new mongoose.Schema({
     targetDepartments: [{ type: String }],
     targetYear: { type: String },
     facultyName: { type: String },
+    createdBy: { type: String }, // Email of the creator
     scriptUrl: { type: String },
 
     // Manual

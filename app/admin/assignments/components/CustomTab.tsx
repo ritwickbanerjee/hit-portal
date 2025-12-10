@@ -11,9 +11,10 @@ interface Props {
     onSuccess: () => void;
     user: any;
     context: { courses: string[], depts: string[], years: string[] };
+    isGlobalAdmin: boolean;
 }
 
-export default function CustomTab({ onSuccess, user, context }: Props) {
+export default function CustomTab({ onSuccess, user, context, isGlobalAdmin }: Props) {
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
         title: '',
@@ -33,9 +34,12 @@ export default function CustomTab({ onSuccess, user, context }: Props) {
         const toastId = toast.loading('Publishing assignment...');
 
         try {
+            const headers: any = { 'Content-Type': 'application/json', 'X-User-Email': user.email };
+            if (isGlobalAdmin) headers['X-Global-Admin-Key'] = 'globaladmin_25';
+
             const res = await fetch('/api/admin/assignments', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 body: JSON.stringify({
                     type: 'manual',
                     title: `${formData.title} (${formData.targetCourse}) (Faculty: ${user.name})`,

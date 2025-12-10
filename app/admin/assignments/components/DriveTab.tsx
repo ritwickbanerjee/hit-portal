@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Loader2, Copy, Check, ExternalLink, Save, Link as LinkIcon } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
-export default function DriveTab({ user }: { user: any }) {
+export default function DriveTab({ user, isGlobalAdmin }: { user: any; isGlobalAdmin: boolean }) {
     const [loading, setLoading] = useState(true);
     const [config, setConfig] = useState<any>(null);
     const [driveUrl, setDriveUrl] = useState('');
@@ -18,7 +18,12 @@ export default function DriveTab({ user }: { user: any }) {
 
     const fetchData = async () => {
         try {
-            const fcRes = await fetch('/api/admin/faculty-configs');
+            const headers: any = { 'X-User-Email': user.email };
+            if (isGlobalAdmin) headers['X-Global-Admin-Key'] = 'globaladmin_25';
+
+            const fcRes = await fetch('/api/admin/faculty-configs', {
+                headers
+            });
             if (fcRes.ok) {
                 const configs = await fcRes.json();
                 const myConfig = configs.find((c: any) => c.facultyName === user.name);
@@ -105,9 +110,12 @@ function getOrCreateFolder(base, path) {
 
         const toastId = toast.loading('Saving config...');
         try {
+            const headers: any = { 'Content-Type': 'application/json', 'X-User-Email': user.email };
+            if (isGlobalAdmin) headers['X-Global-Admin-Key'] = 'globaladmin_25';
+
             const res = await fetch('/api/admin/faculty-configs', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 body: JSON.stringify({
                     facultyName: user.name,
                     rootFolderId: id[0],

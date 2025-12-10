@@ -11,9 +11,10 @@ interface Props {
     onSuccess: () => void;
     user: any;
     context: { courses: string[], depts: string[], years: string[] };
+    isGlobalAdmin: boolean;
 }
 
-export default function PersonalizedTab({ onSuccess, user, context }: Props) {
+export default function PersonalizedTab({ onSuccess, user, context, isGlobalAdmin }: Props) {
     const [loading, setLoading] = useState(false);
     const [topics, setTopics] = useState<string[]>([]);
     const [allQuestions, setAllQuestions] = useState<any[]>([]);
@@ -73,11 +74,12 @@ export default function PersonalizedTab({ onSuccess, user, context }: Props) {
     const fetchData = async () => {
         if (!user?.email) return;
         try {
+            const headers: any = { 'X-User-Email': user.email };
+            if (isGlobalAdmin) headers['X-Global-Admin-Key'] = 'globaladmin_25';
+
             const [studentRes, qRes] = await Promise.all([
-                fetch('/api/admin/students'),
-                fetch('/api/admin/questions', {
-                    headers: { 'X-User-Email': user.email }
-                })
+                fetch('/api/admin/students', { headers }),
+                fetch('/api/admin/questions', { headers })
             ]);
 
             if (studentRes.ok) {
@@ -129,9 +131,12 @@ export default function PersonalizedTab({ onSuccess, user, context }: Props) {
         const toastId = toast.loading('Publishing personalized assignment...');
 
         try {
+            const headers: any = { 'Content-Type': 'application/json', 'X-User-Email': user.email };
+            if (isGlobalAdmin) headers['X-Global-Admin-Key'] = 'globaladmin_25';
+
             const res = await fetch('/api/admin/assignments', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 body: JSON.stringify({
                     type: 'personalized',
                     title: `${formData.title} (${formData.targetCourse}) (Faculty: ${user.name})`,

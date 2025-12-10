@@ -75,12 +75,24 @@ export default function AssignmentsPage() {
 
             fetchAssignments();
         };
-        init();
-    }, []);
+        if (user) init();
+    }, [user, isGlobalAdmin]);
+
+    const getHeaders = () => {
+        const headers: any = { 'X-User-Email': user?.email || '' };
+        const ga = localStorage.getItem('globalAdminActive');
+        if (ga === 'true' || isGlobalAdmin) {
+            headers['X-Global-Admin-Key'] = 'globaladmin_25';
+        }
+        return headers;
+    };
 
     const fetchAssignments = async () => {
+        if (!user) return;
         try {
-            const res = await fetch('/api/admin/assignments');
+            const res = await fetch('/api/admin/assignments', {
+                headers: getHeaders()
+            });
             if (res.ok) {
                 const data = await res.json();
                 setAssignments(data);
@@ -100,6 +112,7 @@ export default function AssignmentsPage() {
         try {
             const res = await fetch(`/api/admin/assignments?id=${deleteModal.assignment._id}`, {
                 method: 'DELETE',
+                headers: getHeaders()
             });
             if (res.ok) {
                 toast.success('Deleted successfully', { id: toastId });
@@ -132,7 +145,7 @@ export default function AssignmentsPage() {
         try {
             const res = await fetch('/api/admin/assignments', {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...getHeaders() },
                 body: JSON.stringify({
                     id: editModal.assignment._id,
                     deadline: editDeadline,
@@ -185,11 +198,11 @@ export default function AssignmentsPage() {
 
             {/* Content Area */}
             <div className="bg-gray-800/30 border border-gray-700/50 rounded-xl p-6 min-h-[500px]">
-                {activeTab === 'drive' && <DriveTab user={user} />}
-                {activeTab === 'custom' && <CustomTab onSuccess={fetchAssignments} user={user} context={allowedContext} />}
-                {activeTab === 'randomized' && <RandomizedTab onSuccess={fetchAssignments} user={user} context={allowedContext} />}
-                {activeTab === 'batch' && <BatchTab onSuccess={fetchAssignments} user={user} context={allowedContext} />}
-                {activeTab === 'personalized' && <PersonalizedTab onSuccess={fetchAssignments} user={user} context={allowedContext} />}
+                {activeTab === 'drive' && <DriveTab user={user} isGlobalAdmin={isGlobalAdmin} />}
+                {activeTab === 'custom' && <CustomTab onSuccess={fetchAssignments} user={user} context={allowedContext} isGlobalAdmin={isGlobalAdmin} />}
+                {activeTab === 'randomized' && <RandomizedTab onSuccess={fetchAssignments} user={user} context={allowedContext} isGlobalAdmin={isGlobalAdmin} />}
+                {activeTab === 'batch' && <BatchTab onSuccess={fetchAssignments} user={user} context={allowedContext} isGlobalAdmin={isGlobalAdmin} />}
+                {activeTab === 'personalized' && <PersonalizedTab onSuccess={fetchAssignments} user={user} context={allowedContext} isGlobalAdmin={isGlobalAdmin} />}
             </div>
 
             {/* Existing Assignments List */}

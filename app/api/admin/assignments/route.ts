@@ -7,17 +7,71 @@ import StudentAssignment from '@/models/StudentAssignment';
 import Notification from '@/models/Notification';
 import Attendance from '@/models/Attendance';
 import Submission from '@/models/Submission';
+import User from '@/models/User';
 
-export async function GET() {
+const GLOBAL_ADMIN_KEY = 'globaladmin_25';
+
+export async function GET(req: Request) {
     await connectDB();
-    const assignments = await Assignment.find({}).sort({ createdAt: -1 });
-    return NextResponse.json(assignments);
+    const email = req.headers.get('X-User-Email');
+    const adminKey = req.headers.get('X-Global-Admin-Key');
+
+    // Global Admin Setup: Seeing ALL assignments
+    if (adminKey === GLOBAL_ADMIN_KEY) {
+        try {
+            const assignments = await Assignment.find({}).sort({ createdAt: -1 });
+            return NextResponse.json(assignments);
+        } catch (error: any) {
+            return NextResponse.json({ error: error.message }, { status: 500 });
+        }
+    }
+
+    if (!email) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Regular Faculty: Seeing ONLY their own assignments (Legacy support via facultyName)
+    try {
+        const user = await User.findOne({ email });
+        const name = user?.name;
+
+        const query: any = { createdBy: email };
+        if (name) {
+            // If createdBy is missing, fallback to facultyName
+            const orQuery = [
+                { createdBy: email },
+                { createdBy: { $exists: false }, facultyName: name }
+            ];
+            // Actually, simplest is just matching either.
+            // But let's be strict: if createdBy exists, it must match.
+            // Access Policy: Owner is (createdBy == email) OR (facultyName == name AND createdBy is null)
+
+            // Simplified query:
+            // $or: [{ createdBy: email }, { facultyName: name }]
+            query['$or'] = [{ createdBy: email }, { facultyName: name }];
+            delete query.createdBy; // Remove strict single field check
+        }
+
+        const assignments = await Assignment.find(query).sort({ createdAt: -1 });
+        return NextResponse.json(assignments);
+    } catch (error: any) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+    }
 }
 
 export async function POST(req: Request) {
     try {
         await connectDB();
         const body = await req.json();
+        const userEmail = req.headers.get('X-User-Email');
+        const adminKey = req.headers.get('X-Global-Admin-Key');
+
+        if (!userEmail && adminKey !== GLOBAL_ADMIN_KEY) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const creator = (adminKey === GLOBAL_ADMIN_KEY && !userEmail) ? 'global_admin' : userEmail;
+
         const { type } = body;
 
         let assignment;
@@ -47,9 +101,8 @@ export async function POST(req: Request) {
         }
 
         // 2. Create Assignment Document
-        assignment = (await Assignment.create(body)) as any;
+        assignment = (await Assignment.create({ ...body, createdBy: creator })) as any;
 
-        // 3. Handle Specific Logic
         // 3. Handle Specific Logic
         if (type === 'manual') {
             // Manual: Just notify students
@@ -88,9 +141,6 @@ export async function POST(req: Request) {
             }
 
             // Sort rules by min descending to handle overlaps (e.g. 70 in 50-70 vs 70-100)
-            // If 70 is boundary, 70-100 (min 70) should come before 50-70 (max 70)
-            // Actually, if we use >= min and <= max, both match. 
-            // We want 70 to match 70-100. So we check higher ranges first.
             const sortedRules = (body.rules || []).sort((a: any, b: any) => b.min - a.min);
 
             for (const student of targetStudents) {
@@ -173,10 +223,7 @@ export async function POST(req: Request) {
             await StudentAssignment.insertMany(studentAssignments);
         }
 
-        // 5. Create Notifications (for all targeted students, or only assigned ones?)
-        // Legacy: "sendNotifications(targetStudents...)" for Manual/Randomized/Batch
-        // For Personalized: "notifList.push(student)" only if questions generated.
-
+        // 5. Create Notifications
         let notifStudents = targetStudents;
         if (type === 'personalized' || type === 'batch_attendance') {
             // Only notify students who actually got an assignment
@@ -210,20 +257,44 @@ export async function DELETE(req: Request) {
         await connectDB();
         const { searchParams } = new URL(req.url);
         const id = searchParams.get('id');
+        const email = req.headers.get('X-User-Email');
+        const adminKey = req.headers.get('X-Global-Admin-Key');
 
         if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
 
-        // 1. Delete Assignment
+        if (!email && adminKey !== GLOBAL_ADMIN_KEY) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        // 1. Find and Verify Ownership
+        let assignment;
+        if (adminKey === GLOBAL_ADMIN_KEY) {
+            assignment = await Assignment.findById(id);
+        } else {
+            // Strict or Legacy check
+            const user = await User.findOne({ email });
+            const name = user?.name;
+
+            const query: any = { _id: id };
+            if (name) {
+                query['$or'] = [{ createdBy: email }, { facultyName: name }];
+            } else {
+                query.createdBy = email;
+            }
+            assignment = await Assignment.findOne(query);
+        }
+
+        if (!assignment) {
+            return NextResponse.json({ error: 'Assignment not found or unauthorized' }, { status: 404 });
+        }
+
+        // 2. Delete
         await Assignment.findByIdAndDelete(id);
 
-        // 2. Delete Student Assignments
+        // 3. Delete Related (Student Assignments, Notifications, Submissions)
         await StudentAssignment.deleteMany({ assignmentId: id });
-
-        // 3. Delete Notifications
         await Notification.deleteMany({ assignmentId: id });
-
-        // 4. Delete Submissions
-        await Submission.deleteMany({ assignment: id }); // Note: Submission model uses 'assignment' field
+        await Submission.deleteMany({ assignment: id });
 
         return NextResponse.json({ message: 'Deleted successfully' });
     } catch (error: any) {
@@ -236,17 +307,36 @@ export async function PUT(req: Request) {
         await connectDB();
         const body = await req.json();
         const { id, deadline, startTime } = body;
+        const email = req.headers.get('X-User-Email');
+        const adminKey = req.headers.get('X-Global-Admin-Key');
 
         if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
+        if (!email && adminKey !== GLOBAL_ADMIN_KEY) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
 
         const updateData: any = {};
         if (deadline) updateData.deadline = new Date(deadline);
         if (startTime) updateData.startTime = new Date(startTime);
 
-        const assignment = await Assignment.findByIdAndUpdate(id, updateData, { new: true });
+        let assignment;
+        if (adminKey === GLOBAL_ADMIN_KEY) {
+            assignment = await Assignment.findByIdAndUpdate(id, updateData, { new: true });
+        } else {
+            const user = await User.findOne({ email });
+            const name = user?.name;
+
+            const query: any = { _id: id };
+            if (name) {
+                query['$or'] = [{ createdBy: email }, { facultyName: name }];
+            } else {
+                query.createdBy = email;
+            }
+            assignment = await Assignment.findOneAndUpdate(query, updateData, { new: true });
+        }
 
         if (!assignment) {
-            return NextResponse.json({ error: 'Assignment not found' }, { status: 404 });
+            return NextResponse.json({ error: 'Assignment not found or unauthorized' }, { status: 404 });
         }
 
         return NextResponse.json(assignment);
