@@ -508,6 +508,37 @@ export default function AdminReports() {
         try { await navigator.clipboard.writeText(text); alert('Copied!'); } catch (e) { console.error(e); }
     };
 
+    const copyGuardianText = (student: any, percent: string, startDate: string, endDate: string) => {
+        const text = `Subject: Urgent: Attendance Concern - ${student.name} | Heritage Institute of Technology
+Dear Guardian of ${student.name},
+
+I am writing to express my serious concern regarding ${student.name}’s recent attendance record. The student has missed a significant number of classes, and the current attendance percentage is ${percent}% during ${startDate} to ${endDate}.
+I am worried that this is starting to negatively impact academic progress.
+It is urgent that we address this matter immediately to ensure ${student.name} does not fall further behind.
+Please contact me at your earliest convenience to discuss the reasons for these absences and how we can support ${student.name} in returning to regular attendance.`;
+        copyToClipboard(text);
+    };
+
+    const copyStudentText = (student: any, percent: string, startDate: string, endDate: string) => {
+        const text = `Subject: WARNING: Low Attendance Alert & Required Disciplinary Action
+Dear ${student.name},
+
+This email serves as a formal warning regarding your critically low attendance. Your current attendance record stands at ${percent}% for the period between ${startDate} and ${endDate}.
+This falls below the mandatory academic requirements. As a result, you are hereby directed to complete the following disciplinary procedure immediately:
+1) Access the Portal: Log in to your Student Portal at: https://maths-hit-attendance-assignment-track.netlify.app/student/login
+Navigate: Open the Attendance Portal.
+Retrieve Data: Click on the "Download pdf" button to download your attendance register.
+2) Prepare Documentation: Write a formal written application justifying your reasons for absence during the aforementioned period. You must attach the printed copy of the downloaded attendance register to this application.
+3) Verification: Take this complete document set (Application + Printed Register) and obtain signatures from:
+The HOD of Mathematics
+The HOD of ${student.department}
+4) Submission: Submit the fully signed documents to me (the undersigned) in person.
+
+Failure to comply with these instructions or to submit the required documents will result in further strict disciplinary action.
+Treat this matter with extreme urgency.`;
+        copyToClipboard(text);
+    };
+
     return (
         <div className="p-4 md:p-8 space-y-8 animate-in fade-in duration-500">
             <div className="flex justify-between items-center">
@@ -751,6 +782,8 @@ export default function AdminReports() {
                                                 </th>
                                             ))}
                                             <th className="px-2 py-3 text-center font-semibold text-white">Stats</th>
+                                            <th className="px-2 py-3 text-center font-semibold text-white text-[10px] w-24">Email Actions</th>
+                                            <th className="px-2 py-3 text-center font-semibold text-white text-[10px] w-24">Text Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-700 bg-gray-800">
@@ -774,6 +807,44 @@ export default function AdminReports() {
                                                         return <td key={r._id} className={`px-2 py-2 text-center font-bold ${isPresent ? 'text-green-400' : isAbsent ? 'text-red-400' : 'text-gray-600'}`}>{isPresent ? 'P' : isAbsent ? 'A' : '-'}</td>;
                                                     })}
                                                     <td className="px-2 py-2 text-center text-white font-bold">{percent}%</td>
+                                                    <td className="px-2 py-2 text-center">
+                                                        <div className="flex flex-col gap-1 items-center">
+                                                            <button
+                                                                onClick={() => copyToClipboard(student.guardian_email)}
+                                                                disabled={!student.guardian_email}
+                                                                className="w-full text-[10px] bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white px-2 py-1 rounded"
+                                                                title={student.guardian_email || "No Guardian Email"}
+                                                            >
+                                                                Guardian Mail
+                                                            </button>
+                                                            <button
+                                                                onClick={() => copyToClipboard(student.email)}
+                                                                disabled={!student.email || !student.email.endsWith('@heritageit.edu.in')}
+                                                                className="w-full text-[10px] bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-700 disabled:text-gray-500 text-white px-2 py-1 rounded"
+                                                                title={student.email && !student.email.endsWith('@heritageit.edu.in') ? "Invalid Domain" : "Student Mail"}
+                                                            >
+                                                                Student Mail
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-2 py-2 text-center">
+                                                        <div className="flex flex-col gap-1 items-center">
+                                                            <button
+                                                                onClick={() => copyGuardianText(student, percent, startDate, endDate)}
+                                                                className="w-full text-[10px] bg-yellow-600 hover:bg-yellow-500 text-white px-2 py-1 rounded"
+                                                                title="Copy Warning to Guardian"
+                                                            >
+                                                                Guardian Text
+                                                            </button>
+                                                            <button
+                                                                onClick={() => copyStudentText(student, percent, startDate, endDate)}
+                                                                className="w-full text-[10px] bg-red-600 hover:bg-red-500 text-white px-2 py-1 rounded"
+                                                                title="Copy Warning to Student"
+                                                            >
+                                                                Student Text
+                                                            </button>
+                                                        </div>
+                                                    </td>
                                                 </tr>
                                             );
                                         })}
