@@ -31,13 +31,23 @@ export default function AssignmentsPage() {
     const [deleteModal, setDeleteModal] = useState<{ open: boolean; assignment: any }>({ open: false, assignment: null });
     const [deleting, setDeleting] = useState(false);
 
+    // 1. Initialize User & Global Admin State
     useEffect(() => {
-        const init = async () => {
-            const storedUser = localStorage.getItem('user');
-            if (!storedUser) return;
-            const parsedUser = JSON.parse(storedUser);
-            setUser(parsedUser);
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+            setUser(JSON.parse(storedUser));
+        } else {
+            setLoading(false);
+        }
+        const ga = localStorage.getItem('globalAdminActive');
+        setIsGlobalAdmin(ga === 'true');
+    }, []);
 
+    // 2. Fetch Data when User/GA is ready
+    useEffect(() => {
+        if (!user) return;
+
+        const fetchConfig = async () => {
             try {
                 const res = await fetch('/api/admin/config');
                 if (res.ok) {
@@ -46,16 +56,9 @@ export default function AssignmentsPage() {
                     const depts = new Set<string>();
                     const years = new Set<string>();
 
-
-                    // Check Global Admin Status
-                    const ga = localStorage.getItem('globalAdminActive');
-                    const isGA = ga === 'true';
-                    setIsGlobalAdmin(isGA);
-
                     if (config.teacherAssignments) {
                         Object.entries(config.teacherAssignments).forEach(([key, teachers]: [string, any]) => {
-                            // If Global Admin OR User is assigned
-                            if (isGA || (Array.isArray(teachers) && teachers.some((t: any) => t.email === parsedUser.email))) {
+                            if (isGlobalAdmin || (Array.isArray(teachers) && teachers.some((t: any) => t.email === user.email))) {
                                 const [d, y, c] = key.split('_');
                                 if (d) depts.add(d);
                                 if (y) years.add(y);
@@ -72,10 +75,10 @@ export default function AssignmentsPage() {
             } catch (e) {
                 console.error("Error fetching config", e);
             }
-
-            fetchAssignments();
         };
-        if (user) init();
+
+        fetchConfig();
+        fetchAssignments();
     }, [user, isGlobalAdmin]);
 
     const getHeaders = () => {
