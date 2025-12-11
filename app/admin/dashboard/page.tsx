@@ -311,7 +311,7 @@ export default function AdminDashboard() {
 
     const handleSubmitStaged = async () => {
         setLoading(true);
-        const BATCH_SIZE = 50;
+        const BATCH_SIZE = 40;
         const total = stagedStudents.length;
         setUploadProgress({ current: 0, total, failed: 0 });
 
