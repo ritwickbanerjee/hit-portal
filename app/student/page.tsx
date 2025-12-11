@@ -292,7 +292,6 @@ export default function StudentDashboard() {
                     {/* Hero - Compact */}
                     <div className="text-center mb-4 sm:mb-8">
                         <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-purple-500/20 border border-purple-500/30 text-xs text-purple-300 mb-3">
-                            <Sparkles className="h-3 w-3" />
                             Welcome Back
                         </div>
                         <h2 className="text-2xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-400 to-orange-400">
