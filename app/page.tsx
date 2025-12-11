@@ -12,35 +12,33 @@ export default function Home() {
         <div className="absolute bottom-[20%] -right-[10%] w-[40%] h-[60%] bg-purple-900/10 rounded-full blur-[120px]"></div>
       </div>
 
-      <div className="relative z-10 min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8">
+      <div className="relative z-10 min-h-screen flex flex-col items-center justify-center p-2 sm:p-4">
 
         {/* Main Content Container */}
-        <div className="w-full max-w-5xl flex flex-col items-center gap-8 sm:gap-12 animate-in fade-in zoom-in duration-700 ease-out">
+        <div className="w-full max-w-5xl flex flex-col items-center gap-4 sm:gap-6 animate-in fade-in zoom-in duration-700 ease-out">
 
           {/* Hero Section */}
-          <div className="text-center flex flex-col items-center gap-6">
-            <div className="relative w-full max-w-md mx-auto h-48 sm:h-64 md:h-80 flex items-center justify-center mb-4">
-              {/* Glowing effect behind image */}
-              <div className="absolute inset-0 bg-cyan-500/20 blur-[60px] rounded-full scale-75 animate-pulse"></div>
+          <div className="text-center flex flex-col items-center gap-2">
+            <div className="relative w-full max-w-md mx-auto h-32 sm:h-40 md:h-56 flex items-center justify-center">
               <Image
                 src="/grad-hat-glow.png"
                 alt="Portal Gateway"
-                width={500}
-                height={500}
-                className="object-contain w-full h-full drop-shadow-[0_0_30px_rgba(34,211,238,0.4)] hover:scale-105 transition-transform duration-500"
+                width={400}
+                height={400}
+                className="object-contain w-full h-full drop-shadow-[0_0_15px_rgba(34,211,238,0.3)] hover:scale-105 transition-transform duration-500"
                 priority
               />
             </div>
 
-            <div className="space-y-4">
-              <h1 className="text-4xl sm:text-5xl md:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-cyan-100 to-slate-400 tracking-tight leading-tight">
+            <div className="space-y-2">
+              <h1 className="text-3xl sm:text-4xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-cyan-100 to-slate-400 tracking-tight leading-tight">
                 Select Your <span className="text-cyan-400">Portal</span>
               </h1>
             </div>
           </div>
 
           {/* Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl mt-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-4xl mt-2">
 
             {/* Student Portal Card */}
             <Link href="/student" className="group relative">

@@ -95,10 +95,14 @@ export default function InstallPWA({ type }: InstallPWAProps) {
     }
 
     if (type === 'admin') {
+        // Only show admin header button if actually inst-allable (or iOS instructions)
+        // This prevents the "Not ready" toast frustration
+        if (!deferredPrompt && !isIOS) return null;
+
         return (
             <button
                 onClick={handleInstall}
-                className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-400 rounded-lg transition-all text-xs font-medium ml-3"
+                className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-400 rounded-lg transition-all text-xs font-medium ml-3 animate-in fade-in zoom-in"
             >
                 <ClipboardCheck className="h-4 w-4" />
                 <span>Install App</span>
