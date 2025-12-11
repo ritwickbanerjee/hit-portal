@@ -65,11 +65,14 @@ export default function InstallPWA({ type }: InstallPWAProps) {
     // For specific user request, let's ALWAYS show it but give feedback if not ready.
     // In production, you might want to hide it if (isInstalled).
 
-    if (isInstalled) return (
-        <div className="flex justify-center mt-6 mb-8 text-gray-500 text-xs">
-            App Installed
-        </div>
-    );
+    if (isInstalled) {
+        if (type === 'admin') return null; // Admin header doesn't need "App Installed" text
+        return (
+            <div className="flex justify-center mt-6 mb-8 text-gray-500 text-xs">
+                App Installed
+            </div>
+        );
+    }
 
     if (type === 'student') {
         return (
