@@ -83,7 +83,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     };
 
     const navigation = [
-        { name: 'Student Data Entry', href: '/admin/dashboard', icon: Users },
+        { name: 'Student & Course Management', href: '/admin/dashboard', icon: Users },
         { name: 'Track Attendance', href: '/admin/reports', icon: ClipboardList },
         { name: 'Mark Daily Attendance', href: '/admin/attendance', icon: CheckSquare },
         { name: 'Question Bank', href: '/admin/questions', icon: FileText },
@@ -216,7 +216,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                 {pathname === '/admin/attendance' && <InstallPWA type="admin" />}
                             </div>
                             <p className="text-slate-400 text-sm mt-1">
-                                {pathname === '/admin/dashboard' && 'Manage existing student records'}
+                                {pathname === '/admin/dashboard' && ''}
                                 {pathname === '/admin/reports' && 'Manage adjustments and generate detailed reports'}
                                 {pathname === '/admin/attendance' && 'Mark daily attendance for students'}
                                 {pathname === '/admin/questions' && 'Manage question bank'}

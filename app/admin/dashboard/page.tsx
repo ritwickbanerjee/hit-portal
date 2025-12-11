@@ -622,7 +622,7 @@ export default function AdminDashboard() {
 
             {/* Global Settings */}
             <div className="bg-slate-900/50 backdrop-blur-xl rounded-2xl border border-white/5 p-6 shadow-xl mb-6">
-                <h3 className="text-xl font-semibold text-white mb-4">Global Settings & Assignments</h3>
+                <h3 className="text-xl font-semibold text-white mb-4">Assign Students & Attendance Percentage</h3>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end mb-6">
                     {/* Filters */}
