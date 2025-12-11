@@ -19,7 +19,7 @@ export default function Home() {
 
           {/* Hero Section */}
           <div className="text-center flex flex-col items-center gap-2">
-            <div className="relative w-full max-w-md mx-auto h-32 sm:h-40 md:h-56 flex items-center justify-center">
+            <div className="relative w-full max-w-md mx-auto h-32 sm:h-40 md:h-56 flex items-center justify-center mix-blend-screen">
               <Image
                 src="/grad-hat-glow.png"
                 alt="Portal Gateway"

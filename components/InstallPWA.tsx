@@ -43,8 +43,10 @@ export default function InstallPWA({ type }: InstallPWAProps) {
         }
 
         if (!deferredPrompt) {
-            toast('App installation not ready yet. Try again in a moment or use browser menu.', {
-                icon: '⏳',
+            // Generic help for Firefox or when prompt isn't ready
+            toast('To install: Open browser menu (⋮ or ≡) and select "Install App" or "Add to Home Screen"', {
+                icon: 'ℹ️',
+                duration: 6000
             });
             return;
         }
@@ -58,15 +60,8 @@ export default function InstallPWA({ type }: InstallPWAProps) {
         }
     };
 
-    // if (isInstalled) return null; // keep verification easy for now
-    // if (!deferredPrompt && !isIOS) return null; 
-
-    // Helper to determine if we should show button:
-    // For specific user request, let's ALWAYS show it but give feedback if not ready.
-    // In production, you might want to hide it if (isInstalled).
-
     if (isInstalled) {
-        if (type === 'admin') return null; // Admin header doesn't need "App Installed" text
+        if (type === 'admin') return null;
         return (
             <div className="flex justify-center mt-6 mb-8 text-gray-500 text-xs">
                 App Installed
@@ -95,10 +90,6 @@ export default function InstallPWA({ type }: InstallPWAProps) {
     }
 
     if (type === 'admin') {
-        // Only show admin header button if actually inst-allable (or iOS instructions)
-        // This prevents the "Not ready" toast frustration
-        if (!deferredPrompt && !isIOS) return null;
-
         return (
             <button
                 onClick={handleInstall}
