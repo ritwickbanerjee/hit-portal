@@ -159,9 +159,7 @@ export default function StudentLogin() {
                 </div>
 
                 {/* Footer */}
-                <p className="text-center mt-8 text-xs text-gray-600">
-                    &copy; 2025 copyright Dept. of Mathematics, HIT • All rights reserved
-                </p>
+                
             </div>
 
             <style jsx>{`
