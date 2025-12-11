@@ -213,7 +213,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                 <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
                                     {navigation.find(n => n.href === pathname)?.name || 'Admin Portal'}
                                 </h1>
-                                {pathname === '/admin/attendance' && <InstallPWA />}
+                                {pathname === '/admin/attendance' && <InstallPWA type="admin" />}
                             </div>
                             <p className="text-slate-400 text-sm mt-1">
                                 {pathname === '/admin/dashboard' && 'Manage existing student records'}
