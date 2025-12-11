@@ -19,6 +19,7 @@ export default function AdminDashboard() {
     // CSV State
     const [stagedStudents, setStagedStudents] = useState<any[]>([]);
     const [showStaging, setShowStaging] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0, failed: 0 });
 
     // Teacher Assignment State
     const [assignFilter, setAssignFilter] = useState({ dept: '', year: '', course: '' });
@@ -310,26 +311,61 @@ export default function AdminDashboard() {
 
     const handleSubmitStaged = async () => {
         setLoading(true);
-        try {
-            const res = await fetch('/api/admin/students/bulk', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ students: stagedStudents }),
-            });
+        const BATCH_SIZE = 50;
+        const total = stagedStudents.length;
+        setUploadProgress({ current: 0, total, failed: 0 });
 
-            if (!res.ok) {
-                const data = await res.json();
-                throw new Error(data.error || 'Bulk upload failed');
+        let processed = 0;
+        let failedCount = 0;
+        let errors: string[] = [];
+
+        try {
+            for (let i = 0; i < total; i += BATCH_SIZE) {
+                const batch = stagedStudents.slice(i, i + BATCH_SIZE);
+
+                try {
+                    const res = await fetch('/api/admin/students/bulk', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ students: batch }),
+                    });
+
+                    const data = await res.json();
+
+                    if (!res.ok) {
+                        failedCount += batch.length;
+                        errors.push(`Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${data.error || 'Failed'}`);
+                    } else {
+                        // Backend returns results: { added: n, failed: m, errors: [...] }
+                        if (data.results?.failed) {
+                            failedCount += data.results.failed;
+                            if (data.results.errors) errors.push(...data.results.errors);
+                        }
+                    }
+                } catch (err: any) {
+                    failedCount += batch.length;
+                    errors.push(`Batch ${Math.floor(i / BATCH_SIZE) + 1} network error: ${err.message}`);
+                }
+
+                processed += batch.length;
+                setUploadProgress(prev => ({ ...prev, current: processed, failed: failedCount }));
             }
 
-            alert('Students uploaded successfully!');
+            if (failedCount > 0) {
+                alert(`Upload complete with issues.\nProcessed: ${total}\nFailed: ${failedCount}\n\nCheck console for details.`);
+                console.error("Upload Errors:", errors);
+            } else {
+                alert(`Successfully uploaded ${total} students!`);
+            }
+
             setStagedStudents([]);
             setShowStaging(false);
             fetchStudents();
         } catch (error: any) {
-            alert(error.message);
+            alert('Critical upload error: ' + error.message);
         } finally {
             setLoading(false);
+            setUploadProgress({ current: 0, total: 0, failed: 0 });
         }
     };
 
@@ -497,8 +533,20 @@ export default function AdminDashboard() {
                         </div>
                     </div>
                     <button onClick={handleSubmitStaged} disabled={loading} className="mt-4 w-full rounded-lg bg-green-600 px-4 py-3 text-base font-semibold text-white shadow-lg shadow-green-500/20 hover:bg-green-500 transition-all disabled:opacity-50 disabled:shadow-none hover:-translate-y-0.5">
-                        {loading ? 'Uploading Students...' : `Confirm & Upload ${stagedStudents.length} Students`}
+                        {loading && uploadProgress.total > 0
+                            ? `Uploading... ${Math.round((uploadProgress.current / uploadProgress.total) * 100)}% (${uploadProgress.current}/${uploadProgress.total})`
+                            : loading
+                                ? 'Uploading Students...'
+                                : `Confirm & Upload ${stagedStudents.length} Students`}
                     </button>
+                    {loading && uploadProgress.total > 0 && (
+                        <div className="w-full bg-slate-800 rounded-full h-2 mt-2 overflow-hidden">
+                            <div
+                                className="bg-green-500 h-2 transition-all duration-300 ease-out"
+                                style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
+                            ></div>
+                        </div>
+                    )}
                 </div>
             )}
 
