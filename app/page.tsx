@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { BookOpen, ShieldCheck, ArrowRight } from 'lucide-react';
-import PiHero from '@/components/PiHero';
+import LogoHero from '@/components/LogoHero';
 
 export default function Home() {
   return (
@@ -19,7 +19,7 @@ export default function Home() {
 
           {/* Hero Section */}
           <div className="text-center flex flex-col items-center gap-2">
-            <PiHero />
+            <LogoHero />
 
 
             <div className="space-y-2">
