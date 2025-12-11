@@ -2,7 +2,8 @@
 
 export default function PiHero() {
     return (
-        <div className="relative flex flex-col items-center justify-center h-48 sm:h-64 w-full">
+        // Shifted upwards with -mt-8 to accommodate user request
+        <div className="relative flex flex-col items-center justify-center h-48 sm:h-64 w-full -mt-8">
             <svg
                 viewBox="0 0 200 200"
                 className="w-40 h-40 sm:w-56 sm:h-56 overflow-visible"
@@ -20,24 +21,19 @@ export default function PiHero() {
                         <stop offset="50%" stopColor="#ec4899" /> {/* Pink */}
                         <stop offset="100%" stopColor="#22c55e" /> {/* Green */}
                     </linearGradient>
-
-                    {/* Glow Filter */}
-                    <filter id="neonGlow">
-                        <feGaussianBlur stdDeviation="2" result="coloredBlur" />
-                        <feMerge>
-                            <feMergeNode in="coloredBlur" />
-                            <feMergeNode in="SourceGraphic" />
-                        </feMerge>
-                    </filter>
                 </defs>
 
-                {/* Stylish Curvy Pi Path */}
-                {/* Top: Wave, Left: Curled, Right: Curved */}
+                {/* Serif Style Pi Path (Classic Math Font) */}
+                {/* Scaled down to fit INSIDE the circle (approx bounds: 70,60 to 130,140) */}
                 <path
-                    d="M 50 65 Q 40 45 20 55 Q 10 60 15 70 M 15 70 L 185 70 Q 195 70 190 60 Q 185 50 170 55 M 65 70 Q 65 100 60 130 Q 55 150 75 150 Q 85 150 90 140 M 135 70 Q 135 120 135 140 Q 135 155 150 150"
+                    d="
+                        M 65 75 Q 65 60 75 65 L 125 65 Q 135 60 130 75
+                        M 85 65 L 85 125 Q 80 135 70 130
+                        M 115 65 L 115 125 Q 115 140 135 130
+                    "
                     fill="none"
                     stroke="url(#piGradient)"
-                    strokeWidth="6"
+                    strokeWidth="5"
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     className="animate-pi-draw"
@@ -57,52 +53,52 @@ export default function PiHero() {
                 />
             </svg>
 
-            {/* Glassy Text */}
+            {/* Cyan Glassy Text */}
             <div className="absolute -bottom-4 opacity-0 animate-text-reveal">
-                <span className="text-xl sm:text-2xl font-black tracking-[0.3em] text-transparent bg-clip-text bg-gradient-to-b from-white/90 to-white/40 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
+                <span className="text-xl sm:text-2xl font-black tracking-[0.3em] text-transparent bg-clip-text bg-gradient-to-b from-cyan-100 to-cyan-500 drop-shadow-[0_2px_10px_rgba(34,211,238,0.6)]">
                     WELCOME
                 </span>
                 {/* Reflection/Glass Shine Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/20 to-transparent skew-x-12 pointer-events-none"></div>
+                <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-cyan-200/20 to-transparent skew-x-12 pointer-events-none"></div>
             </div>
 
             <style jsx>{`
-                /* Total Animation Duration: 3s (2x speed) */
+                /* Total Animation Duration: 4s (1.5x speed) */
                 
                 .animate-pi-draw {
-                    stroke-dasharray: 500;
-                    stroke-dashoffset: 500;
-                    animation: drawPi 3s ease-in-out infinite;
+                    stroke-dasharray: 400;
+                    stroke-dashoffset: 400;
+                    animation: drawPi 4s ease-in-out infinite;
                 }
 
                 .animate-circle-draw {
-                    stroke-dasharray: 600; /* 2 * pi * 90 ≈ 565 */
+                    stroke-dasharray: 600;
                     stroke-dashoffset: 600;
                     opacity: 0;
-                    animation: drawCircle 3s ease-in-out infinite;
+                    animation: drawCircle 4s ease-in-out infinite;
                 }
 
                 .animate-text-reveal {
-                    animation: revealText 3s ease-in-out infinite;
+                    animation: revealText 4s ease-in-out infinite;
                 }
 
                 @keyframes drawPi {
-                    0% { stroke-dashoffset: 500; filter: drop-shadow(0 0 0px #22d3ee); }
-                    25% { stroke-dashoffset: 0; filter: drop-shadow(0 0 5px #22d3ee); } /* Finished drawing Pi */
+                    0% { stroke-dashoffset: 400; filter: drop-shadow(0 0 0px #22d3ee); }
+                    25% { stroke-dashoffset: 0; filter: drop-shadow(0 0 5px #22d3ee); } 
                     85% { stroke-dashoffset: 0; opacity: 1; }
                     100% { stroke-dashoffset: 0; opacity: 0; }
                 }
 
                 @keyframes drawCircle {
                     0%, 20% { stroke-dashoffset: 600; opacity: 1; }
-                    50% { stroke-dashoffset: 0; opacity: 1; filter: drop-shadow(0 0 8px rgba(236, 72, 153, 0.6)); } /* Finished drawing Circle */
+                    50% { stroke-dashoffset: 0; opacity: 1; filter: drop-shadow(0 0 8px rgba(236, 72, 153, 0.6)); }
                     85% { stroke-dashoffset: 0; opacity: 1; }
                     100% { stroke-dashoffset: 0; opacity: 0; }
                 }
 
                 @keyframes revealText {
                     0%, 45% { opacity: 0; transform: translateY(5px) scale(0.95); }
-                    55% { opacity: 1; transform: translateY(0) scale(1); filter: drop-shadow(0 0 10px rgba(255,255,255,0.5)); }
+                    55% { opacity: 1; transform: translateY(0) scale(1); filter: drop-shadow(0 0 15px rgba(34,211,238,0.8)); }
                     85% { opacity: 1; transform: translateY(0) scale(1); }
                     100% { opacity: 0; transform: translateY(-5px) scale(1.05); }
                 }
