@@ -138,6 +138,33 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                         Dr. Ritwick Banerjee
                                     </span>
                                 </div>
+                                <div className="mt-2">
+                                    <button
+                                        onClick={() => {
+                                            const isGA = localStorage.getItem('globalAdminActive') === 'true';
+                                            if (isGA) {
+                                                localStorage.removeItem('globalAdminActive');
+                                                alert("Global Admin Access Revoked");
+                                                window.location.reload();
+                                            } else {
+                                                const password = prompt("Enter Global Admin Password:");
+                                                if (password === "globaladmin_25") {
+                                                    localStorage.setItem('globalAdminActive', 'true');
+                                                    alert("Global Admin Access Granted");
+                                                    window.location.reload();
+                                                } else if (password) {
+                                                    alert("Incorrect Password");
+                                                }
+                                            }
+                                        }}
+                                        className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border transition-colors ${(typeof window !== 'undefined' && localStorage.getItem('globalAdminActive') === 'true')
+                                                ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30 hover:bg-indigo-500/30'
+                                                : 'bg-slate-800 text-slate-500 border-slate-700 hover:text-slate-300'
+                                            }`}
+                                    >
+                                        Global Admin
+                                    </button>
+                                </div>
                             </div>
                         </div>
                         <button className="ml-auto md:hidden" onClick={() => setSidebarOpen(false)}>
@@ -202,7 +229,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         <Menu className="h-6 w-6" />
                     </button>
                     <span className="text-lg font-bold text-white">Admin<span className="text-indigo-400">Portal</span></span>
-                    <div className="w-6" />
+                    {pathname === '/admin/attendance' ? <InstallPWA type="admin" /> : <div className="w-6" />}
                 </div>
 
                 <main className="flex-1 overflow-y-auto p-4 md:p-8 relative z-10 scroll-smooth">

@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "HIT Student Portal",
+  title: "HIT Maths Portal",
   description: "Student and Admin Portal for HIT",
   manifest: "/manifest.json",
   icons: {
@@ -24,7 +24,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "HIT Portal",
+    title: "HIT Maths Portal",
   }
 };
 

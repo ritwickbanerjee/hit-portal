@@ -19,7 +19,7 @@ export default function Home() {
 
           {/* Hero Section */}
           <div className="text-center flex flex-col items-center gap-4">
-            <div className="scale-90 sm:scale-100 origin-center">
+            <div className="scale-90 sm:scale-100 origin-center mt-12 md:mt-0">
               <LogoHero />
             </div>
 

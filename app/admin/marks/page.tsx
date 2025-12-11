@@ -36,29 +36,36 @@ export default function MarksPage() {
                 const parsedUser = JSON.parse(storedUser);
                 setUser(parsedUser);
 
-                try {
-                    const cRes = await fetch('/api/admin/config');
-                    if (cRes.ok) {
-                        const config = await cRes.json();
-                        const courses = new Set<string>();
-                        const depts = new Set<string>();
-                        const years = new Set<string>();
+                const isGA = localStorage.getItem('globalAdminActive') === 'true';
 
-                        if (config.teacherAssignments) {
-                            Object.entries(config.teacherAssignments).forEach(([key, teachers]: [string, any]) => {
-                                if (Array.isArray(teachers) && teachers.some((t: any) => t.email === parsedUser.email)) {
-                                    const [d, y, c] = key.split('_');
-                                    if (d) depts.add(d);
-                                    if (y) years.add(y);
-                                    if (c) courses.add(c);
-                                }
+                try {
+                    // If Global Admin, we don't restrict context; let it fall back to all students
+                    if (!isGA) {
+                        const cRes = await fetch('/api/admin/config');
+                        if (cRes.ok) {
+                            const config = await cRes.json();
+                            const courses = new Set<string>();
+                            const depts = new Set<string>();
+                            const years = new Set<string>();
+
+                            if (config.teacherAssignments) {
+                                Object.entries(config.teacherAssignments).forEach(([key, teachers]: [string, any]) => {
+                                    if (Array.isArray(teachers) && teachers.some((t: any) => t.email === parsedUser.email)) {
+                                        const [d, y, c] = key.split('_');
+                                        if (d) depts.add(d);
+                                        if (y) years.add(y);
+                                        if (c) courses.add(c);
+                                    }
+                                });
+                            }
+                            setAllowedContext({
+                                courses: Array.from(courses).sort(),
+                                depts: Array.from(depts).sort(),
+                                years: Array.from(years).sort()
                             });
                         }
-                        setAllowedContext({
-                            courses: Array.from(courses).sort(),
-                            depts: Array.from(depts).sort(),
-                            years: Array.from(years).sort()
-                        });
+                    } else {
+                        setAllowedContext(null); // Ensure it's null for GA so it uses all data
                     }
                 } catch (e) {
                     console.error("Error fetching config", e);

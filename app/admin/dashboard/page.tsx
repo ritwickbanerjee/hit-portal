@@ -41,22 +41,39 @@ export default function AdminDashboard() {
         setSelectedStudentIds(new Set());
     }, [viewFilter]);
 
-    // Derived Lists for Dropdowns
+    // Derived Lists for Dropdowns [UPDATED with Access Control]
     const { departments, years, courses } = useMemo(() => {
         const depts = new Set<string>();
         const yrs = new Set<string>();
         const crs = new Set<string>();
-        students.forEach(s => {
-            if (s.department) depts.add(s.department);
-            if (s.year) yrs.add(s.year);
-            if (s.course_code) crs.add(s.course_code);
-        });
+
+        // If Global Admin, use all students to populate dropdowns (as they have access to everything)
+        if (isGlobalAdmin) {
+            students.forEach(s => {
+                if (s.department) depts.add(s.department);
+                if (s.year) yrs.add(s.year);
+                if (s.course_code) crs.add(s.course_code);
+            });
+        } else if (adminEmail && config.teacherAssignments) {
+            // If Faculty, only show what they are assigned to
+            Object.entries(config.teacherAssignments).forEach(([key, teachers]: [string, any]) => {
+                if (Array.isArray(teachers) && teachers.some((t: any) => t.email?.toLowerCase() === adminEmail.toLowerCase())) {
+                    const parts = key.split('_');
+                    if (parts.length >= 3) {
+                        depts.add(parts[0]);
+                        yrs.add(parts[1]);
+                        crs.add(parts[2]);
+                    }
+                }
+            });
+        }
+
         return {
             departments: Array.from(depts).sort(),
             years: Array.from(yrs).sort(),
             courses: Array.from(crs).sort()
         };
-    }, [students]);
+    }, [students, isGlobalAdmin, adminEmail, config]);
 
     // ...
 
@@ -426,28 +443,45 @@ export default function AdminDashboard() {
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
-            {/* Header / Global Admin */}
+            {/* Header / Global Admin - REMOVED (Moved to Layout) */}
             <div className="flex justify-end gap-2 items-center">
-                {isGlobalAdmin && (
-                    <div className="flex items-center gap-2 px-3 py-1 rounded bg-indigo-500/20 border border-indigo-500/30">
-                        <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></span>
-                        <span className="text-xs font-bold text-indigo-300 uppercase tracking-wider">Global Admin Active</span>
-                    </div>
-                )}
-
-                <button
-                    onClick={handleGlobalAdminLogin}
-                    className={`text-xs font-semibold hover:text-indigo-400 transition-colors uppercase tracking-wider ${isGlobalAdmin ? 'text-red-400' : 'text-slate-500'}`}
-                >
-                    {isGlobalAdmin ? 'Global Admin Logout' : 'Global Admin Login'}
-                </button>
+                {/* Placeholder to keep spacing if needed, or just remove */}
             </div>
 
             {/* Add Student & CSV */}
 
             {/* Add Student & CSV */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                {/* Single Student */}
+                {/* Add Students (Bulk) - SWAPPED LEFT */}
+                <div className="bg-slate-900/50 backdrop-blur-xl rounded-2xl border border-white/5 p-6 shadow-xl flex flex-col justify-between">
+                    <div>
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="h-8 w-8 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-400">
+                                <Upload className="h-4 w-4" />
+                            </div>
+                            <h3 className="text-lg font-semibold text-white">Add Students</h3> {/* Renamed */}
+                        </div>
+                        <p className="text-sm text-slate-400 mb-6">Upload a CSV file to add multiple students at once. Ensure the CSV follows the required format.</p>
+
+                        <div className="flex gap-3 flex-wrap items-center">
+                            <label className="flex-1 flex items-center justify-center px-4 py-3 bg-indigo-600 text-white rounded-lg shadow-lg shadow-indigo-500/20 hover:bg-indigo-500 cursor-pointer transition-all text-sm font-medium hover:-translate-y-0.5">
+                                <Upload className="w-4 h-4 mr-2" />
+                                Select CSV File
+                                <input type="file" accept=".csv" className="hidden" onChange={handleCSVUpload} />
+                            </label>
+                            <button onClick={handleDownloadSample} className="flex-1 flex items-center justify-center px-4 py-3 bg-slate-800 text-slate-300 rounded-lg border border-white/5 hover:bg-slate-700 hover:text-white transition-all text-sm font-medium">
+                                <Download className="w-4 h-4 mr-2" />
+                                Download Sample
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="mt-6 p-4 rounded-lg bg-indigo-500/5 border border-indigo-500/10">
+                        <p className="text-xs font-mono text-indigo-300 break-all">Format: email, name, roll, department, year, course_code, guardian_email</p>
+                    </div>
+                </div>
+
+                {/* Add Single Student  - SWAPPED RIGHT */}
                 <div className="bg-slate-900/50 backdrop-blur-xl rounded-2xl border border-white/5 p-6 shadow-xl">
                     <div className="flex items-center gap-3 mb-6">
                         <div className="h-8 w-8 rounded-lg bg-green-500/20 flex items-center justify-center text-green-400">
@@ -468,35 +502,6 @@ export default function AdminDashboard() {
                             {loading ? <Loader2 className="animate-spin h-5 w-5 mx-auto" /> : 'Add Student'}
                         </button>
                     </form>
-                </div>
-
-                {/* CSV Upload */}
-                <div className="bg-slate-900/50 backdrop-blur-xl rounded-2xl border border-white/5 p-6 shadow-xl flex flex-col justify-between">
-                    <div>
-                        <div className="flex items-center gap-3 mb-6">
-                            <div className="h-8 w-8 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-400">
-                                <Upload className="h-4 w-4" />
-                            </div>
-                            <h3 className="text-lg font-semibold text-white">Bulk Upload Students</h3>
-                        </div>
-                        <p className="text-sm text-slate-400 mb-6">Upload a CSV file to add multiple students at once. Ensure the CSV follows the required format.</p>
-
-                        <div className="flex gap-3 flex-wrap items-center">
-                            <label className="flex-1 flex items-center justify-center px-4 py-3 bg-indigo-600 text-white rounded-lg shadow-lg shadow-indigo-500/20 hover:bg-indigo-500 cursor-pointer transition-all text-sm font-medium hover:-translate-y-0.5">
-                                <Upload className="w-4 h-4 mr-2" />
-                                Select CSV File
-                                <input type="file" accept=".csv" className="hidden" onChange={handleCSVUpload} />
-                            </label>
-                            <button onClick={handleDownloadSample} className="flex-1 flex items-center justify-center px-4 py-3 bg-slate-800 text-slate-300 rounded-lg border border-white/5 hover:bg-slate-700 hover:text-white transition-all text-sm font-medium">
-                                <Download className="w-4 h-4 mr-2" />
-                                Download Sample
-                            </button>
-                        </div>
-                    </div>
-
-                    <div className="mt-6 p-4 rounded-lg bg-indigo-500/5 border border-indigo-500/10">
-                        <p className="text-xs font-mono text-indigo-300 break-all">Format: email, name, roll, department, year, course_code, guardian_email</p>
-                    </div>
                 </div>
             </div>
 
@@ -620,7 +625,7 @@ export default function AdminDashboard() {
                                     <th className="px-6 py-4 font-semibold tracking-wider">Roll</th>
                                     <th className="px-6 py-4 font-semibold tracking-wider">Dept/Year</th>
                                     <th className="px-6 py-4 font-semibold tracking-wider">Course</th>
-                                    <th className="px-6 py-4 font-semibold tracking-wider text-right">Actions</th>
+                                    <th className="px-6 py-4 font-semibold tracking-wider text-right">Edit</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-white/5 bg-transparent">
@@ -709,17 +714,22 @@ export default function AdminDashboard() {
                 {/* Assignment & Rules (Only visible if filters selected) */}
                 {assignFilter.dept && assignFilter.year && assignFilter.course && (
                     <div className="bg-slate-950/30 p-4 rounded-xl border border-white/10 mb-6 backdrop-blur-sm">
-                        <h4 className="text-lg font-semibold text-white mb-3">Settings for {assignFilter.dept} - {assignFilter.year} - {assignFilter.course}</h4>
+                        <h4 className="text-lg font-semibold text-white mb-3">Attendance Requirement in {assignFilter.course} classes for {assignFilter.dept} ({assignFilter.year})</h4>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                             <div>
                                 <label className="block text-sm font-medium text-slate-300 mb-1">Attendance Requirement (%)</label>
-                                <input
-                                    type="number" min="0" max="100"
-                                    className="block w-full rounded-lg border border-white/10 bg-slate-900 py-2.5 px-3 text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                                    value={currentAssignmentRule}
-                                    onChange={e => setCurrentAssignmentRule(parseInt(e.target.value))}
-                                />
+                                <div className="relative">
+                                    <input
+                                        type="number" min="0" max="100"
+                                        className="block w-full rounded-lg border border-white/10 bg-slate-900 py-2.5 px-3 text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all pr-8"
+                                        value={currentAssignmentRule}
+                                        onChange={e => setCurrentAssignmentRule(parseInt(e.target.value))}
+                                    />
+                                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                        <span className="text-slate-500 font-bold">%</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -736,21 +746,21 @@ export default function AdminDashboard() {
                         </div>
 
                         <button onClick={handleSaveSettings} disabled={loading} className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 mt-4 disabled:opacity-50">
-                            {loading ? 'Saving...' : 'Save / Add Assignment'}
+                            {loading ? 'Saving...' : 'Save'}
                         </button>
                     </div>
                 )}
 
                 <div className="mt-8 pt-6 border-t border-white/5">
-                    <h4 className="text-xs font-bold text-slate-500 mb-4 uppercase tracking-wider">Active Faculty Assignments</h4>
+                    <h4 className="text-xs font-bold text-slate-500 mb-4 uppercase tracking-wider">Co-teachers</h4>
                     <div className="overflow-hidden rounded-xl border border-white/5 bg-slate-950/30">
                         <table className="min-w-full text-sm text-left text-slate-400">
                             <thead className="text-xs text-slate-200 uppercase bg-white/5 border-b border-white/5">
                                 <tr>
-                                    <th className="px-6 py-3 font-bold">Assignment Key</th>
+                                    <th className="px-6 py-3 font-bold">Course</th>
                                     <th className="px-6 py-3 font-bold">Attendance %</th>
                                     <th className="px-6 py-3 font-bold">Faculty Members</th>
-                                    <th className="px-6 py-3 font-bold text-right">Actions</th>
+                                    <th className="px-6 py-3 font-bold text-right">Edit</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-white/5">

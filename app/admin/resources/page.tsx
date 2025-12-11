@@ -85,9 +85,9 @@ export default function Resources() {
 
     const fetchContextData = async () => {
         try {
-            const [qRes, assignmentsRes] = await Promise.all([
+            const [qRes, cRes] = await Promise.all([
                 fetch('/api/admin/questions', { headers: getHeaders() }),
-                fetch('/api/admin/faculty-assignments', { headers: getHeaders() })
+                fetch('/api/admin/config')
             ]);
 
             if (qRes.ok) {
@@ -97,11 +97,37 @@ export default function Resources() {
                 setSubtopics(Array.from(new Set(qs.map((q: any) => q.subtopic).filter(Boolean))).sort() as string[]);
             }
 
-            if (assignmentsRes.ok) {
-                const assignments = await assignmentsRes.json();
-                setCourses(assignments.courses || []);
-                setDepts(assignments.departments || []);
-                setYears(assignments.years || []);
+            if (cRes.ok) {
+                const config = await cRes.json();
+                const d = new Set<string>();
+                const y = new Set<string>();
+                const c = new Set<string>();
+
+                const isGA = localStorage.getItem('globalAdminActive') === 'true';
+
+                if (config.teacherAssignments) {
+                    Object.entries(config.teacherAssignments).forEach(([key, teachers]: [string, any]) => {
+                        let include = false;
+                        if (isGA) {
+                            include = true;
+                        } else if (Array.isArray(teachers) && teachers.some((t: any) => t.email === user?.email)) {
+                            include = true;
+                        }
+
+                        if (include) {
+                            const parts = key.split('_');
+                            if (parts.length >= 3) {
+                                d.add(parts[0]);
+                                y.add(parts[1]);
+                                c.add(parts[2]);
+                            }
+                        }
+                    });
+                }
+
+                setDepts(Array.from(d).sort());
+                setYears(Array.from(y).sort());
+                setCourses(Array.from(c).sort());
             }
         } catch (error) {
             console.error("Error fetching context", error);

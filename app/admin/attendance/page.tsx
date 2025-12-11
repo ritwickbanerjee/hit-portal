@@ -59,22 +59,44 @@ export default function AdminAttendance() {
         fetchStudents();
     }, []);
 
-    // Derived Lists
+    // Derived Lists [UPDATED with Access Control]
     const { departments, years, courses } = useMemo(() => {
         const depts = new Set<string>();
         const yrs = new Set<string>();
         const crs = new Set<string>();
-        students.forEach(s => {
-            if (s.department) depts.add(s.department);
-            if (s.year) yrs.add(s.year);
-            if (s.course_code) crs.add(s.course_code);
-        });
+
+        // Check if Global Admin (via localStorage or prop if available)
+        // We need to read it here or trust the component state if we add it. 
+        // Since we don't have isGlobalAdmin state in this file yet (wait, we need to check), we can read localStorage.
+        // Actually best to add isGlobalAdmin state.
+
+        const isGA = typeof window !== 'undefined' && localStorage.getItem('globalAdminActive') === 'true';
+
+        if (isGA) {
+            students.forEach(s => {
+                if (s.department) depts.add(s.department);
+                if (s.year) yrs.add(s.year);
+                if (s.course_code) crs.add(s.course_code);
+            });
+        } else if (adminEmail && config.teacherAssignments) {
+            Object.entries(config.teacherAssignments).forEach(([key, teachers]: [string, any]) => {
+                if (Array.isArray(teachers) && teachers.some((t: any) => t.email?.toLowerCase() === adminEmail.toLowerCase())) {
+                    const parts = key.split('_');
+                    if (parts.length >= 3) {
+                        depts.add(parts[0]);
+                        yrs.add(parts[1]);
+                        crs.add(parts[2]);
+                    }
+                }
+            });
+        }
+
         return {
             departments: Array.from(depts).sort(),
             years: Array.from(yrs).sort(),
             courses: Array.from(crs).sort()
         };
-    }, [students]);
+    }, [students, config, adminEmail]);
 
     // Access Control & Filtering
     const visibleStudents = useMemo(() => {

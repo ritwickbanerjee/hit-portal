@@ -36,50 +36,60 @@ export default function SubmissionsPage() {
     useEffect(() => {
         const init = async () => {
             const storedUser = localStorage.getItem('user');
+            const isGA = localStorage.getItem('globalAdminActive') === 'true';
+
+            let headers: any = {};
+
             if (storedUser) {
                 const parsedUser = JSON.parse(storedUser);
                 setUser(parsedUser);
+                headers['X-User-Email'] = parsedUser.email;
 
-                try {
-                    const cRes = await fetch('/api/admin/config');
-                    if (cRes.ok) {
-                        const config = await cRes.json();
-                        const courses = new Set<string>();
-                        const depts = new Set<string>();
-                        const years = new Set<string>();
+                if (isGA) {
+                    headers['X-Global-Admin-Key'] = 'globaladmin_25';
+                    setAllowedContext(null);
+                } else {
+                    try {
+                        const cRes = await fetch('/api/admin/config');
+                        if (cRes.ok) {
+                            const config = await cRes.json();
+                            const courses = new Set<string>();
+                            const depts = new Set<string>();
+                            const years = new Set<string>();
 
-                        if (config.teacherAssignments) {
-                            Object.entries(config.teacherAssignments).forEach(([key, teachers]: [string, any]) => {
-                                if (Array.isArray(teachers) && teachers.some((t: any) => t.email?.toLowerCase() === parsedUser.email?.toLowerCase())) {
-                                    const [d, y, c] = key.split('_');
-                                    if (d) depts.add(d);
-                                    if (y) years.add(y);
-                                    if (c) courses.add(c);
-                                }
+                            if (config.teacherAssignments) {
+                                Object.entries(config.teacherAssignments).forEach(([key, teachers]: [string, any]) => {
+                                    if (Array.isArray(teachers) && teachers.some((t: any) => t.email?.toLowerCase() === parsedUser.email?.toLowerCase())) {
+                                        const [d, y, c] = key.split('_');
+                                        if (d) depts.add(d);
+                                        if (y) years.add(y);
+                                        if (c) courses.add(c);
+                                    }
+                                });
+                            }
+                            setAllowedContext({
+                                courses: Array.from(courses).sort(),
+                                depts: Array.from(depts).sort(),
+                                years: Array.from(years).sort()
                             });
                         }
-                        setAllowedContext({
-                            courses: Array.from(courses).sort(),
-                            depts: Array.from(depts).sort(),
-                            years: Array.from(years).sort()
-                        });
+                    } catch (e) {
+                        console.error("Error fetching config", e);
                     }
-                } catch (e) {
-                    console.error("Error fetching config", e);
                 }
             }
-            fetchData();
+            fetchData(headers);
         };
         init();
     }, []);
 
-    const fetchData = async () => {
+    const fetchData = async (headers: any = {}) => {
         try {
             const [sRes, aRes, subRes, attRes, cRes] = await Promise.all([
                 fetch('/api/admin/students/all'),
-                fetch('/api/admin/assignments'),
-                fetch('/api/admin/submissions'),
-                fetch('/api/admin/attendance'),
+                fetch('/api/admin/assignments', { headers }),
+                fetch('/api/admin/submissions', { headers }),
+                fetch('/api/admin/attendance', { headers }),
                 fetch('/api/admin/config')
             ]);
 

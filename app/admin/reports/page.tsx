@@ -74,35 +74,6 @@ export default function AdminReports() {
 
     }, []);
 
-    // Derived Lists for Dropdowns
-    const { departments, years, courses } = useMemo(() => {
-        const depts = new Set<string>();
-        const yrs = new Set<string>();
-        const crs = new Set<string>();
-        students.forEach(s => {
-            if (s.department) depts.add(s.department);
-            if (s.year) yrs.add(s.year);
-            if (s.course_code) crs.add(s.course_code);
-        });
-        return {
-            departments: Array.from(depts).sort(),
-            years: Array.from(yrs).sort(),
-            courses: Array.from(crs).sort()
-        };
-    }, [students]);
-
-    // Available Faculties for Report Filters
-    const availableFaculties = useMemo(() => {
-        if (!reportFilters.dept || !reportFilters.year || !reportFilters.course) return [];
-        const key = `${reportFilters.dept}_${reportFilters.year}_${reportFilters.course}`;
-        return config.teacherAssignments?.[key] || [];
-    }, [config, reportFilters]);
-
-    // Reset selected faculties when filters change
-    useEffect(() => {
-        setSelectedFaculties([]);
-    }, [reportFilters]);
-
     // Access Control (Faculty Visibility)
     const visibleStudents = useMemo(() => {
         let filtered = students;
@@ -125,6 +96,35 @@ export default function AdminReports() {
 
         return filtered;
     }, [students, config, adminEmail, isGlobalAdmin]);
+
+    // Derived Lists for Dropdowns
+    const { departments, years, courses } = useMemo(() => {
+        const depts = new Set<string>();
+        const yrs = new Set<string>();
+        const crs = new Set<string>();
+        visibleStudents.forEach(s => {
+            if (s.department) depts.add(s.department);
+            if (s.year) yrs.add(s.year);
+            if (s.course_code) crs.add(s.course_code);
+        });
+        return {
+            departments: Array.from(depts).sort(),
+            years: Array.from(yrs).sort(),
+            courses: Array.from(crs).sort()
+        };
+    }, [visibleStudents]);
+
+    // Available Faculties for Report Filters
+    const availableFaculties = useMemo(() => {
+        if (!reportFilters.dept || !reportFilters.year || !reportFilters.course) return [];
+        const key = `${reportFilters.dept}_${reportFilters.year}_${reportFilters.course}`;
+        return config.teacherAssignments?.[key] || [];
+    }, [config, reportFilters]);
+
+    // Reset selected faculties when filters change
+    useEffect(() => {
+        setSelectedFaculties([]);
+    }, [reportFilters]);
 
     // Filtered Students for Database View
     const filteredDbStudents = useMemo(() => {
