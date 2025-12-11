@@ -209,7 +209,7 @@ export default function ForgotPassword() {
 
                 {/* Footer */}
                 <p className="text-center mt-8 text-xs text-gray-600">
-                    &copy; 2025 Dr. Ritwick Banerjee • All rights reserved
+                    &copy; 2025 copyright Dept. of Mathematics, HIT • All rights reserved
                 </p>
             </div>
 

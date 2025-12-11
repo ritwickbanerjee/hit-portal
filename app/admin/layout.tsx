@@ -7,6 +7,7 @@ import {
     Users, ClipboardList, CheckSquare, FileText,
     Upload, BarChart, BookOpen, LogOut, Menu, X, GraduationCap
 } from 'lucide-react';
+import InstallPWA from '@/components/InstallPWA';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -119,7 +120,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             )}
 
             {/* Sidebar */}
-            <div className={`fixed inset-y-0 left-0 z-40 w-64 bg-slate-900/95 backdrop-blur-xl border-r border-white/5 transform transition-transform duration-300 ease-out md:static md:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full shadow-2xl'}`}>
+            <div className={`fixed inset-y-0 left-0 z-40 w-64 bg-slate-900/95 backdrop-blur-xl border-r border-white/5 transform transition-transform duration-300 ease-out md:sticky md:top-0 md:h-screen md:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full shadow-2xl'}`}>
                 <div className="flex flex-col h-full">
                     {/* Logo Area */}
                     <div className="flex h-20 shrink-0 items-center px-6 border-b border-white/5 bg-gradient-to-r from-slate-900 to-slate-800/50">
@@ -208,9 +209,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     {/* Global Header */}
                     <div className="hidden md:flex justify-between items-center mb-8">
                         <div>
-                            <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
-                                {navigation.find(n => n.href === pathname)?.name || 'Admin Portal'}
-                            </h1>
+                            <div className="flex items-center gap-4">
+                                <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
+                                    {navigation.find(n => n.href === pathname)?.name || 'Admin Portal'}
+                                </h1>
+                                {pathname === '/admin/attendance' && <InstallPWA />}
+                            </div>
                             <p className="text-slate-400 text-sm mt-1">
                                 {pathname === '/admin/dashboard' && 'Manage existing student records'}
                                 {pathname === '/admin/reports' && 'Manage adjustments and generate detailed reports'}
