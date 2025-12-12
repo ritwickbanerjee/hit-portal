@@ -270,6 +270,14 @@ export default function MarksPage() {
                 </div>
             </div>
 
+            <div className="bg-red-900/50 p-4 mb-4 rounded border border-red-500 text-xs font-mono text-white overflow-auto max-h-40">
+                <strong>DEBUG INFO:</strong><br />
+                Students Loaded: {students.length}<br />
+                Filters: {JSON.stringify(filters)}<br />
+                First Student: {JSON.stringify(students[0] || 'No Data')}<br />
+                Allowed Context: {JSON.stringify(allowedContext)}
+            </div>
+
             <InstructionsBox>
                 <ul className="list-disc list-inside space-y-1">
                     <li>Marks are calculated out of <strong>10</strong> based on submission ratio.</li>
