@@ -16,6 +16,7 @@ export default function PracticeQuestionsPage() {
     // AI Verification State
     const [showAIModal, setShowAIModal] = useState(false);
     const [selectedQuestion, setSelectedQuestion] = useState<any>(null);
+    const [aiEnabledTopics, setAiEnabledTopics] = useState<Set<string>>(new Set());
 
     const router = useRouter();
     const params = useParams();
@@ -45,6 +46,17 @@ export default function PracticeQuestionsPage() {
                 setQuestions(data.questions || []);
             } else {
                 toast.error('Failed to load resource');
+            }
+
+            // Fetch AI Enabled Topics
+            try {
+                const aiRes = await fetch('/api/admin/ai-settings');
+                if (aiRes.ok) {
+                    const data = await aiRes.json();
+                    setAiEnabledTopics(new Set(data.enabledTopics || []));
+                }
+            } catch (error) {
+                console.error('Error loading AI settings', error);
             }
         } catch (error) {
             console.error('Failed to fetch resource', error);
@@ -226,15 +238,17 @@ Thank you!`;
                                                 </div>
                                             </div>
 
-                                            {/* AI Verify Button */}
-                                            <button
-                                                onClick={() => handleAIVerify(question)}
-                                                className="flex-shrink-0 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 hover:border-cyan-500/50 text-cyan-400 hover:text-cyan-300 text-[10px] sm:text-xs font-bold transition-all hover:shadow-lg hover:shadow-cyan-500/20 backdrop-blur-sm"
-                                                title="Verify your answer with AI"
-                                            >
-                                                <span className="hidden sm:inline">AI Verify</span>
-                                                <span className="sm:hidden">AI</span>
-                                            </button>
+                                            {/* AI Verify Button - Only show if topic is enabled */}
+                                            {question.topic && aiEnabledTopics.has(question.topic) && (
+                                                <button
+                                                    onClick={() => handleAIVerify(question)}
+                                                    className="flex-shrink-0 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 hover:border-cyan-500/50 text-cyan-400 hover:text-cyan-300 text-[10px] sm:text-xs font-bold transition-all hover:shadow-lg hover:shadow-cyan-500/20 backdrop-blur-sm"
+                                                    title="Verify your answer with AI"
+                                                >
+                                                    <span className="hidden sm:inline">AI Verify</span>
+                                                    <span className="sm:hidden">AI</span>
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
 

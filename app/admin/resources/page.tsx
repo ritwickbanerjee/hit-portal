@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Loader2, Plus, Trash2, Link as LinkIcon, FileText, Video, Brain, Copy, Check } from 'lucide-react';
+import { Loader2, Plus, Trash2, Link as LinkIcon, FileText, Video, Brain, Copy, Check, Sparkles, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import 'katex/dist/katex.min.css';
 import LatexWrapper from '../assignments/components/LatexWrapper';
@@ -43,6 +43,10 @@ export default function Resources() {
     });
 
     const [submitting, setSubmitting] = useState(false);
+
+    // AI Verification Control State
+    const [showAIModal, setShowAIModal] = useState(false);
+    const [aiEnabledTopics, setAiEnabledTopics] = useState<Set<string>>(new Set());
 
     useEffect(() => {
         const storedUser = localStorage.getItem('user');
@@ -131,6 +135,17 @@ export default function Resources() {
             }
         } catch (error) {
             console.error("Error fetching context", error);
+        }
+
+        // Fetch AI Enabled Topics
+        try {
+            const aiRes = await fetch('/api/admin/ai-settings', { headers: getHeaders() });
+            if (aiRes.ok) {
+                const data = await aiRes.json();
+                setAiEnabledTopics(new Set(data.enabledTopics || []));
+            }
+        } catch (error) {
+            console.error("Error fetching AI settings", error);
         }
     };
 
@@ -342,9 +357,50 @@ ${JSON.stringify(selectedData, null, 2)}`;
     };
 
 
+    // AI Settings Handlers
+    const toggleAITopic = (topic: string) => {
+        const newSet = new Set(aiEnabledTopics);
+        if (newSet.has(topic)) {
+            newSet.delete(topic);
+        } else {
+            newSet.add(topic);
+        }
+        setAiEnabledTopics(newSet);
+    };
+
+    const saveAISettings = async () => {
+        try {
+            const res = await fetch('/api/admin/ai-settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...getHeaders() },
+                body: JSON.stringify({ enabledTopics: Array.from(aiEnabledTopics) })
+            });
+
+            if (res.ok) {
+                toast.success('AI Settings Saved!');
+                setShowAIModal(false);
+            } else {
+                toast.error('Failed to save settings');
+            }
+        } catch (error) {
+            toast.error('Error saving AI settings');
+        }
+    };
+
+
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
 
+            {/* AI Control Button */}
+            <div className="flex justify-end">
+                <button
+                    onClick={() => setShowAIModal(true)}
+                    className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 shadow-lg shadow-cyan-500/25 transition-all"
+                >
+                    <Sparkles className="h-4 w-4" />
+                    Enable AI Answer Verification
+                </button>
+            </div>
 
             {/* Tabs */}
             <div className="border-b border-gray-700">
@@ -851,6 +907,100 @@ ${JSON.stringify(selectedData, null, 2)}`;
                     {renderDeployedResources()}
                 </div>
             </div >
+
+            {/* AI Topic Control Modal */}
+            {showAIModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+                    <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl border border-cyan-500/30 w-full max-w-2xl shadow-2xl shadow-cyan-500/20 overflow-hidden">
+                        {/* Header */}
+                        <div className="bg-gradient-to-r from-cyan-600 to-blue-600 p-6">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-3 rounded-xl bg-white/20">
+                                        <Sparkles className="h-6 w-6 text-white" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-xl font-bold text-white">Enable AI Answer Verification</h3>
+                                        <p className="text-cyan-100 text-sm">Select topics that will have AI verification available</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setShowAIModal(false)}
+                                    className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                                >
+                                    <X className="h-5 w-5 text-white" />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Content */}
+                        <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+                            <div className="flex justify-between items-center mb-2">
+                                <p className="text-sm text-gray-400">
+                                    {aiEnabledTopics.size} of {topics.length} topics enabled
+                                </p>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => setAiEnabledTopics(new Set(topics))}
+                                        className="text-xs px-3 py-1 bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 rounded transition-colors"
+                                    >
+                                        Select All
+                                    </button>
+                                    <button
+                                        onClick={() => setAiEnabledTopics(new Set())}
+                                        className="text-xs px-3 py-1 bg-gray-700 text-gray-300 hover:bg-gray-600 rounded transition-colors"
+                                    >
+                                        Clear All
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {topics.map(topic => (
+                                    <label
+                                        key={topic}
+                                        className="flex items-center gap-3 p-3 bg-gray-800/50 hover:bg-gray-700/50 rounded-lg cursor-pointer border border-gray-700 hover:border-cyan-500/30 transition-all group"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={aiEnabledTopics.has(topic)}
+                                            onChange={() => toggleAITopic(topic)}
+                                            className="w-4 h-4 rounded bg-gray-700 border-gray-600 text-cyan-600 focus:ring-cyan-500 focus:ring-offset-0 cursor-pointer"
+                                        />
+                                        <span className="text-sm text-gray-300 group-hover:text-white transition-colors flex-1">
+                                            {topic}
+                                        </span>
+                                        {aiEnabledTopics.has(topic) && (
+                                            <Check className="h-4 w-4 text-cyan-400" />
+                                        )}
+                                    </label>
+                                ))}
+                            </div>
+
+                            {topics.length === 0 && (
+                                <p className="text-center text-gray-500 py-8">No topics available. Add questions first.</p>
+                            )}
+                        </div>
+
+                        {/* Actions */}
+                        <div className="p-6 bg-gray-900/50 border-t border-gray-700 flex gap-3">
+                            <button
+                                onClick={() => setShowAIModal(false)}
+                                className="flex-1 py-3 px-4 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-all"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={saveAISettings}
+                                className="flex-1 py-3 px-4 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-lg font-bold shadow-lg shadow-cyan-500/25 transition-all flex items-center justify-center gap-2"
+                            >
+                                <Check className="h-4 w-4" />
+                                Save Settings
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div >
     );
 
