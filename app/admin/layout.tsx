@@ -15,6 +15,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const router = useRouter();
     const pathname = usePathname();
     const [user, setUser] = useState<any>(null);
+    const [showGlobalAdminModal, setShowGlobalAdminModal] = useState(false);
+    const [globalAdminPassword, setGlobalAdminPassword] = useState('');
+    const [isGlobalAdmin, setIsGlobalAdmin] = useState(false);
+
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            setIsGlobalAdmin(localStorage.getItem('globalAdminActive') === 'true');
+        }
+    }, []);
 
     useEffect(() => {
         // Safety Timeout in case logic hangs
@@ -146,9 +155,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                             <div className="h-14 w-14 rounded-xl bg-blue-900/20 border border-blue-500/30 flex items-center justify-center shadow-[0_0_20px_rgba(59,130,246,0.3)]">
                                 <GraduationCap className="h-8 w-8 text-blue-400 drop-shadow-[0_0_8px_rgba(59,130,246,0.6)]" />
                             </div>
-                            <div className="flex flex-col justify-center h-14">
-                                <span className="text-xl font-bold text-white tracking-tight block leading-none">Admin<span className="text-indigo-400">Portal</span></span>
-                                <div className="mt-1.5 text-left">
+                            <div className="flex flex-col justify-center h-14 py-2">
+                                <span className="text-xl font-bold text-white tracking-tight block leading-tight mb-1">Admin<span className="text-indigo-400">Portal</span></span>
+                                <div className="text-left">
                                     <span className="text-[10px] text-slate-500 font-medium tracking-wide opacity-80 block leading-tight">
                                         Developed by
                                     </span>
@@ -156,31 +165,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                         Dr. Ritwick Banerjee
                                     </span>
                                 </div>
-                                <div className="mt-2">
+                                <div className="mt-3">
                                     <button
                                         onClick={() => {
-                                            const isGA = localStorage.getItem('globalAdminActive') === 'true';
-                                            if (isGA) {
+                                            if (isGlobalAdmin) {
                                                 localStorage.removeItem('globalAdminActive');
-                                                alert("Global Admin Access Revoked");
-                                                window.location.reload();
+                                                setIsGlobalAdmin(false);
                                             } else {
-                                                const password = prompt("Enter Global Admin Password:");
-                                                if (password === "globaladmin_25") {
-                                                    localStorage.setItem('globalAdminActive', 'true');
-                                                    alert("Global Admin Access Granted");
-                                                    window.location.reload();
-                                                } else if (password) {
-                                                    alert("Incorrect Password");
-                                                }
+                                                setShowGlobalAdminModal(true);
                                             }
                                         }}
-                                        className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border transition-colors ${(typeof window !== 'undefined' && localStorage.getItem('globalAdminActive') === 'true')
-                                            ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30 hover:bg-indigo-500/30'
-                                            : 'bg-slate-800 text-slate-500 border-slate-700 hover:text-slate-300'
+                                        className={`text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded border transition-all ${isGlobalAdmin
+                                            ? 'bg-red-500/20 text-red-300 border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.4)] hover:bg-red-500/30'
+                                            : 'bg-slate-800 text-slate-500 border-slate-700 hover:text-slate-300 hover:border-slate-600'
                                             }`}
                                     >
-                                        Global Admin
+                                        {isGlobalAdmin ? '● GLOBAL ADMIN' : 'GLOBAL ADMIN'}
                                     </button>
                                 </div>
                             </div>
@@ -366,6 +366,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     </div>
                 )}
             </div>
-        </div>
+        </div >
     );
 }
