@@ -623,8 +623,8 @@ export default function AdminDashboard() {
                                     <th className="px-6 py-4 font-semibold tracking-wider">Email</th>
                                     <th className="px-6 py-4 font-semibold tracking-wider">Roll</th>
                                     <th className="px-6 py-4 font-semibold tracking-wider">Dept/Year</th>
-                                    <th className="px-6 py-4 font-semibold tracking-wider">Course</th>
-                                    <th className="px-6 py-4 font-semibold tracking-wider text-right">Edit</th>
+                                    <th className="px-6 py-4 font-semibold tracking-wider font-bold">Course</th>
+                                    <th className="px-6 py-4 font-semibold tracking-wider text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-white/5 bg-transparent">
@@ -757,27 +757,42 @@ export default function AdminDashboard() {
                             <thead className="text-xs text-slate-200 uppercase bg-white/5 border-b border-white/5">
                                 <tr>
                                     <th className="px-6 py-3 font-bold">Course</th>
+                                    <th className="px-6 py-3 font-bold">Department</th>
                                     <th className="px-6 py-3 font-bold">Attendance %</th>
-                                    <th className="px-6 py-3 font-bold">Faculty Members</th>
+                                    <th className="px-6 py-3 font-bold">Faculty Members (Email ID)</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-white/5">
-                                {visibleAssignments.map(([key, teachers]: [string, any]) => (
-                                    <tr key={key} className="hover:bg-white/5 transition-colors">
-                                        <td className="px-6 py-4 font-medium text-white">{key}</td>
-                                        <td className="px-6 py-4 text-emerald-400 font-bold">{config.attendanceRules?.[key] || config.attendanceRequirement}%</td>
-                                        <td className="px-6 py-4 text-slate-300">
-                                            <div className="flex flex-col gap-2">
-                                                {Array.isArray(teachers) && teachers.map((t: any, i: number) => (
-                                                    <div key={i} className="flex items-center justify-between bg-slate-900 px-3 py-1.5 rounded-lg border border-white/5">
-                                                        <span>{t.name} <span className="text-xs text-slate-500">({t.email})</span></span>
-                                                        <button onClick={() => removeAssignment(key, t.email)} className="text-slate-500 hover:text-red-400 ml-2 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
+                                {visibleAssignments
+                                    .map(([key, teachers]: [string, any]) => {
+                                        const parts = key.split('_');
+                                        // Default fallback if key format is unexpected
+                                        let dept = '', year = '', course = key;
+                                        if (parts.length >= 3) {
+                                            dept = parts[0];
+                                            year = parts[1];
+                                            course = parts.slice(2).join('_'); // Join back in case course code has underscores
+                                        }
+                                        return { key, dept, year, course, teachers };
+                                    })
+                                    .sort((a, b) => a.course.localeCompare(b.course))
+                                    .map(({ key, dept, year, course, teachers }) => (
+                                        <tr key={key} className="hover:bg-white/5 transition-colors">
+                                            <td className="px-6 py-4 font-medium text-white">{course}</td>
+                                            <td className="px-6 py-4 text-slate-300">{dept} <span className="text-slate-500">({year})</span></td>
+                                            <td className="px-6 py-4 text-emerald-400 font-bold">{config.attendanceRules?.[key] || config.attendanceRequirement}%</td>
+                                            <td className="px-6 py-4 text-slate-300">
+                                                <div className="flex flex-col gap-2">
+                                                    {Array.isArray(teachers) && teachers.map((t: any, i: number) => (
+                                                        <div key={i} className="flex items-center justify-between bg-slate-900 px-3 py-1.5 rounded-lg border border-white/5">
+                                                            <span>{t.name} <span className="text-xs text-slate-500">({t.email})</span></span>
+                                                            <button onClick={() => removeAssignment(key, t.email)} className="text-slate-500 hover:text-red-400 ml-2 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
                             </tbody>
                         </table>
                     </div>
