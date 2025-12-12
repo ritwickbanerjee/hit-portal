@@ -119,6 +119,10 @@ export default function QuestionBank() {
     // Filter State
     const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
     const [selectedSubtopics, setSelectedSubtopics] = useState<string[]>([]);
+    // Singular Selection for Modal
+    const [selectedTopic, setSelectedTopic] = useState('');
+    const [selectedSubtopic, setSelectedSubtopic] = useState('');
+
     const [selectedQuestionIds, setSelectedQuestionIds] = useState<Set<string>>(new Set());
 
     // Paper Generator State
