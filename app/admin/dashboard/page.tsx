@@ -459,7 +459,7 @@ export default function AdminDashboard() {
                             <div className="h-8 w-8 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-400">
                                 <Upload className="h-4 w-4" />
                             </div>
-                            <h3 className="text-lg font-semibold text-white">Add Students</h3> {/* Renamed */}
+                            <h3 className="text-lg font-semibold text-white">Add Multiple Students</h3> {/* Renamed */}
                         </div>
                         <p className="text-sm text-slate-400 mb-6">Upload a CSV to add multiple students. Ensure it follows the required format.</p>
 
