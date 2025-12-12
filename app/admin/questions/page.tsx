@@ -748,7 +748,7 @@ export default function QuestionBank() {
             {/* Paper Modal */}
             {isPaperModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-                    <div className="bg-gray-800 rounded-lg border border-gray-700 w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+                    <div className="bg-gray-800 rounded-lg border border-gray-700 w-full max-w-[90vw] md:max-w-7xl h-[90vh] shadow-2xl overflow-hidden flex flex-col">
                         {/* Header */}
                         <div className="p-4 border-b border-gray-700 bg-gray-900 flex justify-between items-center">
                             <h3 className="text-xl font-bold text-white flex items-center gap-2">
@@ -813,9 +813,9 @@ export default function QuestionBank() {
                             )}
 
                             {paperStep === 1 && (
-                                <div className="p-6 overflow-y-auto">
+                                <div className="p-6 overflow-y-auto h-full">
                                     <h4 className="text-lg font-bold text-white mb-4">Paper Details</h4>
-                                    <div className="grid grid-cols-2 gap-4 mb-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                                         <div><label className="block text-xs text-gray-400 mb-1">Paper Name</label><input className="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white" value={paperConfig.paperName} onChange={e => setPaperConfig({ ...paperConfig, paperName: e.target.value })} placeholder="e.g. End Semester Examination" /></div>
                                         <div><label className="block text-xs text-gray-400 mb-1">Paper Code</label><input className="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white" value={paperConfig.code} onChange={e => setPaperConfig({ ...paperConfig, code: e.target.value })} placeholder="e.g. HMTS-101" /></div>
                                         <div><label className="block text-xs text-gray-400 mb-1">Course</label><input className="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white" value={paperConfig.course} onChange={e => setPaperConfig({ ...paperConfig, course: e.target.value })} /></div>
@@ -827,27 +827,35 @@ export default function QuestionBank() {
                                         <div><label className="block text-xs text-gray-400 mb-1">Time</label><input className="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white" value={paperConfig.time} onChange={e => setPaperConfig({ ...paperConfig, time: e.target.value })} placeholder="e.g. 3 Hours" /></div>
                                         <div><label className="block text-xs text-gray-400 mb-1">Full Marks</label><input className="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white" value={paperConfig.marks} onChange={e => setPaperConfig({ ...paperConfig, marks: e.target.value })} placeholder="e.g. 70" /></div>
                                     </div>
-                                    <div className="flex justify-between mt-4">
-                                        <button onClick={() => setPaperStep(0)} className="bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded">Back</button>
-                                        <button onClick={generatePreview} className="bg-green-600 hover:bg-green-500 text-white px-6 py-2 rounded font-bold">Generate Preview</button>
+
+                                    <div className="flex justify-between mt-auto pt-4 border-t border-gray-700">
+                                        <button onClick={() => setPaperStep(0)} className="px-6 py-2 bg-gray-700 text-white rounded hover:bg-gray-600 font-medium">
+                                            &larr; Back
+                                        </button>
+                                        <button onClick={generatePaper} className="bg-green-600 hover:bg-green-500 text-white px-6 py-2 rounded font-bold flex items-center gap-2">
+                                            Generate Review <FileText className="h-4 w-4" />
+                                        </button>
                                     </div>
                                 </div>
                             )}
 
                             {paperStep === 2 && (
-                                <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-                                    <div className="w-full md:w-1/2 p-4 border-r border-gray-700 flex flex-col">
+                                <div className="flex-1 flex flex-col md:flex-row overflow-hidden h-full">
+                                    <div className="w-full md:w-1/2 p-4 border-r border-gray-700 flex flex-col h-full bg-gray-900">
                                         <div className="flex justify-between items-center mb-2">
                                             <label className="text-xs text-gray-400">JSON Structure (Editable)</label>
-                                            <button onClick={printPaper} className="bg-blue-600 text-white px-3 py-1 rounded text-xs flex items-center gap-1"><Printer className="h-3 w-3" /> Print / Save PDF</button>
+                                            <div className="flex gap-2">
+                                                <button onClick={() => setPaperStep(1)} className="bg-gray-700 text-white px-3 py-1 rounded text-xs hover:bg-gray-600">Back</button>
+                                                <button onClick={printPaper} className="bg-blue-600 text-white px-3 py-1 rounded text-xs flex items-center gap-1 hover:bg-blue-500"><Printer className="h-3 w-3" /> Print / Save PDF</button>
+                                            </div>
                                         </div>
                                         <textarea
-                                            className="flex-1 bg-gray-900 p-2 text-green-400 font-mono text-xs rounded border border-gray-700 resize-none header-json"
+                                            className="flex-1 bg-gray-950 p-2 text-green-400 font-mono text-xs rounded border border-gray-700 resize-none header-json focus:outline-none focus:border-blue-500"
                                             value={paperJson}
                                             onChange={handlePaperJsonChange}
                                         />
                                     </div>
-                                    <div className="w-full md:w-1/2 bg-gray-500 overflow-hidden relative">
+                                    <div className="w-full md:w-1/2 bg-gray-500 overflow-hidden relative h-full">
                                         <iframe
                                             id="paper-preview-frame"
                                             srcDoc={paperHtml}

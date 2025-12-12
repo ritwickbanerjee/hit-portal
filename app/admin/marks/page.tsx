@@ -76,20 +76,36 @@ export default function MarksPage() {
         init();
     }, []);
 
-    const fetchData = async () => {
-        try {
-            const [sRes, aRes, subRes] = await Promise.all([
-                fetch('/api/admin/students/all'),
-                fetch('/api/admin/assignments'),
-                fetch('/api/admin/submissions')
-            ]);
+    // Debug State
+    const [debugStatus, setDebugStatus] = useState({ students: 'Init', assignments: 'Init', submissions: 'Init' });
 
-            if (sRes.ok && aRes.ok && subRes.ok) {
-                const sData = await sRes.json();
-                setStudents(sData);
-                setAssignments(await aRes.json());
-                setSubmissions(await subRes.json());
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+            // Fetch Students
+            const sRes = await fetch('/api/admin/students/all');
+            setDebugStatus(prev => ({ ...prev, students: sRes.status.toString() }));
+            if (sRes.ok) {
+                const data = await sRes.json();
+                setStudents(data);
             }
+
+            // Fetch Assignments
+            const aRes = await fetch('/api/admin/assignments');
+            setDebugStatus(prev => ({ ...prev, assignments: aRes.status.toString() }));
+            if (aRes.ok) {
+                const data = await aRes.json();
+                setAssignments(data);
+            }
+
+            // Fetch Submissions
+            const subRes = await fetch('/api/admin/submissions');
+            setDebugStatus(prev => ({ ...prev, submissions: subRes.status.toString() }));
+            if (subRes.ok) {
+                const data = await subRes.json();
+                setSubmissions(data);
+            }
+
         } catch (error) {
             console.error("Error fetching data", error);
             toast.error("Failed to load data");
@@ -272,10 +288,11 @@ export default function MarksPage() {
 
             <div className="bg-red-900/50 p-4 mb-4 rounded border border-red-500 text-xs font-mono text-white overflow-auto max-h-40">
                 <strong>DEBUG INFO:</strong><br />
+                API Status - Students: {debugStatus.students}, Assignments: {debugStatus.assignments}, Submissions: {debugStatus.submissions}<br />
                 Students Loaded: {students.length}<br />
+                Assignments: {assignments.length}<br />
+                Submissions: {submissions.length}<br />
                 Filters: {JSON.stringify(filters)}<br />
-                First Student: {JSON.stringify(students[0] || 'No Data')}<br />
-                Allowed Context: {JSON.stringify(allowedContext)}
             </div>
 
             <InstructionsBox>
