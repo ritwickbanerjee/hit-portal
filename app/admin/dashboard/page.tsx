@@ -606,7 +606,7 @@ export default function AdminDashboard() {
                 <div className="overflow-hidden rounded-xl border border-white/5">
                     <div className="overflow-x-auto max-h-[500px] custom-scrollbar">
                         <table className="min-w-full text-sm text-left text-slate-400">
-                            <thead className="text-xs text-slate-200 uppercase bg-white/5 border-b border-white/5 sticky top-0 backdrop-blur-md z-10">
+                            <thead className="text-xs text-slate-200 uppercase bg-slate-900 border-b border-white/5 sticky top-0 z-20">
                                 <tr>
                                     <th className="px-6 py-4 font-semibold tracking-wider w-10">
                                         <button
@@ -751,7 +751,7 @@ export default function AdminDashboard() {
                 )}
 
                 <div className="mt-8 pt-6 border-t border-white/5">
-                    <h4 className="text-xs font-bold text-slate-500 mb-4 uppercase tracking-wider">Co-teachers</h4>
+                    <h3 className="text-xl font-semibold text-white mb-4">Co-teachers</h3>
                     <div className="overflow-hidden rounded-xl border border-white/5 bg-slate-950/30 overflow-x-auto custom-scrollbar">
                         <table className="min-w-full text-sm text-left text-slate-400">
                             <thead className="text-xs text-slate-200 uppercase bg-white/5 border-b border-white/5">
