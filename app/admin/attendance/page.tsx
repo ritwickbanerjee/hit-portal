@@ -460,10 +460,6 @@ export default function AdminAttendance() {
                                 <Users className="h-5 w-5 text-indigo-400" />
                                 Mark Attendance <span className="text-slate-500 text-sm font-normal ml-2">({tableStudents.length} Students)</span>
                             </h3>
-                            <button onClick={handleSelectAll} className="text-sm font-medium text-indigo-400 hover:text-indigo-300 transition-colors flex items-center gap-1">
-                                {selectAll ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
-                                {selectAll ? 'Unselect All' : 'Select All'}
-                            </button>
                         </div>
                         <div className="overflow-x-auto max-h-[500px] custom-scrollbar">
                             <table className="min-w-full divide-y divide-white/5">
@@ -477,8 +473,8 @@ export default function AdminAttendance() {
                                                 className="rounded bg-slate-800 border-gray-600 text-indigo-500 focus:ring-indigo-500 h-4 w-4 transition-all"
                                             />
                                         </th>
-                                        <th className="px-5 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Name</th>
                                         <th className="px-5 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Roll</th>
+                                        <th className="px-5 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Name</th>
                                         <th className="px-5 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Status</th>
                                     </tr>
                                 </thead>
@@ -497,8 +493,8 @@ export default function AdminAttendance() {
                                                         onClick={e => e.stopPropagation()}
                                                     />
                                                 </td>
-                                                <td className="px-5 py-3 text-sm text-slate-200 font-medium group-hover:text-white transition-colors">{s.name}</td>
                                                 <td className="px-5 py-3 text-sm text-slate-500 font-mono group-hover:text-slate-400 transition-colors">{s.roll}</td>
+                                                <td className="px-5 py-3 text-sm text-slate-200 font-medium group-hover:text-white transition-colors">{s.name}</td>
                                                 <td className="px-5 py-3 text-sm">
                                                     {attendanceData[s._id] ? (
                                                         <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-2.5 py-1 text-xs font-bold text-emerald-400 border border-emerald-500/20 shadow-[0_0_10px_rgba(16,185,129,0.2)]">Present</span>
