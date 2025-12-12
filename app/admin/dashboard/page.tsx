@@ -461,7 +461,7 @@ export default function AdminDashboard() {
                             </div>
                             <h3 className="text-lg font-semibold text-white">Add Students</h3> {/* Renamed */}
                         </div>
-                        <p className="text-sm text-slate-400 mb-6">Upload a CSV file to add multiple students at once. Ensure the CSV follows the required format.</p>
+                        <p className="text-sm text-slate-400 mb-6">Upload a CSV to add multiple students. Ensure it follows the required format.</p>
 
                         <div className="flex gap-3 flex-wrap items-center">
                             <label className="flex-1 flex items-center justify-center px-4 py-3 bg-indigo-600 text-white rounded-lg shadow-lg shadow-indigo-500/20 hover:bg-indigo-500 cursor-pointer transition-all text-sm font-medium hover:-translate-y-0.5">
