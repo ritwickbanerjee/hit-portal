@@ -658,7 +658,14 @@ export default function QuestionBank() {
     const printPaper = () => {
         const iframe = document.getElementById('paper-preview-frame') as HTMLIFrameElement;
         if (iframe && iframe.contentWindow) {
-            iframe.contentWindow.print();
+            // Wait a bit to ensure iframe content is fully loaded
+            setTimeout(() => {
+                if (iframe.contentWindow) {
+                    iframe.contentWindow.print();
+                } else if (iframe.contentDocument) {
+                    iframe.contentDocument.defaultView?.print();
+                }
+            }, 500);
         }
     };
 
@@ -865,7 +872,7 @@ export default function QuestionBank() {
                                             &larr; Back
                                         </button>
                                         <button onClick={generatePreview} className="bg-green-600 hover:bg-green-500 text-white px-6 py-2 rounded font-bold flex items-center gap-2">
-                                            Generate Review <FileText className="h-4 w-4" />
+                                            Preview <FileText className="h-4 w-4" />
                                         </button>
                                     </div>
                                 </div>
@@ -890,9 +897,11 @@ export default function QuestionBank() {
                                     <div className="w-full md:w-1/2 bg-gray-500 overflow-hidden relative h-full">
                                         <iframe
                                             id="paper-preview-frame"
+                                            key={paperHtml.substring(0, 50)}
                                             srcDoc={paperHtml}
                                             className="w-full h-full bg-white"
                                             title="Paper Preview"
+                                            sandbox="allow-same-origin allow-scripts allow-modals allow-popups allow-popups-to-escape-sandbox"
                                         />
                                     </div>
                                 </div>
