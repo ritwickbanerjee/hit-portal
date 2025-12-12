@@ -208,7 +208,8 @@ export default function PersonalizedTab({ onSuccess, user, context, isGlobalAdmi
                                 type="datetime-local" required
                                 value={formData.startTime}
                                 onChange={e => setFormData({ ...formData, startTime: e.target.value })}
-                                className="mt-2 block w-full rounded-md border-0 bg-gray-900/50 py-2 px-3 text-white ring-1 ring-inset ring-gray-600 focus:ring-2 focus:ring-blue-500"
+                                className="mt-2 block w-full rounded-md border-0 bg-gray-900/50 py-2 px-3 text-white ring-1 ring-inset ring-gray-600 focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                                onClick={(e: any) => e.target.showPicker && e.target.showPicker()}
                             />
                         </div>
                         <div>
@@ -217,7 +218,8 @@ export default function PersonalizedTab({ onSuccess, user, context, isGlobalAdmi
                                 type="datetime-local" required
                                 value={formData.deadline}
                                 onChange={e => setFormData({ ...formData, deadline: e.target.value })}
-                                className="mt-2 block w-full rounded-md border-0 bg-gray-900/50 py-2 px-3 text-white ring-1 ring-inset ring-gray-600 focus:ring-2 focus:ring-blue-500"
+                                className="mt-2 block w-full rounded-md border-0 bg-gray-900/50 py-2 px-3 text-white ring-1 ring-inset ring-gray-600 focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                                onClick={(e: any) => e.target.showPicker && e.target.showPicker()}
                             />
                         </div>
                     </div>
