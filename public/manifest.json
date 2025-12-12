@@ -1,7 +1,7 @@
 {
-    "name": "Hit Portal",
-    "short_name": "Portal",
-    "description": "Student and Admin Portal for HIT",
+    "name": "MAAP - Math Attendance Assignment Portal",
+    "short_name": "MAAP",
+    "description": "MAAP - Math Attendance Assignment Portal",
     "start_url": "/",
     "display": "standalone",
     "background_color": "#0a0f1a",
