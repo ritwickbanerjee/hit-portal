@@ -173,13 +173,6 @@ export default function QuestionBank() {
     const topics = Array.from(new Set(questions.map(q => q.topic))).sort();
     const subtopics = Array.from(new Set(questions.map(q => q.subtopic))).sort();
 
-    // Filter questions based on selected topics and subtopics
-    const filteredQuestions = questions.filter(q => {
-        const topicMatch = selectedTopics.length === 0 || selectedTopics.includes(q.topic);
-        const subtopicMatch = selectedSubtopics.length === 0 || selectedSubtopics.includes(q.subtopic);
-        return topicMatch && subtopicMatch;
-    });
-
     useEffect(() => {
         const user = localStorage.getItem('user');
         if (user) {
