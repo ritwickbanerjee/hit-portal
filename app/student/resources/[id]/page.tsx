@@ -218,9 +218,9 @@ Thank you!`;
                                             <div className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm sm:text-base shadow-lg">
                                                 {index + 1}
                                             </div>
-                                            <div className="flex-1 min-w-0">
+                                            <div className="flex-1">
                                                 <div className="flex items-start justify-between gap-3">
-                                                    <div className="flex-1 min-w-0">
+                                                    <div className="flex-1">
                                                         <div className="flex flex-wrap items-center gap-2 mb-2 sm:mb-3">
                                                             {question.topic && (
                                                                 <span className="text-[10px] sm:text-xs px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-lg bg-purple-500/20 text-purple-400">{question.topic}</span>
@@ -234,7 +234,7 @@ Thank you!`;
                                                                 </span>
                                                             )}
                                                         </div>
-                                                        <div className="text-xs sm:text-base text-gray-200 leading-relaxed">
+                                                        <div className="text-xs sm:text-base text-gray-200 leading-relaxed pr-2">
                                                             <Latex>{question.latex || question.text}</Latex>
                                                         </div>
                                                     </div>
@@ -243,7 +243,7 @@ Thank you!`;
                                                     {question.topic && aiEnabledTopics.has(question.topic) && (
                                                         <button
                                                             onClick={() => handleAIVerify(question)}
-                                                            className="flex-shrink-0 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 hover:border-cyan-500/50 text-cyan-400 hover:text-cyan-300 text-[10px] sm:text-xs font-bold transition-all hover:shadow-lg hover:shadow-cyan-500/20 backdrop-blur-sm"
+                                                            className="flex-shrink-0 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 hover:border-cyan-500/50 text-cyan-400 hover:text-cyan-300 text-[10px] sm:text-xs font-bold transition-all hover:shadow-lg hover:shadow-cyan-500/20 backdrop-blur-sm whitespace-nowrap"
                                                             title="Verify your answer with AI"
                                                         >
                                                             <span className="hidden sm:inline">AI Verify</span>
