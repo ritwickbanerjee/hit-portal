@@ -762,7 +762,7 @@ export default function QuestionBank() {
             {/* Paper Modal */}
             {isPaperModalOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-                    <div className="bg-gray-800 rounded-lg border border-gray-700 w-full max-w-[95vw] h-[95vh] shadow-2xl overflow-hidden flex flex-col relative ml-0 md:ml-16 lg:ml-0">
+                    <div className="bg-gray-800 rounded-lg border border-gray-700 w-full max-w-[95vw] h-[95vh] shadow-2xl overflow-hidden flex flex-col relative md:ml-64">
                         {/* Header */}
                         <div className="p-4 border-b border-gray-700 bg-gray-900 flex justify-between items-center">
                             <h3 className="text-xl font-bold text-white flex items-center gap-2">
