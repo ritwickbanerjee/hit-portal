@@ -54,17 +54,27 @@ export async function POST(req: Request) {
             });
 
             if (!response.ok) {
-                console.error('Brevo Error:', await response.json());
-                throw new Error('Failed to send email');
+                const errorData = await response.json();
+                console.error('Brevo Error:', errorData);
+                return NextResponse.json(
+                    { error: 'Failed to send OTP email', details: errorData },
+                    { status: 500 }
+                );
             }
-        } catch (emailError) {
+        } catch (emailError: any) {
             console.error('Email sending failed:', emailError);
-            return NextResponse.json({ error: 'Failed to send OTP email' }, { status: 500 });
+            return NextResponse.json(
+                { error: 'Failed to send OTP email', details: emailError.message },
+                { status: 500 }
+            );
         }
 
         return NextResponse.json({ message: 'OTP sent successfully' });
-    } catch (error) {
+    } catch (error: any) {
         console.error('Forgot Password Error:', error);
-        return NextResponse.json({ error: 'Server error' }, { status: 500 });
+        return NextResponse.json(
+            { error: 'Server error', details: error.message },
+            { status: 500 }
+        );
     }
 }
