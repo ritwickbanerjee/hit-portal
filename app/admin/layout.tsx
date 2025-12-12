@@ -185,6 +185,27 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         </button>
                     </div>
 
+                    {/* Global Admin - Separate Section */}
+                    <div className="px-4 py-3 border-b border-white/10">
+                        <button
+                            onClick={() => {
+                                const isGA = localStorage.getItem('globalAdminActive') === 'true';
+                                if (isGA) {
+                                    localStorage.removeItem('globalAdminActive');
+                                    window.location.reload();
+                                } else {
+                                    setShowGlobalAdminModal(true);
+                                }
+                            }}
+                            className={`w-full text-xs font-bold uppercase tracking-wider px-4 py-2.5 rounded-lg border transition-all ${(typeof window !== 'undefined' && localStorage.getItem('globalAdminActive') === 'true')
+                                    ? 'bg-red-500/20 text-red-300 border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.4)] hover:bg-red-500/30'
+                                    : 'bg-slate-800/50 text-slate-400 border-slate-700 hover:text-slate-200 hover:border-slate-600 hover:bg-slate-800'
+                                }`}
+                        >
+                            {(typeof window !== 'undefined' && localStorage.getItem('globalAdminActive') === 'true') ? '● GLOBAL ADMIN' : 'GLOBAL ADMIN'}
+                        </button>
+                    </div>
+
                     <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-1 custom-scrollbar">
                         {navigation.map((item) => {
                             const isActive = pathname === item.href;
