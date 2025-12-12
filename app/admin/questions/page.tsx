@@ -410,11 +410,35 @@ export default function QuestionBank() {
     };
 
     // --- Viewer Logic ---
+    // Filter Questions for Paper Modal
     const filteredQuestions = questions.filter(q => {
-        const tMatch = selectedTopics.length === 0 || selectedTopics.includes(q.topic);
-        const sMatch = selectedSubtopics.length === 0 || selectedSubtopics.includes(q.subtopic);
-        return tMatch && sMatch;
+        if (!q.topic) return false;
+        if (selectedTopic && q.topic !== selectedTopic) return false;
+        if (selectedSubtopic && q.subtopic !== selectedSubtopic) return false;
+        return true;
     });
+
+    // Reset filters when closing modal
+    useEffect(() => {
+        if (!isPaperModalOpen) {
+            setSelectedTopic('');
+            setSelectedSubtopic('');
+        }
+    }, [isPaperModalOpen]);
+
+    useEffect(() => {
+        const uniqueTopics = Array.from(new Set(questions.map(q => q.topic))).filter(Boolean);
+        setTopics(uniqueTopics);
+    }, [questions]);
+
+    useEffect(() => {
+        if (selectedTopic) {
+            const uniqueSubtopics = Array.from(new Set(questions.filter(q => q.topic === selectedTopic).map(q => q.subtopic))).filter(Boolean);
+            setSubtopics(uniqueSubtopics);
+        } else {
+            setSubtopics([]);
+        }
+    }, [selectedTopic, questions]);
 
     const toggleSelectAll = () => {
         if (selectedQuestionIds.size === filteredQuestions.length) {
@@ -747,8 +771,8 @@ export default function QuestionBank() {
 
             {/* Paper Modal */}
             {isPaperModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-                    <div className="bg-gray-800 rounded-lg border border-gray-700 w-full max-w-[90vw] md:max-w-7xl h-[90vh] shadow-2xl overflow-hidden flex flex-col">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                    <div className="bg-gray-800 rounded-lg border border-gray-700 w-full max-w-[95vw] h-[95vh] shadow-2xl overflow-hidden flex flex-col relative ml-0 md:ml-16 lg:ml-0">
                         {/* Header */}
                         <div className="p-4 border-b border-gray-700 bg-gray-900 flex justify-between items-center">
                             <h3 className="text-xl font-bold text-white flex items-center gap-2">
@@ -762,13 +786,31 @@ export default function QuestionBank() {
                         {/* Content */}
                         <div className="flex-1 overflow-hidden flex flex-col">
                             {paperStep === 0 && (
-                                <div className="p-6 overflow-y-auto">
-                                    <div className="mb-4 bg-blue-900/20 border border-blue-500/30 p-4 rounded text-blue-200 text-sm">
-                                        Use the filters in the main view to select specific questions, or select them from the list below.
-                                        Current Selection: <strong>{selectedQuestionIds.size}</strong> questions.
+                                <>
+                                    <div className="mb-4 bg-blue-900/20 border border-blue-500/30 p-4 rounded text-blue-200 text-sm flex flex-col md:flex-row gap-4 items-center justify-between">
+                                        <span>Use filters to find questions. Current Selection: <strong>{selectedQuestionIds.size}</strong> questions.</span>
+                                        <div className="flex gap-2">
+                                            <select
+                                                className="bg-gray-900 border border-gray-600 text-white text-xs rounded p-1.5"
+                                                value={selectedTopic}
+                                                onChange={e => setSelectedTopic(e.target.value)}
+                                            >
+                                                <option value="">All Topics</option>
+                                                {topics.map(t => <option key={t} value={t}>{t}</option>)}
+                                            </select>
+                                            <select
+                                                className="bg-gray-900 border border-gray-600 text-white text-xs rounded p-1.5"
+                                                value={selectedSubtopic}
+                                                onChange={e => setSelectedSubtopic(e.target.value)}
+                                                disabled={!selectedTopic}
+                                            >
+                                                <option value="">All Subtopics</option>
+                                                {subtopics.map(s => <option key={s} value={s}>{s}</option>)}
+                                            </select>
+                                        </div>
                                     </div>
 
-                                    <div className="space-y-2 mb-4 border border-gray-700 rounded p-2 max-h-[300px] overflow-y-auto custom-scrollbar bg-gray-900/50">
+                                    <div className="space-y-2 mb-4 border border-gray-700 rounded p-2 flex-1 overflow-y-auto custom-scrollbar bg-gray-900/50">
                                         {filteredQuestions.length === 0 ? (
                                             <p className="text-gray-500 text-center py-4 text-xs italic">No questions found matching current filters.</p>
                                         ) : (
