@@ -80,15 +80,13 @@ export default function MarksPage() {
         if (user) fetchData();
     }, [user]);
 
-    // Debug State
-    const [debugStatus, setDebugStatus] = useState({ students: 'Init', assignments: 'Init', submissions: 'Init' });
+
 
     const fetchData = async () => {
         setLoading(true);
         try {
             // Fetch Students (Public, but good practice to send headers if available)
             const sRes = await fetch('/api/admin/students/all');
-            setDebugStatus(prev => ({ ...prev, students: sRes.status.toString() }));
             if (sRes.ok) {
                 const data = await sRes.json();
                 setStudents(data);
@@ -103,7 +101,6 @@ export default function MarksPage() {
             }
 
             const aRes = await fetch('/api/admin/assignments', { headers });
-            setDebugStatus(prev => ({ ...prev, assignments: aRes.status.toString() }));
             if (aRes.ok) {
                 const data = await aRes.json();
                 setAssignments(data);
@@ -111,7 +108,6 @@ export default function MarksPage() {
 
             // Fetch Submissions
             const subRes = await fetch('/api/admin/submissions');
-            setDebugStatus(prev => ({ ...prev, submissions: subRes.status.toString() }));
             if (subRes.ok) {
                 const data = await subRes.json();
                 setSubmissions(data);
@@ -295,15 +291,6 @@ export default function MarksPage() {
                         </select>
                     </div>
                 </div>
-            </div>
-
-            <div className="bg-red-900/50 p-4 mb-4 rounded border border-red-500 text-xs font-mono text-white overflow-auto max-h-40">
-                <strong>DEBUG INFO:</strong><br />
-                API Status - Students: {debugStatus.students}, Assignments: {debugStatus.assignments}, Submissions: {debugStatus.submissions}<br />
-                Students Loaded: {students.length}<br />
-                Assignments: {assignments.length}<br />
-                Submissions: {submissions.length}<br />
-                Filters: {JSON.stringify(filters)}<br />
             </div>
 
             <InstructionsBox>
