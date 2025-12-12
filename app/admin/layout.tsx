@@ -109,6 +109,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         }
     };
 
+    const handleGlobalAdminSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (globalAdminPassword === 'globaladmin_25') {
+            localStorage.setItem('globalAdminActive', 'true');
+            setIsGlobalAdmin(true);
+            setShowGlobalAdminModal(false);
+            setGlobalAdminPassword('');
+        } else {
+            alert('Incorrect password');
+            setGlobalAdminPassword('');
+        }
+    };
+
     const navigation = [
         { name: 'Student & Course Management', href: '/admin/dashboard', icon: Users },
         { name: 'Mark Daily Attendance', href: '/admin/attendance', icon: CheckSquare },
@@ -362,6 +375,46 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                     </button>
                                 </div>
                             </form>
+                        </div>
+                    </div>
+                )}
+
+                {/* Global Admin Password Modal */}
+                {showGlobalAdminModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+                        <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl border border-red-500/30 shadow-2xl shadow-red-500/20 max-w-md w-full">
+                            <div className="p-6">
+                                <h3 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-pink-400 mb-6">Global Admin Access</h3>
+                                <form onSubmit={handleGlobalAdminSubmit} className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-semibold text-slate-400 mb-2">Enter Global Admin Password</label>
+                                        <input
+                                            type="password"
+                                            required
+                                            autoFocus
+                                            className="w-full rounded-lg border border-red-500/30 bg-slate-950/70 py-3 px-4 text-white placeholder-slate-600 focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition-all"
+                                            value={globalAdminPassword}
+                                            onChange={e => setGlobalAdminPassword(e.target.value)}
+                                            placeholder="Enter password"
+                                        />
+                                    </div>
+                                    <div className="flex gap-3 mt-6">
+                                        <button
+                                            type="button"
+                                            onClick={() => { setShowGlobalAdminModal(false); setGlobalAdminPassword(''); }}
+                                            className="flex-1 py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-medium transition-colors border border-white/5"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            className="flex-1 py-2.5 px-4 bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-500 hover:to-pink-500 text-white rounded-lg font-bold shadow-lg shadow-red-500/25 transition-all"
+                                        >
+                                            Activate
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
                         </div>
                     </div>
                 )}
