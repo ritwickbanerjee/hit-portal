@@ -259,7 +259,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                             </div>
                             <p className="text-slate-400 text-sm mt-1">
                                 {pathname === '/admin/dashboard' && ''}
-                                {pathname === '/admin/reports' && 'Manage adjustments and generate detailed reports'}
+                                {pathname === '/admin/reports' && 'Manage attendance and generate detailed reports'}
                                 {pathname === '/admin/attendance' && 'Mark daily attendance for students'}
                                 {pathname === '/admin/questions' && 'Manage question bank'}
                                 {pathname === '/admin/assignments' && 'Manage assignments'}
