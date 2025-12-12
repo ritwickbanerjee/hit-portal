@@ -767,6 +767,34 @@ export default function QuestionBank() {
                                         Use the filters in the main view to select specific questions, or select them from the list below.
                                         Current Selection: <strong>{selectedQuestionIds.size}</strong> questions.
                                     </div>
+
+                                    <div className="space-y-2 mb-4 border border-gray-700 rounded p-2 max-h-[300px] overflow-y-auto custom-scrollbar bg-gray-900/50">
+                                        {filteredQuestions.length === 0 ? (
+                                            <p className="text-gray-500 text-center py-4 text-xs italic">No questions found matching current filters.</p>
+                                        ) : (
+                                            filteredQuestions.map(q => (
+                                                <div key={q.id} className="flex gap-3 p-3 rounded border border-gray-800 hover:border-gray-600 hover:bg-gray-800/50 transition-all">
+                                                    <div className="pt-1">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={selectedQuestionIds.has(q.id)}
+                                                            onChange={() => toggleSelection(q.id)}
+                                                            className="w-4 h-4 rounded border-gray-600 text-blue-600 focus:ring-blue-500 bg-gray-800 cursor-pointer"
+                                                        />
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <div className="flex gap-2 mb-1">
+                                                            <span className="text-[10px] bg-gray-700 text-gray-300 px-1.5 py-0.5 rounded uppercase font-bold">{q.topic}</span>
+                                                            <span className={`text-[10px] px-1.5 py-0.5 rounded uppercase font-bold border ${q.type === 'broad' ? 'border-pink-500 text-pink-400' : q.type === 'mcq' ? 'border-yellow-500 text-yellow-400' : 'border-cyan-500 text-cyan-400'}`}>{q.type}</span>
+                                                        </div>
+                                                        <div className="text-xs text-gray-300 line-clamp-3">
+                                                            <Latex>{q.text}</Latex>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
                                     <div className="flex justify-end mt-4">
                                         <button
                                             onClick={() => {
