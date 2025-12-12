@@ -113,9 +113,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         e.preventDefault();
         if (globalAdminPassword === 'globaladmin_25') {
             localStorage.setItem('globalAdminActive', 'true');
-            setIsGlobalAdmin(true);
             setShowGlobalAdminModal(false);
             setGlobalAdminPassword('');
+            window.location.reload(); // Reload to apply global admin powers
         } else {
             alert('Incorrect password');
             setGlobalAdminPassword('');
