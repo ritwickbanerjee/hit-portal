@@ -477,7 +477,7 @@ export default function AdminDashboard() {
                     </div>
 
                     <div className="mt-6 p-4 rounded-lg bg-indigo-500/5 border border-indigo-500/10">
-                        <p className="text-xs font-mono text-indigo-300 break-all">Format: email, name, roll, department, year, course_code, guardian_email</p>
+                        <p className="text-xs font-mono text-indigo-300 break-all">Format: Email, Name, Roll, Dept., Year, Course, Guardian Email</p>
                     </div>
                 </div>
 
