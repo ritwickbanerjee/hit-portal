@@ -23,8 +23,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         const storedUser = localStorage.getItem('user');
         const sessionStart = localStorage.getItem('adminSessionStart');
 
-        // Session duration: 30 minutes in milliseconds
-        const SESSION_DURATION = 30 * 60 * 1000;
+        // Session duration: Use custom expiry if set (for remember me), otherwise default to 30 minutes
+        const customExpiry = localStorage.getItem('admin_session_expiry');
+        const SESSION_DURATION = customExpiry ? parseInt(customExpiry) : 30 * 60 * 1000;
 
         if (!storedUser || !sessionStart) {
             router.push('/admin/login');
@@ -34,6 +35,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 // Session expired
                 localStorage.removeItem('user');
                 localStorage.removeItem('adminSessionStart');
+                localStorage.removeItem('admin_session_expiry');
                 router.push('/admin/login');
             } else {
                 try {
@@ -46,6 +48,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 } catch (e) {
                     localStorage.removeItem('user');
                     localStorage.removeItem('adminSessionStart');
+                    localStorage.removeItem('admin_session_expiry');
                     router.push('/admin/login');
                 }
             }

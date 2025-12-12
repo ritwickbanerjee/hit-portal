@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Loader2, ShieldCheck, Lock, Mail, ArrowRight, Eye, EyeOff } from 'lucide-react';
@@ -8,10 +8,22 @@ import { Loader2, ShieldCheck, Lock, Mail, ArrowRight, Eye, EyeOff } from 'lucid
 export default function AdminLogin() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [rememberMe, setRememberMe] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const router = useRouter();
+
+    // Auto-fill saved credentials on mount
+    useEffect(() => {
+        const savedEmail = localStorage.getItem('admin_saved_email');
+        const savedRemember = localStorage.getItem('admin_remember_me');
+
+        if (savedEmail && savedRemember === 'true') {
+            setEmail(savedEmail);
+            setRememberMe(true);
+        }
+    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -37,9 +49,22 @@ export default function AdminLogin() {
                 throw new Error('You are not authorized as an admin.');
             }
 
-            // Store user in localStorage (or use a context/cookie in a real app)
+            // Store user in localStorage
             localStorage.setItem('user', JSON.stringify(data.user));
             localStorage.setItem('adminSessionStart', Date.now().toString());
+
+            // Handle "Remember Me" functionality
+            if (rememberMe) {
+                localStorage.setItem('admin_saved_email', email.trim());
+                localStorage.setItem('admin_remember_me', 'true');
+                // For remembered sessions, extend expiry to 30 days
+                localStorage.setItem('admin_session_expiry', (30 * 24 * 60 * 60 * 1000).toString());
+            } else {
+                localStorage.removeItem('admin_saved_email');
+                localStorage.removeItem('admin_remember_me');
+                // For non-remembered sessions, use 30 minutes
+                localStorage.setItem('admin_session_expiry', (30 * 60 * 1000).toString());
+            }
 
             // Force hard navigation to resolve potential freeze/infinite loading issues
             window.location.href = '/admin/dashboard';
@@ -128,6 +153,19 @@ export default function AdminLogin() {
                                 {error}
                             </div>
                         )}
+
+                        <div className="flex items-center">
+                            <input
+                                id="remember-me"
+                                type="checkbox"
+                                checked={rememberMe}
+                                onChange={(e) => setRememberMe(e.target.checked)}
+                                className="h-4 w-4 rounded border-white/20 bg-black/40 text-emerald-600 focus:ring-emerald-500 focus:ring-offset-0 cursor-pointer"
+                            />
+                            <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-400 cursor-pointer hover:text-gray-300 transition-colors">
+                                Remember me for 30 days
+                            </label>
+                        </div>
 
                         <div className="flex items-center justify-between text-sm">
                             <Link href="/" className="text-gray-500 hover:text-white transition-colors flex items-center gap-1">
