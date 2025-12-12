@@ -851,7 +851,7 @@ export default function QuestionBank() {
                                             Next: Paper Details
                                         </button>
                                     </div>
-                                </div>
+                                </>
                             )}
 
                             {paperStep === 1 && (
