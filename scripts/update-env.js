@@ -11,7 +11,8 @@ const currentUri = envContent.match(/MONGODB_URI=.*/)?.[0];
 console.log(currentUri);
 
 // Update the MONGODB_URI to include the database name
-const newUri = 'MONGODB_URI=mongodb+srv://portal_admin:secure123portalhitgo@cluster0.b639hgw.mongodb.net/portal_app?appName=Cluster0';
+// Update the MONGODB_URI to include the database name
+const newUri = 'MONGODB_URI=YOUR_SECURE_MONGODB_URI_HERE'; // REPLACED FOR SECURITY; Set this manually or via environment variables
 
 envContent = envContent.replace(/MONGODB_URI=.*/, newUri);
 

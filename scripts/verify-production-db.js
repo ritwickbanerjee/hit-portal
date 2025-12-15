@@ -1,9 +1,15 @@
 const mongoose = require('mongoose');
 
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '..', '.env.local') });
+
 async function checkProductionDB() {
     try {
         // Connect to portal_app database
-        const uri = 'mongodb+srv://portal_admin:secure123portalhitgo@cluster0.b639hgw.mongodb.net/portal_app?appName=Cluster0';
+        const uri = process.env.MONGODB_URI;
+        if (!uri) {
+            throw new Error('MONGODB_URI is not defined in .env.local');
+        }
 
         console.log('Connecting to portal_app database...\n');
         await mongoose.connect(uri);
