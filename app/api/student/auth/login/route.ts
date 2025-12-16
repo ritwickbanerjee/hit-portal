@@ -29,6 +29,13 @@ export async function POST(req: Request) {
             );
         }
 
+        if (student.loginDisabled) {
+            return NextResponse.json(
+                { error: 'Your account has been disabled. Contact admin.' },
+                { status: 403 }
+            );
+        }
+
         const isMatch = await bcrypt.compare(password, student.password);
 
         if (!isMatch) {

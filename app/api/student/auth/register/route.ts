@@ -23,6 +23,10 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Student not found' }, { status: 404 });
         }
 
+        if (student.loginDisabled) {
+            return NextResponse.json({ error: 'Your account has been disabled. Contact admin.' }, { status: 403 });
+        }
+
         // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
 

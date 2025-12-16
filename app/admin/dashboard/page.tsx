@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Loader2, Upload, FileDown, Save, Trash2, Edit, Download, CheckSquare, Square, AlertTriangle, X } from 'lucide-react';
+import { Loader2, Upload, FileDown, Save, Trash2, Edit, Download, CheckSquare, Square, AlertTriangle, X, ToggleLeft, ToggleRight, Ban, CheckCircle } from 'lucide-react';
 
 export default function AdminDashboard() {
     const [loading, setLoading] = useState(false);
@@ -422,6 +422,38 @@ export default function AdminDashboard() {
         setDeleteConfirm({ open: true, type: 'assignment', payload: { key, email: emailToRemove } });
     };
 
+    const handleStatusToggle = async (studentId: string, currentStatus: boolean, studentName: string) => {
+        // Optimistic UI update could go here, but let's wait for server for safety or use loading state
+        // For simple UI, we assume success or show error toast, but here we used alerts mostly.
+        const action = currentStatus ? 'enable' : 'disable'; // currentStatus is 'isDisabled'
+
+        try {
+            // Optimistic update locally to feel snappy
+            const updatedStudents = students.map(s =>
+                s._id === studentId ? { ...s, loginDisabled: !currentStatus } : s
+            );
+            setStudents(updatedStudents);
+
+            const res = await fetch('/api/admin/students/status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ studentId, disabled: !currentStatus })
+            });
+
+            if (!res.ok) {
+                // Revert if failed
+                setStudents(students);
+                const data = await res.json();
+                throw new Error(data.error || 'Failed to update status');
+            }
+        } catch (error: any) {
+            console.error(error);
+            alert(`Failed to ${action} ${studentName}: ${error.message}`);
+            // Revert (fetch fresh)
+            fetchStudents();
+        }
+    };
+
 
 
     // Change Password State
@@ -610,6 +642,7 @@ export default function AdminDashboard() {
                                     <th className="px-6 py-4 font-semibold tracking-wider">Roll</th>
                                     <th className="px-6 py-4 font-semibold tracking-wider">Dept/Year</th>
                                     <th className="px-6 py-4 font-semibold tracking-wider font-bold">Course</th>
+                                    <th className="px-6 py-4 font-semibold tracking-wider text-center">Login Status</th>
                                     <th className="px-6 py-4 font-semibold tracking-wider text-right">Actions</th>
                                 </tr>
                             </thead>
@@ -641,6 +674,26 @@ export default function AdminDashboard() {
                                                 <span>{s.year}</span>
                                             </td>
                                             <td className="px-6 py-4">{s.course_code}</td>
+                                            <td className="px-6 py-4 text-center">
+                                                <button
+                                                    onClick={() => handleStatusToggle(s._id, s.loginDisabled, s.name)}
+                                                    className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium border transition-all ${s.loginDisabled
+                                                        ? 'bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20'
+                                                        : 'bg-green-500/10 text-green-400 border-green-500/20 hover:bg-green-500/20'
+                                                        }`}
+                                                    title={s.loginDisabled ? "Click to Enable Login" : "Click to Disable Login"}
+                                                >
+                                                    {s.loginDisabled ? (
+                                                        <>
+                                                            <Ban className="h-3.5 w-3.5" /> Disabled
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <CheckCircle className="h-3.5 w-3.5" /> Active
+                                                        </>
+                                                    )}
+                                                </button>
+                                            </td>
                                             <td className="px-6 py-4 text-right">
                                                 <button onClick={() => handleDeleteStudent(s._id)} className="text-xs bg-transparent hover:bg-red-500/10 text-slate-500 hover:text-red-400 px-3 py-1.5 rounded transition-all flex items-center gap-1 ml-auto opacity-0 group-hover:opacity-100 focus:opacity-100">
                                                     <Trash2 className="h-3.5 w-3.5" /> Delete

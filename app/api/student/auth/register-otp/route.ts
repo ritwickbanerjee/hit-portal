@@ -34,6 +34,28 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Account already registered. Please Login.' }, { status: 400 });
         }
 
+        // 3.5 Check if EMAIL is already used by ANOTHER verified student
+        // We look for any student who:
+        // - Is Verified
+        // - HAS this email (either as primary or secondary)
+        // - Is NOT the current student (check by roll)
+        const emailExists = await Student.findOne({
+            $and: [
+                {
+                    $or: [
+                        { email: providedEmail },
+                        { secondary_email: providedEmail }
+                    ]
+                },
+                { isVerified: true },
+                { roll: { $ne: roll } } // Don't block if self (shouldn't happen due to isVerified check above, but for safety)
+            ]
+        });
+
+        if (emailExists) {
+            return NextResponse.json({ error: 'This email is already in use by another student.' }, { status: 400 });
+        }
+
         // 4. Generate & Send OTP
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
