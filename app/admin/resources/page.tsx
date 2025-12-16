@@ -108,9 +108,16 @@ export default function Resources() {
 
             if (cRes.ok) {
                 const config = await cRes.json();
+
+                // Set AI Topics from Config
+                if (config.aiEnabledTopics) {
+                    setAiEnabledTopics(new Set(config.aiEnabledTopics));
+                }
+
                 const d = new Set<string>();
                 const y = new Set<string>();
                 const c = new Set<string>();
+
 
                 const isGA = localStorage.getItem('globalAdminActive') === 'true';
 
@@ -388,10 +395,10 @@ ${JSON.stringify(selectedData, null, 2)}`;
 
     const saveAISettings = async () => {
         try {
-            const res = await fetch('/api/admin/ai-settings', {
+            const res = await fetch('/api/admin/config', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...getHeaders() },
-                body: JSON.stringify({ enabledTopics: Array.from(aiEnabledTopics) })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ aiEnabledTopics: Array.from(aiEnabledTopics) })
             });
 
             if (res.ok) {

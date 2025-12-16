@@ -44,6 +44,7 @@ export default function PracticeQuestionsPage() {
             });
             if (res.ok) {
                 const data = await res.json();
+                console.log('Resource Data:', data);
                 setResource(data.resource);
                 setQuestions(data.questions || []);
             } else {
