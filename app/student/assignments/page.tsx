@@ -59,7 +59,6 @@ export default function StudentAssignments() {
                 toast.error('Failed to fetch assignments');
             }
         } catch (error) {
-            console.error('Failed to fetch assignments', error);
             toast.error('Something went wrong');
         } finally {
             setLoading(false);

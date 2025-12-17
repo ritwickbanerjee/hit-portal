@@ -58,7 +58,6 @@ export default function StudentResources() {
                 toast.error('Failed to fetch resources');
             }
         } catch (error) {
-            console.error('Failed to fetch resources', error);
             toast.error('Something went wrong');
         } finally {
             setLoading(false);

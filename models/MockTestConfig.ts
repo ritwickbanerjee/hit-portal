@@ -1,8 +1,21 @@
 import mongoose from 'mongoose';
 
+const DeploymentSchema = new mongoose.Schema({
+    department: { type: String, required: true },
+    year: { type: String, required: true },
+    course: { type: String, required: true }
+}, { _id: false });
+
+const TopicConfigSchema = new mongoose.Schema({
+    topic: { type: String, required: true },
+    enabled: { type: Boolean, default: true },
+    deployments: { type: [DeploymentSchema], default: [] }
+}, { _id: false });
+
 const MockTestConfigSchema = new mongoose.Schema({
-    facultyName: { type: String, required: true, unique: true },
-    enabledTopics: { type: [String], default: [] }, // Topics that are visible to students
+    userEmail: { type: String, required: true, unique: true },
+    facultyName: { type: String, required: true },
+    topics: { type: [TopicConfigSchema], default: [] }
 }, { timestamps: true });
 
 // Prevent model overwrite in dev

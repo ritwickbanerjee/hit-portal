@@ -64,7 +64,6 @@ export default function StudentAttendance() {
                 toast.error('Failed to load attendance');
             }
         } catch (error) {
-            console.error('Failed to fetch attendance', error);
             toast.error('Network error');
         } finally {
             setLoading(false);

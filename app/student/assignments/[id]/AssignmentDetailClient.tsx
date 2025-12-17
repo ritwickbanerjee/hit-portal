@@ -52,7 +52,6 @@ export default function AssignmentDetailClient({ assignmentId }: AssignmentDetai
                 toast.error(errData.error || 'Failed to load assignment');
             }
         } catch (error) {
-            console.error('Failed to fetch assignment', error);
             toast.error('Something went wrong');
         } finally {
             setLoading(false);
@@ -168,7 +167,6 @@ export default function AssignmentDetailClient({ assignmentId }: AssignmentDetai
             if (fileInputRef.current) fileInputRef.current.value = '';
             fetchAssignmentDetail(studentData._id);
         } catch (error: any) {
-            console.error('Upload error:', error);
             let msg = error.message;
             if (msg.includes('Failed to fetch')) {
                 msg = "Network Error. Check if Google Script is deployed as 'Anyone'.";

@@ -71,7 +71,9 @@ export default function MockTest() {
                 }
             });
             if (res.ok) {
-                setFaculties(await res.json());
+                const data = await res.json();
+                setFaculties(data);
+            } else {
             }
         } catch (error) {
             toast.error('Failed to load faculties');
@@ -82,7 +84,7 @@ export default function MockTest() {
         setLoading(true);
         try {
             const token = localStorage.getItem('auth_token');
-            const res = await fetch(`/api/student/mock-test/topics?facultyName=${encodeURIComponent(facultyName)}`, {
+            const res = await fetch(`/api/student/mock-test/topics?facultyName=${encodeURIComponent(facultyName)}&course=${encodeURIComponent(student.course_code)}&department=${encodeURIComponent(student.department)}&year=${encodeURIComponent(student.year)}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }

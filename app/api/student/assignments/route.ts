@@ -16,7 +16,7 @@ export async function GET(req: Request) {
         // We ignore the query param 'studentId' sent by client for security.
         const studentId = req.headers.get('x-user-id');
 
-        console.log('[ASSIGNMENTS DEBUG] Fetching for dept:', department, 'year:', year, 'course:', course_code, 'studentId:', studentId);
+
 
         if (!department || !year || !studentId) {
             return NextResponse.json({ error: 'Department, Year, and Auth are required' }, { status: 400 });
@@ -77,18 +77,14 @@ export async function GET(req: Request) {
                 allStudentIds = allDocs.map(d => d._id);
             }
 
-            console.log('[STUDENT ASSIGNMENTS] Student IDs:', allStudentIds.map(id => id.toString()));
-            console.log('[STUDENT ASSIGNMENTS] Assignment IDs:', uniqueAssignments.map((a: any) => a._id.toString()));
+
 
             const submissions = await Submission.find({
                 student: { $in: allStudentIds },
                 assignment: { $in: uniqueAssignments.map((a: any) => a._id) }
             });
 
-            console.log('[STUDENT ASSIGNMENTS] Submissions found:', submissions.length);
-            submissions.forEach(s => {
-                console.log('  - Student:', s.student.toString(), 'Assignment:', s.assignment.toString());
-            });
+
 
             const submissionMap = new Map(
                 submissions.map(s => [s.assignment.toString(), s])
@@ -96,7 +92,7 @@ export async function GET(req: Request) {
 
             assignmentsWithSubmissions = uniqueAssignments.map((assignment: any) => {
                 const submission = submissionMap.get(assignment._id.toString());
-                console.log('[STUDENT ASSIGNMENTS] Assignment', assignment._id.toString(), 'has submission:', !!submission);
+
                 return {
                     ...assignment.toObject(),
                     submitted: !!submission,

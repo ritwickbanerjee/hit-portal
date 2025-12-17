@@ -46,7 +46,6 @@ export default function StudentDashboard() {
                 setUnreadCount(data.unreadCount);
             }
         } catch (error) {
-            console.error('Failed to fetch notifications');
         }
     };
 
@@ -60,7 +59,6 @@ export default function StudentDashboard() {
             setNotifications(prev => prev.map(n => n._id === notificationId ? { ...n, isRead: true } : n));
             setUnreadCount(prev => Math.max(0, prev - 1));
         } catch (error) {
-            console.error('Failed to mark read');
         }
     };
 

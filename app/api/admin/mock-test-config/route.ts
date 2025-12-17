@@ -1,77 +1,77 @@
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import MockTestConfig from '@/models/MockTestConfig';
-import Question from '@/models/Question';
 
 export async function GET(req: Request) {
     try {
         await connectDB();
-        const { searchParams } = new URL(req.url);
-        const email = req.headers.get('X-User-Email');
+        const userEmail = req.headers.get('X-User-Email');
 
-        if (!email) {
+        if (!userEmail) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // We need to find the facultyName for this email. 
-        // We can find it by looking up *any* question uploaded by this user,
-        // OR we should probably trust the frontend to send the name? 
-        // No, security.
-        // But the previous API `questions` uses `X-User-Email` and `Question` model has `facultyName`.
-        // Let's find one question to get the facultyName.
-        const oneQ = await Question.findOne({ uploadedBy: email }).select('facultyName');
-        const facultyName = oneQ ? oneQ.facultyName : null;
+        console.log('[MOCK TEST CONFIG GET] Looking for user:', userEmail);
 
-        if (!facultyName) {
-            // User might not have uploaded any questions yet. 
-            // Return empty config or check if we can get name from somewhere else.
-            return NextResponse.json({ enabledTopics: [] });
-        }
-
-        const config = await MockTestConfig.findOne({ facultyName });
-
-        // If no config exists, should we return all topics as enabled? 
-        // Or empty? 
-        // Let's return the stored config if it exists.
-        return NextResponse.json({
-            enabledTopics: config ? config.enabledTopics : [],
-            facultyName
+        // Find config by userEmail (more reliable than facultyName)
+        let config = await MockTestConfig.findOne({ userEmail }).catch(err => {
+            console.error('[MOCK TEST CONFIG GET] DB Error:', err);
+            return null;
         });
 
-    } catch (error) {
-        console.error('Fetch Mock Config Error:', error);
-        return NextResponse.json({ error: 'Server error' }, { status: 500 });
+        console.log('[MOCK TEST CONFIG GET] Found config:', config);
+
+        if (!config) {
+            console.log('[MOCK TEST CONFIG GET] No config found, returning empty');
+            return NextResponse.json({ topics: [], facultyName: '' });
+        }
+
+        return NextResponse.json({
+            facultyName: config.facultyName || '',
+            topics: config.topics || []
+        });
+    } catch (error: any) {
+        console.error('[MOCK TEST CONFIG GET] Error:', error);
+        console.error('[MOCK TEST CONFIG GET] Stack:', error?.stack);
+        return NextResponse.json({ error: 'Server error', details: error?.message }, { status: 500 });
     }
 }
 
 export async function POST(req: Request) {
     try {
         await connectDB();
-        const { enabledTopics, facultyName } = await req.json();
-        const email = req.headers.get('X-User-Email');
+        const userEmail = req.headers.get('X-User-Email');
 
-        if (!email) {
+        if (!userEmail) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // Verify facultyName matches the email (basic check)
-        const oneQ = await Question.findOne({ uploadedBy: email }).select('facultyName');
-        if (oneQ && oneQ.facultyName !== facultyName) {
-            // If they have questions and name mismatch, suspicious.
-            // But valid scenarios exist (name change). Let's just proceed or use the one from DB.
+        const body = await req.json();
+        const { facultyName, topics } = body;
+
+        if (!facultyName) {
+            return NextResponse.json({ error: 'Faculty name required' }, { status: 400 });
         }
 
-        // Upsert
+        console.log('[MOCK TEST CONFIG POST] Saving for user:', userEmail);
+        console.log('[MOCK TEST CONFIG POST] Faculty name:', facultyName);
+        console.log('[MOCK TEST CONFIG POST] Topics count:', topics?.length);
+
+        // Upsert config using userEmail as key (more reliable)
         const config = await MockTestConfig.findOneAndUpdate(
-            { facultyName },
-            { enabledTopics },
+            { userEmail },
+            { userEmail, facultyName, topics },
             { upsert: true, new: true }
         );
 
-        return NextResponse.json(config);
+        console.log('[MOCK TEST CONFIG POST] Saved successfully');
 
+        return NextResponse.json({
+            success: true,
+            config
+        });
     } catch (error) {
-        console.error('Save Mock Config Error:', error);
+        console.error('[MOCK TEST CONFIG POST] Error:', error);
         return NextResponse.json({ error: 'Server error' }, { status: 500 });
     }
 }

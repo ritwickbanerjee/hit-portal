@@ -10,7 +10,7 @@ export async function GET(req: Request) {
         const year = searchParams.get('year');
         const course_code = searchParams.get('course_code');
 
-        console.log('[RESOURCES DEBUG] Fetching for dept:', department, 'year:', year, 'course:', course_code);
+
 
         if (!department || !year) {
             return NextResponse.json({ error: 'Department and Year are required' }, { status: 400 });
@@ -29,22 +29,12 @@ export async function GET(req: Request) {
         };
 
         let resources = await Resource.find(query).sort({ createdAt: -1 });
-        console.log('[RESOURCES DEBUG] Found with dept query:', resources.length);
+
 
         // If no results, try getting all resources (fallback)  
         if (resources.length === 0) {
             resources = await Resource.find({}).sort({ createdAt: -1 });
-            console.log('[RESOURCES DEBUG] Found all resources:', resources.length);
 
-            // Sample to debug
-            if (resources.length > 0) {
-                console.log('[RESOURCES DEBUG] Sample resource:', {
-                    title: resources[0].title,
-                    targetDepartments: resources[0].targetDepartments,
-                    targetYear: resources[0].targetYear,
-                    targetCourse: resources[0].targetCourse
-                });
-            }
         }
 
         return NextResponse.json(resources);

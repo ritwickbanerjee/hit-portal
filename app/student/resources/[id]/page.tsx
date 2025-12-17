@@ -44,7 +44,6 @@ export default function PracticeQuestionsPage() {
             });
             if (res.ok) {
                 const data = await res.json();
-                console.log('Resource Data:', data);
                 setResource(data.resource);
                 setQuestions(data.questions || []);
             } else {
@@ -60,11 +59,9 @@ export default function PracticeQuestionsPage() {
                     setAiEnabledTopics(new Set(data.enabledTopics || []));
                 }
             } catch (error) {
-                console.error('Error loading AI settings', error);
             }
             */
         } catch (error) {
-            console.error('Failed to fetch resource', error);
             toast.error('Something went wrong');
         } finally {
             setLoading(false);

@@ -171,9 +171,15 @@ export default function QuestionBank() {
 
     // Mock Test State
     const [isMockTestModalOpen, setIsMockTestModalOpen] = useState(false);
-    const [mockEnabledTopics, setMockEnabledTopics] = useState<string[]>([]);
+    const [mockTopicConfigs, setMockTopicConfigs] = useState<any[]>([]);
     const [mockConfigLoading, setMockConfigLoading] = useState(false);
     const [currentFacultyName, setCurrentFacultyName] = useState('');
+    const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
+
+    // Dropdowns for deployments - dynamically loaded from students
+    const [availableDepts, setAvailableDepts] = useState<string[]>([]);
+    const [availableYears, setAvailableYears] = useState<string[]>([]);
+    const [availableCourses, setAvailableCourses] = useState<string[]>([]);
 
     // Derived Lists
     const topics = Array.from(new Set(questions.map(q => q.topic))).sort();
@@ -201,13 +207,31 @@ export default function QuestionBank() {
     const fetchQuestions = async (email: string) => {
         setLoading(true);
         try {
-            const res = await fetch('/api/admin/questions', {
-                headers: { 'X-User-Email': email }
-            });
-            if (res.ok) {
-                const data = await res.json();
+            // Fetch questions and students in parallel
+            const [questionsRes, studentsRes] = await Promise.all([
+                fetch('/api/admin/questions', { headers: { 'X-User-Email': email } }),
+                fetch('/api/admin/students/all').catch(() => null)
+            ]);
+
+            if (questionsRes.ok) {
+                const data = await questionsRes.json();
                 setQuestions(data);
                 if (data.length > 0) setCurrentFacultyName(data[0].facultyName);
+            }
+
+            // Extract unique departments, years, and courses from students
+            if (studentsRes && studentsRes.ok) {
+                const students = await studentsRes.json();
+                const depts = Array.from(new Set(students.map((s: any) => s.department).filter(Boolean)));
+                const years = Array.from(new Set(students.map((s: any) => s.year).filter(Boolean)));
+                const courses = Array.from(new Set(students.map((s: any) => s.course_code).filter(Boolean)));
+
+                console.log('[QUESTIONS] Loaded dropdowns - Depts:', depts, 'Years:', years, 'Courses:', courses);
+
+                // Update dropdown state (we need to  add these state variables)
+                setAvailableDepts(depts as string[]);
+                setAvailableYears(years as string[]);
+                setAvailableCourses(courses as string[]);
             }
         } catch (error) {
             console.error(error);
@@ -229,14 +253,37 @@ export default function QuestionBank() {
                 return;
             }
 
+            console.log('[MOCK TEST MODAL] Opening with user:', user);
+            console.log('[MOCK TEST MODAL] Current faculty name:', currentFacultyName);
+            console.log('[MOCK TEST MODAL] User name:', userName);
+
             const res = await fetch('/api/admin/mock-test-config', {
                 headers: { 'X-User-Email': user.email }
             });
 
             if (res.ok) {
                 const data = await res.json();
-                setMockEnabledTopics(data.enabledTopics || []);
-                // If we got facultyName from API, use it, otherwise fall back to what we have
+                console.log('[MOCK TEST] Loaded config:', data);
+
+                // Merge saved topics with all available topics from question bank
+                const savedTopics = data.topics || [];
+                const allTopicsConfigs = topics.map(topicName => {
+                    // Check if this topic has saved config
+                    const savedConfig = savedTopics.find((t: any) => t.topic === topicName);
+                    if (savedConfig) {
+                        return savedConfig; // Use saved config
+                    } else {
+                        // Create default config for topics not yet configured
+                        return {
+                            topic: topicName,
+                            enabled: false,
+                            deployments: []
+                        };
+                    }
+                });
+
+                console.log('[MOCK TEST] Final configs:', allTopicsConfigs);
+                setMockTopicConfigs(allTopicsConfigs);
                 if (data.facultyName) setCurrentFacultyName(data.facultyName);
             }
         } catch (error) {
@@ -246,11 +293,61 @@ export default function QuestionBank() {
         }
     };
 
-    const toggleMockTopic = (topic: string) => {
-        setMockEnabledTopics(prev => {
-            if (prev.includes(topic)) return prev.filter(t => t !== topic);
-            return [...prev, topic];
+    const toggleTopicEnabled = (topic: string) => {
+        setMockTopicConfigs(prev => {
+            const existing = prev.find(t => t.topic === topic);
+            if (existing) {
+                const newEnabled = !existing.enabled;
+                // Auto-expand when enabling
+                if (newEnabled) {
+                    setExpandedTopics(prevExpanded => {
+                        const next = new Set(prevExpanded);
+                        next.add(topic);
+                        return next;
+                    });
+                }
+                return prev.map(t =>
+                    t.topic === topic ? { ...t, enabled: newEnabled } : t
+                );
+            } else {
+                // New topic, enable and expand
+                setExpandedTopics(prevExpanded => {
+                    const next = new Set(prevExpanded);
+                    next.add(topic);
+                    return next;
+                });
+                return [...prev, { topic, enabled: true, deployments: [] }];
+            }
         });
+    };
+
+    const addDeployment = (topic: string) => {
+        setMockTopicConfigs(prev => prev.map(t =>
+            t.topic === topic
+                ? { ...t, deployments: [...(t.deployments || []), { department: '', year: '', course: '' }] }
+                : t
+        ));
+    };
+
+    const updateDeployment = (topic: string, index: number, field: string, value: string) => {
+        setMockTopicConfigs(prev => prev.map(t =>
+            t.topic === topic
+                ? {
+                    ...t,
+                    deployments: t.deployments.map((d: any, i: number) =>
+                        i === index ? { ...d, [field]: value } : d
+                    )
+                }
+                : t
+        ));
+    };
+
+    const removeDeployment = (topic: string, index: number) => {
+        setMockTopicConfigs(prev => prev.map(t =>
+            t.topic === topic
+                ? { ...t, deployments: t.deployments.filter((_: any, i: number) => i !== index) }
+                : t
+        ));
     };
 
     const saveMockSettings = async () => {
@@ -258,11 +355,31 @@ export default function QuestionBank() {
         // We'll use the one we have in state.
         if (!currentFacultyName && userName) setCurrentFacultyName(userName);
 
+        // Validation: Check if any enabled topic has incomplete deployments
+        const enabledTopics = mockTopicConfigs.filter(t => t.enabled);
+        for (const topicConfig of enabledTopics) {
+            if (!topicConfig.deployments || topicConfig.deployments.length === 0) {
+                toast.error(`Topic "${topicConfig.topic}" is enabled but has no deployments. Please add at least one deployment.`);
+                return;
+            }
+            // Check if any deployment has missing fields
+            for (const dep of topicConfig.deployments) {
+                if (!dep.department || !dep.year || !dep.course) {
+                    toast.error(`Topic "${topicConfig.topic}" has incomplete deployment details. Please fill all fields (Department, Year, Course).`);
+                    return;
+                }
+            }
+        }
+
         setMockConfigLoading(true);
         try {
             const storedUser = localStorage.getItem('user');
             const user = storedUser ? JSON.parse(storedUser) : null;
             if (!user || !user.email) return;
+
+            const finalFacultyName = currentFacultyName || userName;
+            console.log('[MOCK TEST SAVE] Saving with faculty name:', finalFacultyName);
+            console.log('[MOCK TEST SAVE] Config to save:', mockTopicConfigs);
 
             const res = await fetch('/api/admin/mock-test-config', {
                 method: 'POST',
@@ -271,8 +388,8 @@ export default function QuestionBank() {
                     'X-User-Email': user.email
                 },
                 body: JSON.stringify({
-                    facultyName: currentFacultyName || userName, // Fallback
-                    enabledTopics: mockEnabledTopics
+                    facultyName: finalFacultyName,
+                    topics: mockTopicConfigs
                 })
             });
 
@@ -787,67 +904,164 @@ export default function QuestionBank() {
                 </div>
             </div>
 
-            {/* Mock Test Modal */}
-            {isMockTestModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-                    <div className="bg-gray-800 rounded-lg border border-gray-700 w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
-                        <div className="p-4 border-b border-gray-700 bg-gray-900 flex justify-between items-center">
-                            <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                                <GraduationCap className="h-5 w-5 text-indigo-400" /> Enable Mock Test
-                            </h3>
-                            <button onClick={() => setIsMockTestModalOpen(false)} className="text-gray-400 hover:text-white">
-                                <X className="h-5 w-5" />
-                            </button>
-                        </div>
-                        <div className="p-6 overflow-y-auto flex-1">
-                            <p className="text-sm text-gray-400 mb-4">
-                                Select the topics you want to enable for student mock tests. Students will only see questions from enabled topics.
-                            </p>
+            {/* Mock Test Modal - Complete Replacement */}
+            {
+                isMockTestModalOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+                        <div className="bg-gray-800 rounded-lg border border-gray-700 w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+                            <div className="p-4 border-b border-gray-700 bg-gray-900 flex justify-between items-center">
+                                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                                    <GraduationCap className="h-5 w-5 text-indigo-400" /> Enable Mock Test
+                                </h3>
+                                <button onClick={() => setIsMockTestModalOpen(false)} className="text-gray-400 hover:text-white">
+                                    <X className="h-5 w-5" />
+                                </button>
+                            </div>
+                            <div className="p-6 overflow-y-auto flex-1">
+                                <p className="text-sm text-gray-400 mb-4">
+                                    Enable topics and configure deployment for specific courses. Students will only see topics deployed to their course/department/year.
+                                </p>
 
-                            {mockConfigLoading ? (
-                                <div className="text-center py-8">
-                                    <Loader2 className="h-8 w-8 animate-spin text-indigo-500 mx-auto mb-2" />
-                                    <p className="text-gray-400">Loading Configuration...</p>
-                                </div>
-                            ) : (
-                                <div className="space-y-2">
-                                    {topics.length === 0 ? (
-                                        <p className="text-center py-4 text-gray-400 italic">No topics found. Add questions first.</p>
-                                    ) : (
-                                        topics.map(topic => (
-                                            <div key={topic} className="flex items-center justify-between p-3 bg-gray-900/50 rounded-lg border border-gray-700 hover:bg-gray-700/50 transition-colors">
-                                                <span className="text-white font-medium">{topic}</span>
-                                                <button
-                                                    onClick={() => toggleMockTopic(topic)}
-                                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${mockEnabledTopics.includes(topic) ? 'bg-indigo-600' : 'bg-gray-600'}`}
-                                                >
-                                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${mockEnabledTopics.includes(topic) ? 'translate-x-6' : 'translate-x-1'}`} />
-                                                </button>
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                        <div className="p-4 border-t border-gray-700 bg-gray-900 flex justify-end gap-3">
-                            <button
-                                onClick={() => setIsMockTestModalOpen(false)}
-                                className="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600 font-medium"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={saveMockSettings}
-                                disabled={mockConfigLoading}
-                                className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-500 font-bold flex items-center gap-2 disabled:opacity-50"
-                            >
-                                {mockConfigLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                                Save Changes
-                            </button>
+                                {mockConfigLoading ? (
+                                    <div className="text-center py-8">
+                                        <Loader2 className="h-8 w-8 animate-spin text-indigo-500 mx-auto mb-2" />
+                                        <p className="text-gray-400">Loading Configuration...</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {topics.length === 0 ? (
+                                            <p className="text-center py-4 text-gray-400 italic">No topics found. Add questions first.</p>
+                                        ) : (
+                                            topics.map(topic => {
+                                                const config = mockTopicConfigs.find(t => t.topic === topic) || { topic, enabled: false, deployments: [] };
+                                                const isEnabled = config.enabled;
+                                                const isExpanded = expandedTopics.has(topic);
+
+                                                return (
+                                                    <div key={topic} className="bg-gray-900/50 rounded-lg border border-gray-700">
+                                                        <div className="flex items-center justify-between p-3">
+                                                            <div className="flex items-center gap-3 flex-1">
+                                                                <button
+                                                                    onClick={() => toggleTopicEnabled(topic)}
+                                                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${isEnabled ? 'bg-indigo-600' : 'bg-gray-600'}`}
+                                                                >
+                                                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                                                                </button>
+                                                                <span className="text-white font-medium">{topic}</span>
+                                                                {isEnabled && config.deployments && config.deployments.length > 0 && (
+                                                                    <span className="text-xs bg-indigo-900/50 text-indigo-300 px-2 py-0.5 rounded">
+                                                                        {config.deployments.length} deployment{config.deployments.length !== 1 ? 's' : ''}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            {isEnabled && (
+                                                                <button
+                                                                    onClick={() => setExpandedTopics(prev => {
+                                                                        const next = new Set(prev);
+                                                                        if (next.has(topic)) next.delete(topic);
+                                                                        else next.add(topic);
+                                                                        return next;
+                                                                    })}
+                                                                    className="text-gray-400 hover:text-white"
+                                                                >
+                                                                    <ChevronDown className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                                                                </button>
+                                                            )}
+                                                        </div>
+
+                                                        {isEnabled && isExpanded && (
+                                                            <div className="px-4 pb-4 border-t border-gray-700 pt-3 space-y-3">
+                                                                <div className="flex justify-between items-center mb-2">
+                                                                    <p className="text-xs text-gray-400">Configure where this topic is deployed:</p>
+                                                                    <button
+                                                                        onClick={() => addDeployment(topic)}
+                                                                        className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1 rounded flex items-center gap-1"
+                                                                    >
+                                                                        <Plus className="h-3 w-3" /> Add Deployment
+                                                                    </button>
+                                                                </div>
+
+                                                                {config.deployments && config.deployments.length > 0 ? (
+                                                                    config.deployments.map((dep: any, idx: number) => (
+                                                                        <div key={idx} className="grid grid-cols-3 gap-2 bg-gray-800 p-3 rounded">
+                                                                            <div>
+                                                                                <label className="text-xs text-gray-400 mb-1 block">Department</label>
+                                                                                <select
+                                                                                    value={dep.department}
+                                                                                    onChange={(e) => updateDeployment(topic, idx, 'department', e.target.value)}
+                                                                                    className="w-full bg-gray-900 border border-gray-600 text-white rounded px-2 py-1 text-xs"
+                                                                                >
+                                                                                    <option value="">Select...</option>
+                                                                                    {availableDepts.map(d => <option key={d} value={d}>{d}</option>)}
+                                                                                </select>
+                                                                            </div>
+                                                                            <div>
+                                                                                <label className="text-xs text-gray-400 mb-1 block">Year</label>
+                                                                                <select
+                                                                                    value={dep.year}
+                                                                                    onChange={(e) => updateDeployment(topic, idx, 'year', e.target.value)}
+                                                                                    className="w-full bg-gray-900 border border-gray-600 text-white rounded px-2 py-1 text-xs"
+                                                                                >
+                                                                                    <option value="">Select...</option>
+                                                                                    {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
+                                                                                </select>
+                                                                            </div>
+                                                                            <div className="relative">
+                                                                                <label className="text-xs text-gray-400 mb-1 block">Course</label>
+                                                                                <div className="flex gap-1">
+                                                                                    <select
+                                                                                        value={dep.course}
+                                                                                        onChange={(e) => updateDeployment(topic, idx, 'course', e.target.value)}
+                                                                                        className="flex-1 bg-gray-900 border border-gray-600 text-white rounded px-2 py-1 text-xs"
+                                                                                    >
+                                                                                        <option value="">Select...</option>
+                                                                                        {availableCourses.map(c => <option key={c} value={c}>{c}</option>)}
+                                                                                    </select>
+                                                                                    <button
+                                                                                        onClick={() => removeDeployment(topic, idx)}
+                                                                                        className="text-red-400 hover:text-red-300 px-2"
+                                                                                        title="Remove"
+                                                                                    >
+                                                                                        <X className="h-3 w-3" />
+                                                                                    </button>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    ))
+                                                                ) : (
+                                                                    <p className="text-xs text-gray-500 italic text-center py-2">
+                                                                        No deployments configured. Click "Add Deployment" to deploy this topic.
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                            <div className="p-4 border-t border-gray-700 bg-gray-900 flex justify-end gap-3">
+                                <button
+                                    onClick={() => setIsMockTestModalOpen(false)}
+                                    className="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600 font-medium"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={saveMockSettings}
+                                    disabled={mockConfigLoading}
+                                    className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-500 font-bold flex items-center gap-2 disabled:opacity-50"
+                                >
+                                    {mockConfigLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                                    Save Changes
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Paper Modal */}
             {isPaperModalOpen && (
