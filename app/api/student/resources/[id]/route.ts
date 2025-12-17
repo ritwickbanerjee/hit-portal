@@ -21,17 +21,16 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
             questions = await Question.find({ _id: { $in: resource.questions } });
         }
 
-        // Check if AI is enabled for this topic (Global Config)
-        // We use findOne() to get the singleton config document
+        // Check if AI is enabled for any of the question topics
         const config = await Config.findOne({});
         const aiEnabledTopics = new Set(config?.aiEnabledTopics || []);
 
-        console.log('[DEBUG] Resource Topic:', resource.topic);
-        console.log('[DEBUG] Config Found:', !!config);
         console.log('[DEBUG] AI Enabled Topics:', Array.from(aiEnabledTopics));
+        console.log('[DEBUG] Questions Count:', questions.length);
 
-        const isAIEnabled = resource.topic ? aiEnabledTopics.has(resource.topic) : false;
-        console.log('[DEBUG] isAIEnabled:', isAIEnabled);
+        // Check if ANY question in this resource has an AI-enabled topic
+        const hasAIEnabledTopic = questions.some(q => q.topic && aiEnabledTopics.has(q.topic));
+        console.log('[DEBUG] Has AI Enabled Topic:', hasAIEnabledTopic);
 
         return NextResponse.json({
             resource: {
@@ -45,7 +44,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
                 topic: resource.topic,
                 subtopic: resource.subtopic,
                 hints: resource.hints,
-                aiEnabled: isAIEnabled // Send flag to frontend
+                aiEnabled: hasAIEnabledTopic // Send flag to frontend
             },
             questions: questions.map(q => ({
                 _id: q._id,

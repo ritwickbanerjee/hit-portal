@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
         const client = await MongoClient.connect(MONGO_URI);
         const db = client.db(DB_NAME);
 
-        const config = await db.collection('config').findOne({ _id: 'system_config' } as any);
+        const config = await db.collection('configs').findOne({});
 
         await client.close();
 
@@ -38,8 +38,8 @@ export async function POST(req: NextRequest) {
         const client = await MongoClient.connect(MONGO_URI);
         const db = client.db(DB_NAME);
 
-        await db.collection('config').updateOne(
-            { _id: 'system_config' } as any,
+        await db.collection('configs').updateOne(
+            {},
             { $set: { aiEnabledTopics: enabledTopics } },
             { upsert: true }
         );

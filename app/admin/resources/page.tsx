@@ -148,17 +148,6 @@ export default function Resources() {
         } catch (error) {
             console.error("Error fetching context", error);
         }
-
-        // Fetch AI Enabled Topics
-        try {
-            const aiRes = await fetch('/api/admin/ai-settings', { headers: getHeaders() });
-            if (aiRes.ok) {
-                const data = await aiRes.json();
-                setAiEnabledTopics(new Set(data.enabledTopics || []));
-            }
-        } catch (error) {
-            console.error("Error fetching AI settings", error);
-        }
     };
 
     const handleDelete = async (id: string) => {
