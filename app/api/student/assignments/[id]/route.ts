@@ -146,36 +146,23 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         const canAccess = isSpecialType || attendancePercent >= requiredAttendance;
 
         // 7. Get student's assigned questions
-        console.log(`[Detailed Debug] Fetching questions for Assignment: ${id}`);
-        console.log(`[Detailed Debug] CanAccess: ${canAccess}, IsPastDeadline: ${isPastDeadline}`);
-
         const studentAssignment = await StudentAssignment.findOne({
             studentId: { $in: allStudentIds },
             assignmentId: id
         });
 
-        console.log(`[Detailed Debug] StudentAssignment found: ${!!studentAssignment}`);
-
         let questions: any[] = [];
         if (canAccess && !isPastDeadline) {
             if (studentAssignment && studentAssignment.questionIds) {
-                console.log(`[Detailed Debug] Fetching from studentAssignment.questionIds: ${studentAssignment.questionIds.length}`);
                 questions = await Question.find({
                     _id: { $in: studentAssignment.questionIds }
                 });
             } else if (assignment.questions && assignment.questions.length > 0) {
-                console.log(`[Detailed Debug] Fetching from assignment.questions: ${assignment.questions.length}`);
                 questions = await Question.find({
                     _id: { $in: assignment.questions }
                 });
-            } else {
-                console.log(`[Detailed Debug] No questions found in assignment or studentAssignment`);
             }
-        } else {
-            console.log(`[Detailed Debug] Skipping question fetch due to access/deadline restrictions`);
         }
-
-        console.log(`[Detailed Debug] Final Questions Count: ${questions.length}`);
 
         // 8. Get faculty's script URL for submission (matching legacy logic)
         let scriptUrl = null;
@@ -197,13 +184,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
             if (exactConfig && exactConfig.scriptUrl) {
                 scriptUrl = exactConfig.scriptUrl;
-                console.log(`[scriptUrl] Exact match found for ${facultyName} + ${courseCode}`);
             } else {
                 // Second attempt: Loose match (just facultyName)
                 const looseConfig = allFacultyConfigs.find((c: any) => c.scriptUrl);
                 if (looseConfig && looseConfig.scriptUrl) {
                     scriptUrl = looseConfig.scriptUrl;
-                    console.log(`[scriptUrl] Loose match found for ${facultyName}`);
                 }
             }
         }
@@ -211,17 +196,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         // Third attempt: Fallback to assignment's own scriptUrl field
         if (!scriptUrl && assignment.scriptUrl) {
             scriptUrl = assignment.scriptUrl;
-            console.log(`[scriptUrl] Using assignment's scriptUrl`);
-        }
-
-        if (!scriptUrl) {
-            console.warn(`[scriptUrl] No scriptUrl found for assignment ${id}, faculty: ${facultyName}, course: ${courseCode}`);
         }
 
         // 9. Check if already submitted
+        // 9. Check if already submitted
         const existingSubmission = await Submission.findOne({
             assignment: id,
-            student: studentId
+            student: { $in: allStudentIds }
         });
 
         return NextResponse.json({
@@ -240,6 +221,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
                 id: q.id,
                 text: q.text,
                 latex: q.latex,
+                image: q.image,
                 type: q.type,
                 topic: q.topic,
                 subtopic: q.subtopic,

@@ -443,6 +443,15 @@ export default function AssignmentDetailClient({ assignmentId }: AssignmentDetai
                                                         <div className="text-xs sm:text-base text-gray-200 leading-relaxed">
                                                             <LatexRenderer content={question.latex || question.text} />
                                                         </div>
+                                                        {question.image && (
+                                                            <div className="mt-3 sm:mt-4">
+                                                                <img
+                                                                    src={question.image}
+                                                                    alt="Question Illustration"
+                                                                    className="max-w-full max-h-64 rounded-lg border border-white/10"
+                                                                />
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </div>

@@ -80,7 +80,7 @@ export async function GET(req: Request) {
 
 
             const submissions = await Submission.find({
-                student: { $in: allStudentIds },
+                student: studentId,
                 assignment: { $in: uniqueAssignments.map((a: any) => a._id) }
             });
 

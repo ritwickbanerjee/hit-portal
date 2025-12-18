@@ -198,7 +198,18 @@ export default function PersonalizedTab({ onSuccess, user, context, isGlobalAdmi
                                 className="mt-2 block w-full rounded-md border-0 bg-gray-900/50 py-2 px-3 text-white ring-1 ring-inset ring-gray-600 focus:ring-2 focus:ring-blue-500"
                             />
                         </div>
-                        {/* Target Course removed as per user request */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-300">Target Course</label>
+                            <select
+                                value={formData.targetCourse}
+                                onChange={e => setFormData({ ...formData, targetCourse: e.target.value })}
+                                className="mt-2 block w-full rounded-md border-0 bg-gray-900/50 py-2.5 px-3 text-white ring-1 ring-inset ring-gray-600 focus:ring-2 focus:ring-blue-500"
+                                required
+                            >
+                                <option value="">Select Course</option>
+                                {context.courses.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                        </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">

@@ -6,6 +6,7 @@ const QuestionSchema = new mongoose.Schema({
     type: { type: String, enum: ['broad', 'mcq', 'blanks'], required: true },
     topic: { type: String, required: true },
     subtopic: { type: String, required: true },
+    image: { type: String }, // Base64 string for Image Questions
     uploadedBy: { type: String, required: true }, // User ID or Email
     facultyName: { type: String, required: true },
     createdAt: { type: Date, default: Date.now }

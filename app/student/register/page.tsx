@@ -252,7 +252,7 @@ export default function StudentRegister() {
                     </div>
                 </div>
 
-                
+
             </div>
 
             <style jsx>{`

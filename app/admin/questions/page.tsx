@@ -5,8 +5,15 @@ import { Loader2, Plus, FileJson, FileText, Trash2, Download, Save, X, Printer, 
 import { toast } from 'react-hot-toast';
 import 'katex/dist/katex.min.css';
 import 'katex/dist/katex.min.css';
+import Link from 'next/link';
+import QuestionRow from './components/QuestionRow';
 import Latex from 'react-latex-next';
 import LineNumberTextarea from '../components/LineNumberTextarea';
+import TokenUsageIndicator from './components/TokenUsageIndicator';
+import FileUploadZone from './components/FileUploadZone';
+import ExtractionProgress from './components/ExtractionProgress';
+import AutoDebugger from './components/AutoDebugger';
+import { AlertCircle } from 'lucide-react';
 
 // --- MultiSelect Component ---
 const MultiSelect = ({ options, selected, onChange, placeholder }: any) => {
@@ -134,7 +141,7 @@ export default function QuestionBank() {
 
     // Editor State
     const [isEditorOpen, setIsEditorOpen] = useState(false);
-    const [editorMode, setEditorMode] = useState<'manual' | 'json' | 'pdf'>('manual');
+    const [editorMode, setEditorMode] = useState<EditorMode>('manual');
     const [manualData, setManualData] = useState({ id: '', type: 'broad', topic: '', subtopic: '', text: '' });
     const [jsonContent, setJsonContent] = useState('');
     const [previewContent, setPreviewContent] = useState<any[]>([]);
@@ -143,6 +150,17 @@ export default function QuestionBank() {
     const [errorLine, setErrorLine] = useState<number | null>(null);
     const textAreaRef = useRef<HTMLTextAreaElement>(null);
     const lastEditedId = useRef<string | null>(null);
+
+    // AI Extraction State
+    const [quotaExhausted, setQuotaExhausted] = useState(false);
+    const [isAiExtracting, setIsAiExtracting] = useState(false);
+    const [extractionStage, setExtractionStage] = useState<'idle' | 'initializing' | 'processing' | 'analyzing' | 'extracting' | 'parsing' | 'validating' | 'complete' | 'error'>('idle');
+    const [extractionProgress, setExtractionProgress] = useState(0);
+    const [extractionError, setExtractionError] = useState<string | null>(null);
+    const [validationIssues, setValidationIssues] = useState<any[]>([]);
+    const [usageRefreshTrigger, setUsageRefreshTrigger] = useState(0);
+
+
 
     // Duplicate Detection State
     const [duplicateQuestions, setDuplicateQuestions] = useState<any[]>([]);
@@ -529,18 +547,34 @@ export default function QuestionBank() {
         setNewQuestions([]);
     };
 
-    const syncEditorCursor = (questionText: string) => {
-        if (!textAreaRef.current || !jsonContent || !questionText) return;
-        const snippet = questionText.substring(0, 20);
-        const index = jsonContent.indexOf(snippet);
-        if (index !== -1) {
-            textAreaRef.current.focus();
-            textAreaRef.current.setSelectionRange(index, index);
-            const lineHeight = 20;
-            const lines = jsonContent.substring(0, index).split('\n').length;
-            textAreaRef.current.scrollTop = lines * lineHeight - 100;
-        }
+    // Cursor sync removed - Row based layout handles this naturally
+
+    const handleRowChange = (index: number, updatedQuestion: any) => {
+        const newContent = [...previewContent];
+        newContent[index] = updatedQuestion;
+        setPreviewContent(newContent);
     };
+
+    const handleRowDelete = (index: number) => {
+        const newContent = [...previewContent];
+        newContent.splice(index, 1);
+        setPreviewContent(newContent);
+    };
+
+    const handleAddNewQuestion = () => {
+        setPreviewContent([...previewContent, {
+            id: `q_${Date.now()}`,
+            text: "New Question Text",
+            type: "broad",
+            topic: "Topic",
+            subtopic: "Subtopic"
+        }]);
+        // Scroll to bottom
+        setTimeout(() => {
+            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+        }, 100);
+    };
+
 
     const copyPrompt = () => {
         navigator.clipboard.writeText(AI_PROMPT);
@@ -674,16 +708,118 @@ export default function QuestionBank() {
         a.click();
     };
 
-    const handleModeSwitch = (mode: 'manual' | 'json' | 'pdf') => {
+    const handleModeSwitch = (mode: 'manual' | 'json' | 'pdf' | 'latex' | 'image') => {
         setEditorMode(mode);
         setManualData({ id: '', type: 'broad', topic: '', subtopic: '', text: '' });
         setJsonContent('');
-        setPreviewContent([]);
         setJsonError(null);
         setErrorLine(null);
         lastEditedId.current = null;
+
+        if (mode === 'latex' || mode === 'image') {
+            // Auto-initialize with one empty question so editor is visible
+            setPreviewContent([{
+                id: crypto.randomUUID(),
+                type: 'broad',
+                topic: '',
+                subtopic: '',
+                text: '',
+                image: ''
+            }]);
+        } else {
+            setPreviewContent([]);
+        }
+
         setIsEditorOpen(true);
     };
+
+    // AI Extraction Handlers
+    const handleAiExtraction = async (files: File[]) => {
+        if (!userEmail || quotaExhausted) {
+            toast.error('Cannot extract: quota exhausted');
+            return;
+        }
+
+        setIsAiExtracting(true);
+        setExtractionStage('initializing');
+        setExtractionProgress(0);
+        setExtractionError(null);
+        setValidationIssues([]);
+
+        const allExtractedQuestions: any[] = [];
+
+        try {
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                setExtractionStage('processing');
+                setExtractionProgress((i / files.length) * 90);
+
+                const formData = new FormData();
+                formData.append('file', file);
+
+                const response = await fetch('/api/admin/questions/extract', {
+                    method: 'POST',
+                    headers: {
+                        'X-User-Email': userEmail
+                    },
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Extraction failed');
+                }
+
+                const data = await response.json();
+                allExtractedQuestions.push(...data.questions);
+            }
+
+            setExtractionStage('validating');
+            const issues: any[] = [];
+
+            allExtractedQuestions.forEach((q, index) => {
+                if (!q.text || !q.type || !q.topic || !q.subtopic) {
+                    issues.push({ line: index + 1, message: 'Missing required fields' });
+                }
+            });
+
+            setValidationIssues(issues);
+
+            const jsonString = JSON.stringify(allExtractedQuestions, null, 2);
+            setJsonContent(jsonString);
+
+            const normalized = normalizeImportedData(allExtractedQuestions);
+            checkForDuplicates(normalized);
+
+            setExtractionProgress(100);
+            setExtractionStage('complete');
+            setEditorMode('json');
+            setIsEditorOpen(true);
+            setUsageRefreshTrigger(prev => prev + 1);
+
+            toast.success(`Extracted ${allExtractedQuestions.length} questions!`);
+
+        } catch (error: any) {
+            console.error('AI Extraction error:', error);
+            setExtractionStage('error');
+            setExtractionError(error.message || 'Unknown error occurred');
+            toast.error(error.message || 'Extraction failed');
+        } finally {
+            setIsAiExtracting(false);
+        }
+    };
+
+    const handleAutoFix = (fixedJSON: string) => {
+        setJsonContent(fixedJSON);
+        handleJsonInput({ target: { value: fixedJSON } } as any);
+    };
+
+    const handleRetryExtraction = () => {
+        setExtractionStage('idle');
+        setExtractionError(null);
+        setValidationIssues([]);
+    };
+
 
     const editQuestion = (q: any) => {
         // Scroll to top so user can see the editor
@@ -882,14 +1018,17 @@ export default function QuestionBank() {
             <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
                 {/* Left Side Buttons */}
                 <div className="flex gap-2 flex-wrap w-full md:w-auto">
-                    <button onClick={() => handleModeSwitch('manual')} className="bg-blue-600 hover:bg-blue-500 text-white px-2 py-1.5 md:px-3 md:py-2 rounded-md text-xs md:text-sm font-medium flex items-center gap-2">
-                        <Plus className="h-3 w-3 md:h-4 md:w-4" /> Latex
+                    <button onClick={() => handleModeSwitch('latex')} className="bg-blue-600 hover:bg-blue-500 text-white px-2 py-1.5 md:px-3 md:py-2 rounded-md text-xs md:text-sm font-medium flex items-center gap-2">
+                        Latex
                     </button>
                     <button onClick={() => handleModeSwitch('json')} className="bg-emerald-600 hover:bg-emerald-500 text-white px-2 py-1.5 md:px-3 md:py-2 rounded-md text-xs md:text-sm font-medium flex items-center gap-2">
-                        <Plus className="h-3 w-3 md:h-4 md:w-4" /> JSON
+                        JSON
                     </button>
                     <button onClick={() => handleModeSwitch('pdf')} className="bg-purple-600 hover:bg-purple-500 text-white px-2 py-1.5 md:px-3 md:py-2 rounded-md text-xs md:text-sm font-medium flex items-center gap-2">
-                        <Plus className="h-3 w-3 md:h-4 md:w-4" /> PDF
+                        PDF
+                    </button>
+                    <button onClick={() => handleModeSwitch('image')} className="bg-pink-600 hover:bg-pink-500 text-white px-2 py-1.5 md:px-3 md:py-2 rounded-md text-xs md:text-sm font-medium flex items-center gap-2">
+                        Image
                     </button>
                 </div>
 
@@ -1213,10 +1352,35 @@ export default function QuestionBank() {
                 <div className="bg-gray-800 rounded-lg border border-gray-700 shadow-xl overflow-hidden flex flex-col transition-all duration-300">
                     <div className="bg-gray-900 p-4 border-b border-gray-700 flex justify-between items-center">
                         <div className="flex items-center gap-3">
-                            <h3 className="text-lg font-bold text-white capitalize">{editorMode} Editor</h3>
-                            <span className="px-2 py-0.5 rounded text-xs bg-gray-700 text-gray-300 uppercase tracking-wider">Mode</span>
+                            <h3 className="text-lg font-bold text-white">
+                                {editorMode === 'latex' ? 'LATEX Editor Mode' :
+                                    editorMode === 'json' ? 'JSON Editor Mode' :
+                                        editorMode === 'image' ? 'Image Editor Mode' : 'AI Editor'}
+                            </h3>
+                            <span className="px-2 py-0.5 rounded text-xs bg-gray-700 text-gray-300 uppercase tracking-wider">{editorMode} Mode</span>
                         </div>
                         <div className="flex gap-2">
+                            {editorMode === 'json' && (
+                                <label className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded text-sm font-medium cursor-pointer flex items-center gap-2">
+                                    <input
+                                        type="file"
+                                        accept=".json"
+                                        className="hidden"
+                                        onChange={(e) => {
+                                            const file = e.target.files?.[0];
+                                            if (file) {
+                                                const reader = new FileReader();
+                                                reader.onload = (event) => {
+                                                    const content = event.target?.result as string;
+                                                    handleJsonInput({ target: { value: content } } as any);
+                                                };
+                                                reader.readAsText(file);
+                                            }
+                                        }}
+                                    />
+                                    Upload JSON
+                                </label>
+                            )}
                             <button onClick={() => setIsEditorOpen(false)} className="text-gray-400 hover:text-white px-3 flex items-center gap-2 text-sm font-medium">
                                 <ArrowLeft className="h-4 w-4" /> Back to Homepage
                             </button>
@@ -1231,122 +1395,170 @@ export default function QuestionBank() {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 min-h-[500px]">
-                        <div className="p-4 border-r border-gray-700 flex flex-col gap-4 bg-gray-900">
-                            {editorMode === 'manual' && (
-                                <>
-                                    <div className="grid grid-cols-3 gap-4">
-                                        <div>
-                                            <label className="text-xs text-gray-400 block mb-1">Type</label>
-                                            <select className="w-full bg-gray-800 border border-gray-600 text-white rounded p-2 text-sm" value={manualData.type} onChange={e => handleManualChange('type', e.target.value)}>
-                                                <option value="broad">Broad</option><option value="mcq">MCQ</option><option value="blanks">Blanks</option>
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label className="text-xs text-gray-400 block mb-1">Topic</label>
-                                            <input className="w-full bg-gray-800 border border-gray-600 text-white rounded p-2 text-sm" list="topics-list" placeholder="Select or Type" value={manualData.topic} onChange={e => handleManualChange('topic', e.target.value)} />
-                                        </div>
-                                        <div>
-                                            <label className="text-xs text-gray-400 block mb-1">Subtopic</label>
-                                            <input className="w-full bg-gray-800 border border-gray-600 text-white rounded p-2 text-sm" list="subtopics-list" placeholder="Select or Type" value={manualData.subtopic} onChange={e => handleManualChange('subtopic', e.target.value)} />
-                                        </div>
-                                    </div>
+                    {/* AI Features Section - Full Width Above Split Screen */}
+                    {editorMode === 'pdf' && (
+                        <div className="bg-gray-900 border-b border-gray-700 p-6 space-y-6">
+                            {/* Token Usage Indicator */}
+                            {userEmail && !quotaExhausted && (
+                                <TokenUsageIndicator
+                                    userEmail={userEmail}
+                                    onQuotaExhausted={() => {
+                                        setQuotaExhausted(true);
+                                        toast.error('Daily API quota exhausted. Use manual entry below.');
+                                    }}
+                                    refreshTrigger={usageRefreshTrigger}
+                                />
+                            )}
+
+                            {/* Quota Exhausted Warning */}
+                            {quotaExhausted && (
+                                <div className="bg-red-900/30 border border-red-500/50 rounded-lg p-4 flex items-start gap-3">
+                                    <AlertCircle className="h-5 w-5 text-red-400 flex-shrink-0 mt-0.5" />
                                     <div>
-                                        <label className="text-xs text-gray-400 block mb-1">Question Text (LaTeX supported)</label>
-                                        <textarea
-                                            className="w-full h-64 bg-gray-800 border border-gray-600 text-green-400 font-mono p-4 rounded focus:outline-none focus:border-blue-500"
-                                            placeholder="Type question here... Use $...$ for inline math."
-                                            value={manualData.text}
-                                            onChange={e => handleManualChange('text', e.target.value)}
-                                        />
+                                        <h4 className="text-red-300 font-bold text-sm mb-1">Daily Quota Exhausted</h4>
+                                        <p className="text-red-200/80 text-xs">
+                                            Daily API limit reached. Use manual entry below.
+                                        </p>
                                     </div>
+                                </div>
+                            )}
+
+                            {/* File Upload Zone */}
+                            {!quotaExhausted && (
+                                <>
+                                    <FileUploadZone
+                                        onFilesReady={handleAiExtraction}
+                                        maxFiles={5}
+                                        disabled={isAiExtracting}
+                                    />
+
                                 </>
                             )}
 
-                            {(editorMode === 'json' || editorMode === 'pdf') && (
-                                <div className="flex flex-col h-full gap-4">
-                                    {editorMode === 'pdf' && (
-                                        <div className="bg-purple-900/20 border border-purple-500/30 p-4 rounded-lg space-y-4">
-                                            <div className="flex items-center gap-2 text-purple-300 font-bold text-sm">
-                                                <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center text-white">1</div>
-                                                <span>Copy Prompt & Open AI Tool</span>
-                                            </div>
-                                            <div className="flex gap-2">
-                                                <button onClick={copyPrompt} className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2 rounded text-xs font-bold flex items-center justify-center gap-2 border border-gray-600">
-                                                    <Copy className="h-3 w-3" /> Copy Prompt
-                                                </button>
-                                                <a href="https://gemini.google.com/app" target="_blank" className="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-2 rounded text-xs font-bold flex items-center justify-center gap-1">
-                                                    Gemini <ExternalLink className="h-3 w-3" />
-                                                </a>
-                                                <a href="https://chatgpt.com/" target="_blank" className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded text-xs font-bold flex items-center justify-center gap-1">
-                                                    ChatGPT <ExternalLink className="h-3 w-3" />
-                                                </a>
-                                                <a href="https://www.perplexity.ai/" target="_blank" className="flex-1 bg-yellow-600 hover:bg-yellow-500 text-black py-2 rounded text-xs font-bold flex items-center justify-center gap-1">
-                                                    Perplexity <ExternalLink className="h-3 w-3" />
-                                                </a>
-                                            </div>
-                                            <div className="flex items-center gap-2 text-purple-300 font-bold text-sm">
-                                                <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center text-white">2</div>
-                                                <span>Paste Generated JSON Below</span>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    <div className="flex items-center gap-2">
-                                        <label className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded text-xs cursor-pointer flex items-center gap-2">
-                                            <Upload className="h-3 w-3" /> Import JSON File
-                                            <input type="file" accept=".json" className="hidden" onChange={handleFileUpload} />
-                                        </label>
-                                        <span className="text-xs text-gray-500">or paste text below</span>
-                                    </div>
-
-                                    <textarea
-                                        ref={textAreaRef}
-                                        className="flex-1 bg-gray-800 border border-gray-600 text-green-400 font-mono p-4 rounded focus:outline-none focus:border-blue-500 text-sm leading-relaxed"
-                                        placeholder={editorMode === 'json' ? "Paste JSON array here..." : "Paste AI-generated JSON here..."}
-                                        value={jsonContent}
-                                        onChange={handleJsonInput}
-                                    />
-                                </div>
+                            {/* Extraction Progress */}
+                            {isAiExtracting && (
+                                <ExtractionProgress
+                                    stage={extractionStage}
+                                    progress={extractionProgress}
+                                    questionsFound={previewContent.length}
+                                    error={extractionError || undefined}
+                                />
                             )}
-                        </div>
 
-                        <div className="flex flex-col bg-gray-100 h-full">
-                            <div className="bg-gray-200 px-4 py-2 border-b border-gray-300 flex justify-between items-center">
-                                <h4 className="text-xs font-bold text-gray-600 uppercase">Live Preview</h4>
-                                <span className="text-xs text-gray-500">Click item to edit source</span>
+                            {/* Auto Debugger */}
+                            {validationIssues.length > 0 && extractionStage === 'complete' && (
+                                <AutoDebugger
+                                    jsonContent={jsonContent}
+                                    issues={validationIssues}
+                                    onAutoFix={handleAutoFix}
+                                    onRetry={handleRetryExtraction}
+                                />
+                            )}
+
+                            {/* Manual Tool Section */}
+                            <div className="bg-purple-900/20 border border-purple-500/30 p-4 rounded-lg space-y-4">
+                                <div className="flex items-center gap-2 text-purple-300 font-bold text-sm">
+                                    <span>Manual: Use External AI Tool</span>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button onClick={copyPrompt} className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2 rounded text-xs font-bold flex items-center justify-center gap-2 border border-gray-600">
+                                        <Copy className="h-3 w-3" /> Copy Prompt
+                                    </button>
+                                    <a href="https://gemini.google.com/app" target="_blank" className="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-2 rounded text-xs font-bold flex items-center justify-center gap-1">
+                                        Gemini <ExternalLink className="h-3 w-3" />
+                                    </a>
+                                    <a href="https://chatgpt.com/" target="_blank" className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded text-xs font-bold flex items-center justify-center gap-1">
+                                        ChatGPT <ExternalLink className="h-3 w-3" />
+                                    </a>
+                                    <a href="https://www.perplexity.ai/" target="_blank" className="flex-1 bg-yellow-600 hover:bg-yellow-500 text-black py-2 rounded text-xs font-bold flex items-center justify-center gap-1">
+                                        Perplexity <ExternalLink className="h-3 w-3" />
+                                    </a>
+                                </div>
+                                <div className="flex items-center gap-2 text-purple-300 font-bold text-sm">
+                                    <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center text-white">↓</div>
+                                    <span>Paste Generated JSON Below</span>
+                                </div>
                             </div>
-                            {jsonError && (
-                                <div className="bg-red-100 border-b border-red-200 p-2 text-xs text-red-600 font-mono break-all">
-                                    {jsonError}
+                        </div>
+                    )}
+
+                    {/* JSON Mode - Bulk Input */}
+                    {editorMode === 'json' && (
+                        <div className="bg-gray-900 border-b border-gray-700 p-6 space-y-4">
+                            <div className="flex justify-between items-center">
+                                <div className="flex items-center gap-2">
+                                    <div className="bg-emerald-500/10 text-emerald-400 p-2 rounded-lg">
+                                        <FileText className="h-5 w-5" />
+                                    </div>
+                                    <div>
+                                        <h4 className="text-white font-bold text-sm">Bulk JSON Import</h4>
+                                        <p className="text-xs text-gray-400">Paste your JSON array here. The editor below will update automatically.</p>
+                                    </div>
                                 </div>
-                            )}
-                            <div className="flex-1 p-4 overflow-y-auto space-y-4">
-                                {previewContent.length === 0 ? (
-                                    <div className="text-center text-gray-400 mt-10 italic">Preview will appear here...</div>
-                                ) : (
-                                    previewContent.map((q, i) => (
-                                        <div
-                                            key={i}
-                                            onClick={() => syncEditorCursor(q.text)}
-                                            className="bg-white p-4 rounded shadow-sm border border-gray-200 hover:border-blue-400 cursor-pointer transition-colors group"
-                                        >
-                                            <div className="flex justify-between items-start mb-2 border-b border-gray-100 pb-2">
-                                                <div className="flex gap-2">
-                                                    <span className="bg-blue-100 text-blue-800 text-[10px] px-2 py-0.5 rounded font-bold uppercase">{q.topic}</span>
-                                                    <span className="bg-purple-100 text-purple-800 text-[10px] px-2 py-0.5 rounded font-bold uppercase">{q.subtopic}</span>
-                                                </div>
-                                                <span className="text-[10px] text-gray-400 font-mono uppercase">{q.type}</span>
-                                            </div>
-                                            <div className="text-gray-800 text-sm">
-                                                {q.text ? <Latex>{q.text}</Latex> : <span className="text-gray-400 italic">(No text content)</span>}
-                                            </div>
-                                        </div>
-                                    ))
+                                {jsonError && (
+                                    <span className="text-red-400 text-xs font-bold bg-red-900/20 px-2 py-1 rounded border border-red-500/20">
+                                        {jsonError}
+                                    </span>
                                 )}
                             </div>
+
+                            <textarea
+                                className="w-full h-48 bg-gray-950 border border-gray-700 rounded-lg p-3 text-xs md:text-sm font-mono text-emerald-400 focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none resize-y"
+                                placeholder={`[\n  {\n    "text": "Question text...",\n    "type": "broad",\n    "topic": "Math",\n    "subtopic": "Algebra"\n  }\n]`}
+                                value={jsonContent}
+                                onChange={handleJsonInput}
+                                spellCheck={false}
+                            />
                         </div>
+                    )}
+
+                    {/* Row-Based Editor List */}
+                    <div className="flex flex-col bg-gray-900 border-t border-gray-700">
+                        {previewContent.length === 0 ? (
+                            <div className="p-12 text-center flex flex-col items-center justify-center text-gray-500">
+                                <FileText className="h-12 w-12 mb-4 opacity-50" />
+                                <p className="text-lg font-medium mb-2">No questions yet</p>
+                                <p className="text-sm mb-6 max-w-md">
+                                    {editorMode === 'json' ? 'Paste JSON above or upload a file.' : 'Upload a file above or add a question manually.'}
+                                </p>
+                                {!['json', 'latex', 'image'].includes(editorMode) && (
+                                    <button
+                                        onClick={handleAddNewQuestion}
+                                        className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded font-bold flex items-center gap-2"
+                                    >
+                                        <Plus className="h-4 w-4" /> Add First Question
+                                    </button>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="flex flex-col">
+                                {previewContent.map((q, i) => (
+                                    <QuestionRow
+                                        key={q.id || i}
+                                        index={i}
+                                        question={q}
+                                        mode={editorMode}
+                                        topics={topics} // Pass props for dropdowns
+                                        subtopics={subtopics}
+                                        onChange={(updated) => handleRowChange(i, updated)}
+                                        onDelete={() => handleRowDelete(i)}
+                                    />
+                                ))}
+
+                                {!['json', 'latex'].includes(editorMode) && (
+                                    <div className="p-8 flex justify-center bg-gray-900 border-t border-gray-700">
+                                        <button
+                                            onClick={handleAddNewQuestion}
+                                            className="bg-gray-800 hover:bg-gray-700 text-white border border-gray-600 px-6 py-3 rounded-lg font-bold flex items-center gap-2 transition-colors w-full max-w-md justify-center"
+                                        >
+                                            <Plus className="h-5 w-5" /> Add New Question
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
+
                 </div>
             )}
 
@@ -1430,6 +1642,11 @@ export default function QuestionBank() {
                                             <Edit className="h-4 w-4 text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity" />
                                         </div>
                                         <div className="text-gray-300 text-sm leading-relaxed">
+                                            {q.image && (
+                                                <div className="mb-2">
+                                                    <img src={q.image} alt="Question" className="max-h-32 rounded border border-gray-700 hover:scale-105 transition-transform origin-left" />
+                                                </div>
+                                            )}
                                             <Latex>{q.text}</Latex>
                                         </div>
                                     </div>

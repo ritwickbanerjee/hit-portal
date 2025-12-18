@@ -249,6 +249,15 @@ Thank you!`;
                                                 <div className="text-xs sm:text-base text-gray-200 leading-relaxed">
                                                     <Latex>{question.latex || question.text}</Latex>
                                                 </div>
+                                                {question.image && (
+                                                    <div className="mt-3 sm:mt-4">
+                                                        <img
+                                                            src={question.image}
+                                                            alt="Question Illustration"
+                                                            className="max-w-full max-h-64 rounded-lg border border-white/10"
+                                                        />
+                                                    </div>
+                                                )}
                                                 <div className="clear-both"></div>
                                             </div>
                                         </div>

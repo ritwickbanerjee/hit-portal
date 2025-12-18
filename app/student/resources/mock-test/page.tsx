@@ -210,6 +210,15 @@ export default function MockTest() {
                         <div className="text-gray-200 text-sm sm:text-base leading-relaxed">
                             <Latex>{currentQuestion.text}</Latex>
                         </div>
+                        {currentQuestion.image && (
+                            <div className="mt-4 flex justify-center">
+                                <img
+                                    src={currentQuestion.image}
+                                    alt="Question Illustration"
+                                    className="max-h-64 rounded-lg border border-emerald-500/20"
+                                />
+                            </div>
+                        )}
                     </div>
 
                     {/* Navigation - Always show both buttons on last page */}

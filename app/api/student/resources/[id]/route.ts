@@ -25,12 +25,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         const config = await Config.findOne({});
         const aiEnabledTopics = new Set(config?.aiEnabledTopics || []);
 
-        console.log('[DEBUG] AI Enabled Topics:', Array.from(aiEnabledTopics));
-        console.log('[DEBUG] Questions Count:', questions.length);
-
         // Check if ANY question in this resource has an AI-enabled topic
         const hasAIEnabledTopic = questions.some(q => q.topic && aiEnabledTopics.has(q.topic));
-        console.log('[DEBUG] Has AI Enabled Topic:', hasAIEnabledTopic);
 
         return NextResponse.json({
             resource: {
@@ -50,6 +46,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
                 _id: q._id,
                 text: q.text,
                 latex: q.latex,
+                image: q.image,
                 type: q.type,
                 topic: q.topic,
                 subtopic: q.subtopic,

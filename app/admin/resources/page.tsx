@@ -4,10 +4,12 @@ import { useState, useEffect } from 'react';
 import { Loader2, Plus, Trash2, Edit, Link as LinkIcon, FileText, Video, Brain, Copy, Check, Sparkles, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import 'katex/dist/katex.min.css';
-import 'katex/dist/katex.min.css';
-import 'katex/dist/katex.min.css';
+
 import Latex from 'react-latex-next';
+
 import LineNumberTextarea from '../components/LineNumberTextarea';
+import HintRow from './components/HintRow';
+import TokenUsageIndicator from '../questions/components/TokenUsageIndicator';
 
 export default function Resources() {
     const [activeTab, setActiveTab] = useState('practice');
@@ -33,10 +35,12 @@ export default function Resources() {
     const [hintsForm, setHintsForm] = useState({
         title: '', targetDepartments: [] as string[], targetYear: '', targetCourse: '',
         selectedTopics: [] as string[], selectedQuestions: new Set<string>(),
-        aiOutput: '', hintsData: [] as any[]
+        aiOutput: '', hintsData: [] as any[] // hintsData will store [{ id, topic, content, hints: [] }]
     });
     const [jsonError, setJsonError] = useState<string | null>(null);
     const [errorLine, setErrorLine] = useState<number | null>(null);
+    const [isGeneratingHints, setIsGeneratingHints] = useState(false);
+    const [usageRefreshTrigger, setUsageRefreshTrigger] = useState(0);
 
     const [materialForm, setMaterialForm] = useState({
         title: '', url: '', targetDepartments: [] as string[], targetYear: '', targetCourse: ''
@@ -300,36 +304,68 @@ ${JSON.stringify(selectedData, null, 2)}`;
             .catch(() => toast.error('Failed to copy'));
     };
 
-    const handleAiInput = (e: any) => {
-        const val = e.target.value;
-        setHintsForm({ ...hintsForm, aiOutput: val });
+    const handleGenerateHints = async () => {
+        if (hintsForm.selectedQuestions.size === 0) return toast.error('Select questions first');
 
-        if (!val.trim()) {
-            setHintsForm(prev => ({ ...prev, hintsData: [] }));
-            setJsonError(null);
-            setErrorLine(null);
-            return;
-        }
+        setIsGeneratingHints(true);
         try {
-            const cleanJson = val.replace(/^```json/, '').replace(/```$/, '');
-            const data = JSON.parse(cleanJson);
-            if (Array.isArray(data)) {
-                setHintsForm(prev => ({ ...prev, hintsData: data }));
-                setJsonError(null);
-                setErrorLine(null);
+            const selectedData = allQuestions
+                .filter(q => hintsForm.selectedQuestions.has(q._id))
+                .map(q => ({
+                    id: q._id,
+                    text: q.text,
+                    topic: q.topic
+                }));
+
+            const res = await fetch('/api/admin/resources/generate-hints', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ questions: selectedData })
+            });
+
+            const data = await res.json();
+
+            if (data.success) {
+                // Merge results into hintsData
+                // We need to construct the full objects for HintRow
+                const newHintsData = selectedData.map(q => {
+                    const found = data.results.find((r: any) => r.id === q.id);
+                    return {
+                        id: q.id,
+                        topic: q.topic,
+                        content: q.text,
+                        hints: found ? found.hints : []
+                    };
+                });
+
+                setHintsForm(prev => ({ ...prev, hintsData: newHintsData }));
+                setUsageRefreshTrigger(prev => prev + 1); // Update usage
+                toast.success(`Generated hints for ${newHintsData.length} questions!`);
             } else {
-                setJsonError("Input must be a JSON Array");
-                setErrorLine(null);
+                toast.error(data.error || "Failed to generate hints");
             }
-        } catch (err: any) {
-            setJsonError(err.message);
-            const match = err.message.match(/position\s+(\d+)/);
-            if (match) {
-                const pos = parseInt(match[1]);
-                const contentUpToError = val.substring(0, pos);
-                setErrorLine(contentUpToError.split('\n').length);
-            }
+        } catch (error) {
+            console.error("Hint Generation Error:", error);
+            toast.error("An error occurred while generating hints");
+        } finally {
+            setIsGeneratingHints(false);
         }
+    };
+
+    const updateHintRow = (index: number, newHints: string[]) => {
+        setHintsForm(prev => {
+            const newData = [...prev.hintsData];
+            newData[index] = { ...newData[index], hints: newHints };
+            return { ...prev, hintsData: newData };
+        });
+    };
+
+    const removeHintRow = (index: number) => {
+        setHintsForm(prev => {
+            const newData = [...prev.hintsData];
+            newData.splice(index, 1);
+            return { ...prev, hintsData: newData };
+        });
     };
 
     const submitHints = async () => {
@@ -523,7 +559,7 @@ ${JSON.stringify(selectedData, null, 2)}`;
                                 </div>
                             </div>
 
-                            <div className="bg-gray-900 border border-gray-700 rounded-lg h-96 overflow-y-auto p-4 space-y-2">
+                            <div className="bg-gray-900 border border-gray-700 rounded-lg h-[600px] overflow-y-auto p-4 space-y-2">
                                 {getFilteredQuestions('practice').map(q => (
                                     <label key={q._id} className="flex items-start gap-3 p-2 hover:bg-gray-800 rounded cursor-pointer border-b border-gray-800 last:border-0">
                                         <input
@@ -624,7 +660,7 @@ ${JSON.stringify(selectedData, null, 2)}`;
                                         <button onClick={() => toggleAll('hints', false)} className="text-gray-400 hover:underline">Deselect All</button>
                                     </div>
                                 </div>
-                                <div className="bg-gray-900 border border-gray-700 rounded-lg h-48 overflow-y-auto p-4 space-y-2">
+                                <div className="bg-gray-900 border border-gray-700 rounded-lg h-[600px] overflow-y-auto p-4 space-y-2">
                                     {getFilteredQuestions('hints').map(q => (
                                         <label key={q._id} className="flex items-start gap-3 p-2 hover:bg-gray-800 rounded cursor-pointer border-b border-gray-800 last:border-0">
                                             <input
@@ -640,71 +676,88 @@ ${JSON.stringify(selectedData, null, 2)}`;
                             </div>
 
                             <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 space-y-4">
-                                <h2 className="text-xl font-bold text-white">2. AI Generation</h2>
+                                <div className="flex justify-between items-center">
+                                    <h2 className="text-xl font-bold text-white">2. AI Assistance</h2>
+                                    {user?.email && (
+                                        <div className="scale-90 origin-right">
+                                            <TokenUsageIndicator
+                                                userEmail={user.email}
+                                                refreshTrigger={usageRefreshTrigger}
+                                                onQuotaExhausted={() => { }}
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+
                                 <div className="space-y-4">
-                                    <button onClick={copyPrompt} className="w-full bg-purple-900/50 hover:bg-purple-900/70 text-purple-200 py-3 rounded border border-purple-500 flex items-center justify-center gap-2 transition-transform hover:scale-[1.01]">
-                                        <Copy className="h-4 w-4" /> Copy Prompt & Data (JSON)
+                                    <p className="text-sm text-gray-400">
+                                        Select questions above, then click the button below to automatically generate hints using Gemini AI.
+                                    </p>
+
+                                    <button
+                                        onClick={handleGenerateHints}
+                                        disabled={isGeneratingHints || hintsForm.selectedQuestions.size === 0}
+                                        className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white py-3 rounded-lg font-bold flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 disabled:grayscale transition-all"
+                                    >
+                                        {isGeneratingHints ? <Loader2 className="animate-spin h-5 w-5" /> : <Sparkles className="h-5 w-5" />}
+                                        {isGeneratingHints ? 'Generating Hints...' : `Generate Hints for ${hintsForm.selectedQuestions.size} Question${hintsForm.selectedQuestions.size !== 1 ? 's' : ''}`}
                                     </button>
-                                    <div className="flex gap-2">
-                                        <a href="https://gemini.google.com/app" target="_blank" className="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-2 rounded text-center text-xs font-bold transition-colors">Gemini</a>
-                                        <a href="https://chatgpt.com/" target="_blank" className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded text-center text-xs font-bold transition-colors">ChatGPT</a>
-                                        <a href="https://www.perplexity.ai/" target="_blank" className="flex-1 bg-teal-600 hover:bg-teal-500 text-white py-2 rounded text-center text-xs font-bold transition-colors">Perplexity</a>
+
+                                    {/* Manual Tool Grid */}
+                                    {/* Manual Tool Section */}
+                                    <div className="bg-purple-900/20 border border-purple-500/30 p-4 rounded-lg space-y-4 mt-4">
+                                        <div className="flex items-center gap-2 text-purple-300 font-bold text-sm">
+                                            <span>Manual: Use External AI Tool</span>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button onClick={copyPrompt} className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2 rounded text-xs font-bold flex items-center justify-center gap-2 border border-gray-600">
+                                                <Copy className="h-4 w-4" /> Copy Prompt
+                                            </button>
+                                            <a href="https://gemini.google.com/app" target="_blank" className="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-2 rounded text-xs font-bold flex items-center justify-center gap-1">
+                                                Gemini <LinkIcon className="h-3 w-3" />
+                                            </a>
+                                            <a href="https://chatgpt.com/" target="_blank" className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded text-xs font-bold flex items-center justify-center gap-1">
+                                                ChatGPT <LinkIcon className="h-3 w-3" />
+                                            </a>
+                                            <a href="https://www.perplexity.ai/" target="_blank" className="flex-1 bg-yellow-600 hover:bg-yellow-500 text-black py-2 rounded text-xs font-bold flex items-center justify-center gap-1">
+                                                Perplexity <LinkIcon className="h-3 w-3" />
+                                            </a>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-purple-300 font-bold text-sm">
+                                            <div className="w-6 h-6 rounded-full bg-purple-600 flex items-center justify-center text-white">↓</div>
+                                            <span>Paste Generated JSON Below</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
                             <div className="bg-gray-800 rounded-lg border border-gray-700 shadow-xl overflow-hidden flex flex-col transition-all duration-300">
-                                <div className="bg-gray-900 p-4 border-b border-gray-700">
-                                    <h2 className="text-xl font-bold text-white">3. Paste JSON & Preview</h2>
+                                <div className="bg-gray-900 p-4 border-b border-gray-700 flex justify-between items-center">
+                                    <h2 className="text-xl font-bold text-white">3. Hints Editor</h2>
+                                    <span className="text-sm text-gray-400">{hintsForm.hintsData.length} items ready</span>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 h-[500px]">
-                                    <div className="p-4 border-r border-gray-700 flex flex-col gap-4 bg-gray-900">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-xs text-gray-500">Paste AI Output (JSON) below</span>
+                                <div className="flex flex-col bg-gray-900 h-[600px] overflow-y-auto">
+                                    {hintsForm.hintsData.length === 0 ? (
+                                        <div className="p-12 text-center flex flex-col items-center justify-center text-gray-500">
+                                            <Brain className="h-12 w-12 mb-4 opacity-50" />
+                                            <p className="text-lg font-medium mb-2">No hints generated yet</p>
+                                            <p className="text-sm">Select questions and click "Generate Hints" to begin.</p>
                                         </div>
-                                        <LineNumberTextarea
-                                            className="flex-1 min-h-0"
-                                            placeholder="Paste JSON here..."
-                                            value={hintsForm.aiOutput}
-                                            onChange={handleAiInput}
-                                            errorLine={errorLine}
-                                        />
-                                        {jsonError && (
-                                            <div className="text-red-400 text-xs font-mono bg-red-900/20 p-2 rounded border border-red-500/20 flex flex-col">
-                                                <span className="font-bold">Error:</span>
-                                                <span>{jsonError}</span>
-                                                {errorLine && <span>Line detected: {errorLine}</span>}
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <div className="flex flex-col bg-gray-100 h-full min-h-0">
-                                        <div className="bg-gray-200 px-4 py-2 border-b border-gray-300 flex justify-between items-center shrink-0">
-                                            <h4 className="text-xs font-bold text-gray-600 uppercase">Live Preview</h4>
-                                            <span className="text-xs text-gray-500">{hintsForm.hintsData.length} items</span>
+                                    ) : (
+                                        <div className="flex flex-col">
+                                            {hintsForm.hintsData.map((data, i) => (
+                                                <HintRow
+                                                    key={data.id || i}
+                                                    index={i}
+                                                    question={{ text: data.content, topic: data.topic }}
+                                                    hints={data.hints}
+                                                    onHintsChange={(updated) => updateHintRow(i, updated)}
+                                                    onDelete={() => removeHintRow(i)}
+                                                />
+                                            ))}
                                         </div>
-                                        <div className="flex-1 p-4 overflow-y-auto space-y-4 min-h-0">
-                                            {hintsForm.hintsData.length > 0 ? (
-                                                hintsForm.hintsData.map((h, i) => (
-                                                    <div key={i} className="bg-white p-4 rounded shadow-sm border border-gray-200 hover:border-blue-400 transition-colors group">
-                                                        <div className="flex justify-between items-start mb-2 border-b border-gray-100 pb-2">
-                                                            <div className="font-bold text-gray-800 text-sm">{h.topic || 'Question'}</div>
-                                                        </div>
-                                                        <div className="text-gray-800 text-sm mb-2"><Latex>{h.content}</Latex></div>
-                                                        <div className="pl-3 border-l-2 border-green-600 bg-green-50 p-2 rounded-r">
-                                                            <span className="text-xs text-green-700 font-bold uppercase">Hints:</span>
-                                                            <ul className="list-disc list-inside text-gray-600 text-xs mt-1 space-y-1">
-                                                                {h.hints.map((hint: string, j: number) => <li key={j}><Latex>{hint}</Latex></li>)}
-                                                            </ul>
-                                                        </div>
-                                                    </div>
-                                                ))
-                                            ) : (
-                                                <div className="text-center text-gray-400 mt-10 italic">Preview will appear here after pasting valid JSON...</div>
-                                            )}
-                                        </div>
-                                    </div>
+                                    )}
                                 </div>
                             </div>
 

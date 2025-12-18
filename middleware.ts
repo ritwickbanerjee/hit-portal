@@ -7,9 +7,18 @@ const JWT_SECRET = process.env.JWT_SECRET || 'fallback-dev-secret-change-this-in
 const key = new TextEncoder().encode(JWT_SECRET);
 
 export async function middleware(req: NextRequest) {
-    // 1. Skip middleware for auth routes
+    // 1. Skip middleware for auth routes AND Admin API (handled by route headers)
     if (req.nextUrl.pathname.startsWith('/api/student/auth')) {
         return NextResponse.next();
+    }
+
+    if (req.nextUrl.pathname.startsWith('/api/admin')) {
+        // Allow legacy admin auth headers to bypass JWT check
+        const globalKey = req.headers.get('x-global-admin-key');
+        const userEmail = req.headers.get('x-user-email');
+        if (globalKey || userEmail) {
+            return NextResponse.next();
+        }
     }
 
     // 2. Check for the token in cookies OR headers
