@@ -14,6 +14,7 @@ type Question = {
     type: 'mcq' | 'blanks' | 'broad';
     topic: string;
     marks: number;
+    image?: string;
 };
 
 export default function MockTest() {

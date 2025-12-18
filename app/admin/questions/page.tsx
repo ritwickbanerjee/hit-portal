@@ -133,7 +133,7 @@ Example Output:
 ]
 `;
 
-type EditorMode = 'manual' | 'json' | 'image';
+type EditorMode = 'manual' | 'json' | 'image' | 'pdf' | 'latex';
 
 export default function QuestionBank() {
     const [loading, setLoading] = useState(false);
