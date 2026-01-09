@@ -20,12 +20,18 @@ const OnlineTestSchema = new mongoose.Schema({
         }
     }],
     deployment: {
-        department: { type: String },
+        department: [{ type: String }], // Changed to Array for Multi-Select
         year: { type: String },
         course: { type: String },
         startTime: { type: Date },
         durationMinutes: { type: Number },
-        endTime: { type: Date } // Calculated or explicit end
+        endTime: { type: Date }
+    },
+    config: {
+        shuffleQuestions: { type: Boolean, default: false },
+        timerPerQuestion: { type: Boolean, default: false },
+        timePerQuestion: { type: Number }, // in minutes
+        allowBackNavigation: { type: Boolean, default: true }
     },
     randomization: {
         enabled: { type: Boolean, default: false },

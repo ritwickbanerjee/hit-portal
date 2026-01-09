@@ -23,14 +23,67 @@ export default function OnlineTestPage() {
     const topics = useMemo(() => Array.from(new Set(availableQuestions.map(q => q.topic).filter(Boolean))).sort(), [availableQuestions]);
     const subtopics = useMemo(() => Array.from(new Set(availableQuestions.map(q => q.subtopic).filter(Boolean))).sort(), [availableQuestions]);
 
+    const [user, setUser] = useState<any>(null);
+    const [config, setConfig] = useState<any>({ teacherAssignments: {} });
+
     // Mock Data for Dashboard (Replace with API fetch)
     useEffect(() => {
-        fetchTests();
+        const init = async () => {
+            const storedUser = localStorage.getItem('user');
+            if (storedUser) {
+                setUser(JSON.parse(storedUser));
+            }
 
-        // Fetch Questions for Selection
-        // In a real app, this would be an API call
-        // For now, we'll initialize with empty or mock if needed
+            try {
+                const headers = getHeaders();
+                const cRes = await fetch('/api/admin/config', { headers });
+                if (cRes.ok) {
+                    const data = await cRes.json();
+                    setConfig(data);
+                }
+            } catch (e) {
+                console.error("Error fetching config", e);
+            }
+
+            fetchTests();
+        };
+        init();
     }, []);
+
+    // Derived Lists for Deployment (Access Control)
+    const { depts, years, courses } = useMemo(() => {
+        const d = new Set<string>();
+        const y = new Set<string>();
+        const c = new Set<string>();
+
+        const isGA = typeof window !== 'undefined' && localStorage.getItem('globalAdminActive') === 'true';
+
+        if (isGA) {
+            // Global Admin sees all options (hardcoded for now as we don't have a student list here to derive from)
+            // Or better, we can provide standard options
+            ['CSE', 'ECE', 'ME', 'CE', 'EE'].forEach(dept => d.add(dept));
+            ['1', '2', '3', '4'].forEach(year => y.add(year));
+            // Courses might be tricky without a full list, but we can allow free text or fetch all courses
+            // For GA, we might want to allow free text input or show all from config if available
+        } else if (user?.email && config.teacherAssignments) {
+            Object.entries(config.teacherAssignments).forEach(([key, teachers]: [string, any]) => {
+                if (Array.isArray(teachers) && teachers.some((t: any) => t.email?.toLowerCase() === user.email.toLowerCase())) {
+                    const parts = key.split('_');
+                    if (parts.length >= 3) {
+                        d.add(parts[0]);
+                        y.add(parts[1]);
+                        c.add(parts[2]);
+                    }
+                }
+            });
+        }
+
+        return {
+            depts: Array.from(d).sort(),
+            years: Array.from(y).sort(),
+            courses: Array.from(c).sort()
+        };
+    }, [config, user]);
 
     const getHeaders = () => {
         const headers: any = { 'Content-Type': 'application/json' };
@@ -123,12 +176,25 @@ export default function OnlineTestPage() {
                 text = text.replace(optionRegex, '').trim();
             }
 
+            // Auto-create 4 options for MCQ if missing
+            if (type === 'mcq' && options.length === 0) {
+                options = ['Option 1', 'Option 2', 'Option 3', 'Option 4'];
+            }
+
+            // Calculate initial indices from values (best effort for existing data)
+            let correctIndices: number[] = [];
+            if (q.correctAnswers) {
+                correctIndices = q.correctAnswers.map((ans: string) => options.indexOf(ans)).filter((idx: number) => idx !== -1);
+            }
+
             return {
                 ...q,
                 type,
                 options,
                 marks: 1, // Default marks
-                negativeMarks: 0
+                negativeMarks: 0,
+                correctAnswers: q.correctAnswers || [],
+                correctIndices // Internal tracking
             };
         });
 
@@ -136,27 +202,95 @@ export default function OnlineTestPage() {
         setView('editor');
     };
 
+    const validateQuestions = () => {
+        const questions = currentTest.questions || [];
+        for (let i = 0; i < questions.length; i++) {
+            const q = questions[i];
+            if (q.type === 'mcq' || q.type === 'msq') {
+                if (!q.correctIndices || q.correctIndices.length === 0) {
+                    alert(`Question ${i + 1} (${q.type.toUpperCase()}) must have at least one correct answer selected.`);
+                    return false;
+                }
+            } else if (q.type === 'number') {
+                if (!q.numberRange || (q.numberRange.min === undefined && q.numberRange.max === undefined)) {
+                    alert(`Question ${i + 1} (Number) must have a valid range.`);
+                    return false;
+                }
+            }
+        }
+        return true;
+    };
 
+    const handleProceedToDeployment = () => {
+        if (validateQuestions()) {
+            // Finalize questions: Convert indices to values and fill empty options
+            const finalizedQuestions = currentTest.questions.map((q: any) => {
+                if (q.type === 'mcq' || q.type === 'msq') {
+                    // Fill empty options
+                    const finalOptions = q.options.map((opt: string, idx: number) => opt.trim() === '' ? `Option ${idx + 1}` : opt);
 
+                    // Map indices to values
+                    const finalCorrectAnswers = q.correctIndices.map((idx: number) => finalOptions[idx]);
+
+                    return {
+                        ...q,
+                        options: finalOptions,
+                        correctAnswers: finalCorrectAnswers
+                    };
+                }
+                return q;
+            });
+
+            setCurrentTest({ ...currentTest, questions: finalizedQuestions });
+            setView('deployment');
+        }
+    };
     const handleDeploy = async () => {
         // Validation
-        if (!currentTest.deployment?.department || !currentTest.deployment?.year || !currentTest.deployment?.course) {
-            alert('Please fill in all deployment fields.');
+        if (!currentTest.deployment?.department || currentTest.deployment.department.length === 0 || !currentTest.deployment?.year || !currentTest.deployment?.course) {
+            alert('Please select at least one department, year, and course.');
+            return;
+        }
+
+        if (!currentTest.deployment?.startTime || !currentTest.deployment?.endTime || !currentTest.deployment?.durationMinutes) {
+            alert('Please set start time, end time, and duration.');
+            return;
+        }
+
+        if (new Date(currentTest.deployment.startTime) >= new Date(currentTest.deployment.endTime)) {
+            alert('End time must be after start time.');
+            return;
+        }
+
+        if (currentTest.config?.timerPerQuestion && !currentTest.config?.timePerQuestion) {
+            alert('Please set time per question if timer is enabled.');
             return;
         }
 
         setLoading(true);
         try {
+            // Sanitize payload: Remove internal fields like correctIndices
+            const sanitizedQuestions = currentTest.questions.map((q: any) => {
+                const { correctIndices, ...rest } = q;
+                return rest;
+            });
+
+            const payload = {
+                ...currentTest,
+                questions: sanitizedQuestions
+            };
+
             // First save/update the test
             const saveRes = await fetch('/api/admin/online-test/save', {
                 method: 'POST',
                 headers: getHeaders(),
-                body: JSON.stringify(currentTest)
+                body: JSON.stringify(payload)
             });
             const saveData = await saveRes.json();
 
             if (!saveData.success) {
-                alert('Failed to save test: ' + saveData.error);
+                alert('Failed to save test: ' + (saveData.error || 'Unknown error'));
+                setLoading(false);
                 return;
             }
 
@@ -164,15 +298,18 @@ export default function OnlineTestPage() {
             const deployRes = await fetch('/api/admin/online-test/deploy', {
                 method: 'POST',
                 headers: getHeaders(),
-                body: JSON.stringify({ _id: saveData.test._id, deployment: currentTest.deployment })
+                body: JSON.stringify({
+                    _id: saveData.test._id,
+                    deployment: currentTest.deployment,
+                    config: currentTest.config
+                })
             });
             const deployData = await deployRes.json();
 
             if (deployData.success) {
                 alert('Test Deployed Successfully!');
                 setView('dashboard');
-                // Refresh list
-                // fetchTests(); // TODO: Implement fetchTests
+                fetchTests();
             } else {
                 alert('Failed to deploy test: ' + deployData.error);
             }
@@ -375,7 +512,7 @@ export default function OnlineTestPage() {
                             <div className="flex gap-2">
                                 <button onClick={() => setView('selection')} className="text-slate-400 hover:text-white px-3 py-1 text-sm">Back</button>
                                 <button
-                                    onClick={() => setView('deployment')}
+                                    onClick={handleProceedToDeployment}
                                     className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-1.5 rounded font-medium flex items-center gap-2"
                                 >
                                     Next: Deployment <ArrowRight className="h-4 w-4" />
@@ -555,17 +692,17 @@ export default function OnlineTestPage() {
                                                             <input
                                                                 type={q.type === 'mcq' ? 'radio' : 'checkbox'}
                                                                 name={`q${idx}-correct`}
-                                                                checked={q.correctAnswers?.includes(opt) || false}
+                                                                checked={q.correctIndices?.includes(optIdx) || false}
                                                                 onChange={(e) => {
                                                                     const newQuestions = [...currentTest.questions];
                                                                     if (q.type === 'mcq') {
-                                                                        newQuestions[idx].correctAnswers = [opt];
+                                                                        newQuestions[idx].correctIndices = [optIdx];
                                                                     } else {
-                                                                        const current = newQuestions[idx].correctAnswers || [];
+                                                                        const current = newQuestions[idx].correctIndices || [];
                                                                         if (e.target.checked) {
-                                                                            newQuestions[idx].correctAnswers = [...current, opt];
+                                                                            newQuestions[idx].correctIndices = [...current, optIdx];
                                                                         } else {
-                                                                            newQuestions[idx].correctAnswers = current.filter((a: string) => a !== opt);
+                                                                            newQuestions[idx].correctIndices = current.filter((i: number) => i !== optIdx);
                                                                         }
                                                                     }
                                                                     setCurrentTest({ ...currentTest, questions: newQuestions });
@@ -578,7 +715,17 @@ export default function OnlineTestPage() {
                                                                 value={opt || ''}
                                                                 onChange={(e) => {
                                                                     const newQuestions = [...currentTest.questions];
-                                                                    newQuestions[idx].options[optIdx] = e.target.value;
+                                                                    const oldVal = newQuestions[idx].options[optIdx];
+                                                                    const newVal = e.target.value;
+
+                                                                    // Update option text
+                                                                    newQuestions[idx].options[optIdx] = newVal;
+
+                                                                    // Sync correct answer if this option was selected
+                                                                    if (newQuestions[idx].correctAnswers?.includes(oldVal)) {
+                                                                        newQuestions[idx].correctAnswers = newQuestions[idx].correctAnswers.map((a: string) => a === oldVal ? newVal : a);
+                                                                    }
+
                                                                     setCurrentTest({ ...currentTest, questions: newQuestions });
                                                                 }}
                                                             />
@@ -743,16 +890,10 @@ export default function OnlineTestPage() {
                             <h2 className="text-lg font-bold text-white">Step 3: Deploy Test</h2>
                             <div className="flex gap-2">
                                 <button onClick={() => setView('editor')} className="text-slate-400 hover:text-white px-3 py-1 text-sm">Back</button>
-                                <button
-                                    onClick={handleDeploy}
-                                    className="bg-green-600 hover:bg-green-500 text-white px-6 py-1.5 rounded font-bold flex items-center gap-2 shadow-lg shadow-green-500/20"
-                                >
-                                    <Check className="h-4 w-4" /> Deploy Now
-                                </button>
                             </div>
                         </div>
                         <div className="flex-1 p-8 overflow-y-auto custom-scrollbar">
-                            <div className="max-w-3xl mx-auto space-y-8">
+                            <div className="max-w-4xl mx-auto space-y-8">
                                 {/* Target Audience */}
                                 <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-6">
                                     <div className="flex items-center gap-3 mb-6">
@@ -766,17 +907,29 @@ export default function OnlineTestPage() {
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                         <div>
-                                            <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Department</label>
-                                            <select
-                                                className="w-full bg-slate-900 border border-slate-700 text-white rounded-lg px-4 py-2.5 outline-none focus:border-indigo-500"
-                                                value={currentTest?.deployment?.department || ''}
-                                                onChange={(e) => setCurrentTest({ ...currentTest, deployment: { ...currentTest.deployment, department: e.target.value } })}
-                                            >
-                                                <option value="">Select Department</option>
-                                                <option value="CSE">CSE</option>
-                                                <option value="ECE">ECE</option>
-                                                <option value="ME">ME</option>
-                                            </select>
+                                            <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Department (Multi-Select)</label>
+                                            <div className="bg-slate-900 border border-slate-700 rounded-lg p-2 max-h-32 overflow-y-auto custom-scrollbar">
+                                                {depts.map(dept => (
+                                                    <label key={dept} className="flex items-center gap-2 p-1 hover:bg-slate-800 rounded cursor-pointer">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={currentTest?.deployment?.department?.includes(dept) || false}
+                                                            onChange={(e) => {
+                                                                const currentDepts = currentTest?.deployment?.department || [];
+                                                                let newDepts;
+                                                                if (e.target.checked) {
+                                                                    newDepts = [...currentDepts, dept];
+                                                                } else {
+                                                                    newDepts = currentDepts.filter((d: string) => d !== dept);
+                                                                }
+                                                                setCurrentTest({ ...currentTest, deployment: { ...currentTest.deployment, department: newDepts } });
+                                                            }}
+                                                            className="accent-indigo-500"
+                                                        />
+                                                        <span className="text-sm text-slate-300">{dept}</span>
+                                                    </label>
+                                                ))}
+                                            </div>
                                         </div>
                                         <div>
                                             <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Year</label>
@@ -786,21 +939,35 @@ export default function OnlineTestPage() {
                                                 onChange={(e) => setCurrentTest({ ...currentTest, deployment: { ...currentTest.deployment, year: e.target.value } })}
                                             >
                                                 <option value="">Select Year</option>
-                                                <option value="1">1st Year</option>
-                                                <option value="2">2nd Year</option>
-                                                <option value="3">3rd Year</option>
-                                                <option value="4">4th Year</option>
+                                                {years.map(y => {
+                                                    const isNum = /^\d+$/.test(y);
+                                                    const label = isNum ? (y === '1' ? '1st' : y === '2' ? '2nd' : y === '3' ? '3rd' : y + 'th') : y;
+                                                    return <option key={y} value={y}>{label} Year</option>;
+                                                })}
                                             </select>
                                         </div>
                                         <div>
                                             <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Course</label>
-                                            <input
-                                                type="text"
-                                                placeholder="e.g. CS101"
-                                                className="w-full bg-slate-900 border border-slate-700 text-white rounded-lg px-4 py-2.5 outline-none focus:border-indigo-500"
-                                                value={currentTest?.deployment?.course || ''}
-                                                onChange={(e) => setCurrentTest({ ...currentTest, deployment: { ...currentTest.deployment, course: e.target.value } })}
-                                            />
+                                            {courses.length > 0 ? (
+                                                <select
+                                                    className="w-full bg-slate-900 border border-slate-700 text-white rounded-lg px-4 py-2.5 outline-none focus:border-indigo-500"
+                                                    value={currentTest?.deployment?.course || ''}
+                                                    onChange={(e) => setCurrentTest({ ...currentTest, deployment: { ...currentTest.deployment, course: e.target.value } })}
+                                                >
+                                                    <option value="">Select Course</option>
+                                                    {courses.map(c => (
+                                                        <option key={c} value={c}>{c}</option>
+                                                    ))}
+                                                </select>
+                                            ) : (
+                                                <input
+                                                    type="text"
+                                                    placeholder="e.g. CS101"
+                                                    className="w-full bg-slate-900 border border-slate-700 text-white rounded-lg px-4 py-2.5 outline-none focus:border-indigo-500"
+                                                    value={currentTest?.deployment?.course || ''}
+                                                    onChange={(e) => setCurrentTest({ ...currentTest, deployment: { ...currentTest.deployment, course: e.target.value } })}
+                                                />
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -813,12 +980,12 @@ export default function OnlineTestPage() {
                                         </div>
                                         <div>
                                             <h3 className="text-lg font-bold text-white">Schedule & Duration</h3>
-                                            <p className="text-sm text-slate-400">When will the test happen?</p>
+                                            <p className="text-sm text-slate-400">Set the time window and exam duration.</p>
                                         </div>
                                     </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                         <div>
-                                            <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Start Time</label>
+                                            <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Window Start Time</label>
                                             <input
                                                 type="datetime-local"
                                                 className="w-full bg-slate-900 border border-slate-700 text-white rounded-lg px-4 py-2.5 outline-none focus:border-indigo-500"
@@ -827,7 +994,16 @@ export default function OnlineTestPage() {
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Duration (Minutes)</label>
+                                            <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Window End Time</label>
+                                            <input
+                                                type="datetime-local"
+                                                className="w-full bg-slate-900 border border-slate-700 text-white rounded-lg px-4 py-2.5 outline-none focus:border-indigo-500"
+                                                value={currentTest?.deployment?.endTime || ''}
+                                                onChange={(e) => setCurrentTest({ ...currentTest, deployment: { ...currentTest.deployment, endTime: e.target.value } })}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Exam Duration (Minutes)</label>
                                             <input
                                                 type="number"
                                                 placeholder="e.g. 60"
@@ -839,22 +1015,93 @@ export default function OnlineTestPage() {
                                     </div>
                                 </div>
 
-                                {/* Randomization (Placeholder for now) */}
-                                <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-6 opacity-50 pointer-events-none">
-                                    <div className="flex items-center justify-between mb-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className="h-10 w-10 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-400">
-                                                <Users className="h-6 w-6" />
-                                            </div>
-                                            <div>
-                                                <h3 className="text-lg font-bold text-white">Randomization</h3>
-                                                <p className="text-sm text-slate-400">Coming soon in next phase</p>
-                                            </div>
+                                {/* Exam Settings */}
+                                <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-6">
+                                    <div className="flex items-center gap-3 mb-6">
+                                        <div className="h-10 w-10 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-400">
+                                            <Users className="h-6 w-6" />
                                         </div>
-                                        <div className="h-6 w-12 bg-slate-700 rounded-full relative">
-                                            <div className="absolute left-1 top-1 h-4 w-4 bg-slate-500 rounded-full"></div>
+                                        <div>
+                                            <h3 className="text-lg font-bold text-white">Exam Settings</h3>
+                                            <p className="text-sm text-slate-400">Configure proctoring and behavior.</p>
                                         </div>
                                     </div>
+
+                                    <div className="space-y-4">
+                                        {/* Shuffle Questions */}
+                                        <div className="flex items-center justify-between p-4 bg-slate-900/50 rounded-lg border border-slate-800">
+                                            <div>
+                                                <h4 className="text-sm font-bold text-white">Shuffle Questions</h4>
+                                                <p className="text-xs text-slate-400">Randomize question order for each student.</p>
+                                            </div>
+                                            <label className="relative inline-flex items-center cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    className="sr-only peer"
+                                                    checked={currentTest?.config?.shuffle || false}
+                                                    onChange={(e) => setCurrentTest({ ...currentTest, config: { ...currentTest.config, shuffle: e.target.checked } })}
+                                                />
+                                                <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                            </label>
+                                        </div>
+
+                                        {/* Timer Per Question */}
+                                        <div className="p-4 bg-slate-900/50 rounded-lg border border-slate-800">
+                                            <div className="flex items-center justify-between mb-4">
+                                                <div>
+                                                    <h4 className="text-sm font-bold text-white">Timer Per Question</h4>
+                                                    <p className="text-xs text-slate-400">Enforce a time limit for each question.</p>
+                                                </div>
+                                                <label className="relative inline-flex items-center cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        className="sr-only peer"
+                                                        checked={currentTest?.config?.timerPerQuestion || false}
+                                                        onChange={(e) => setCurrentTest({ ...currentTest, config: { ...currentTest.config, timerPerQuestion: e.target.checked } })}
+                                                    />
+                                                    <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                                </label>
+                                            </div>
+
+                                            {currentTest?.config?.timerPerQuestion && (
+                                                <div className="pt-4 border-t border-slate-800 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    <div>
+                                                        <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Time per Question (Seconds)</label>
+                                                        <input
+                                                            type="number"
+                                                            className="w-full bg-slate-900 border border-slate-700 text-white rounded-lg px-4 py-2.5 outline-none focus:border-indigo-500"
+                                                            value={currentTest?.config?.timePerQuestion || ''}
+                                                            onChange={(e) => setCurrentTest({ ...currentTest, config: { ...currentTest.config, timePerQuestion: parseInt(e.target.value) } })}
+                                                        />
+                                                    </div>
+                                                    <div className="flex items-center justify-between">
+                                                        <div>
+                                                            <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Allow Backtracking</label>
+                                                            <p className="text-[10px] text-slate-500">Can students go back to previous questions?</p>
+                                                        </div>
+                                                        <label className="relative inline-flex items-center cursor-pointer">
+                                                            <input
+                                                                type="checkbox"
+                                                                className="sr-only peer"
+                                                                checked={currentTest?.config?.allowBackTracking || false}
+                                                                onChange={(e) => setCurrentTest({ ...currentTest, config: { ...currentTest.config, allowBackTracking: e.target.checked } })}
+                                                            />
+                                                            <div className="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="flex justify-end pt-4">
+                                    <button
+                                        onClick={handleDeploy}
+                                        className="bg-green-600 hover:bg-green-500 text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-green-500/20 text-lg transition-all hover:scale-105"
+                                    >
+                                        <Check className="h-5 w-5" /> Deploy Test Now
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -862,6 +1109,6 @@ export default function OnlineTestPage() {
                 )}
 
             </div>
-        </div>
+        </div >
     );
 }

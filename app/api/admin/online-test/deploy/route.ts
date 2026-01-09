@@ -6,20 +6,28 @@ export async function POST(req: Request) {
     try {
         await connectDB();
         const body = await req.json();
-        const { _id, deployment } = body;
+        const { _id, deployment, config } = body;
 
         if (!_id) {
             return NextResponse.json({ error: 'Test ID is required for deployment.' }, { status: 400 });
         }
 
         // Validate Deployment Details
-        if (!deployment || !deployment.department || !deployment.year || !deployment.course || !deployment.startTime || !deployment.durationMinutes) {
+        if (!deployment ||
+            !deployment.department ||
+            (Array.isArray(deployment.department) && deployment.department.length === 0) ||
+            !deployment.year ||
+            !deployment.course ||
+            !deployment.startTime ||
+            !deployment.endTime ||
+            !deployment.durationMinutes) {
             return NextResponse.json({ error: 'Incomplete deployment details.' }, { status: 400 });
         }
 
         // Update Test Status and Deployment Details
         const test = await OnlineTest.findByIdAndUpdate(_id, {
             deployment,
+            config,
             status: 'deployed',
             updatedAt: new Date()
         }, { new: true });

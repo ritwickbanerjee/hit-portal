@@ -6,10 +6,12 @@ export async function POST(req: Request) {
     try {
         await connectDB();
         const body = await req.json();
+        console.log('Save Test Payload:', JSON.stringify(body, null, 2)); // DEBUG
         const { _id, title, description, questions, deployment, randomization, status, createdBy } = body;
 
         // Basic Validation
         if (!title || !questions || questions.length === 0) {
+            console.error('Validation Failed: Title or Questions missing');
             return NextResponse.json({ error: 'Title and at least one question are required.' }, { status: 400 });
         }
 
@@ -43,6 +45,6 @@ export async function POST(req: Request) {
         return NextResponse.json({ success: true, test });
     } catch (error) {
         console.error('Error saving online test:', error);
-        return NextResponse.json({ error: 'Failed to save test' }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to save test: ' + (error as Error).message }, { status: 500 });
     }
 }
