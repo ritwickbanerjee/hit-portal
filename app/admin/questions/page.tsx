@@ -203,7 +203,22 @@ export default function QuestionBank() {
 
     // Derived Lists
     const topics = Array.from(new Set(questions.map(q => q.topic))).sort();
-    const subtopics = Array.from(new Set(questions.map(q => q.subtopic))).sort();
+
+    // Cascading Subtopics: Filter based on selected topics
+    const subtopics = useMemo(() => {
+        const filteredByTopic = selectedTopics.length > 0
+            ? questions.filter(q => selectedTopics.includes(q.topic))
+            : questions;
+        return Array.from(new Set(filteredByTopic.map(q => q.subtopic))).filter(Boolean).sort();
+    }, [questions, selectedTopics]);
+
+    // Paper Modal Subtopics
+    const paperSubtopics = useMemo(() => {
+        const filteredByTopic = selectedTopic
+            ? questions.filter(q => q.topic === selectedTopic)
+            : questions;
+        return Array.from(new Set(filteredByTopic.map(q => q.subtopic))).filter(Boolean).sort();
+    }, [questions, selectedTopic]);
 
     // Compute filtered questions based on selected topics and subtopics
     const filteredQuestions = useMemo(() => {
@@ -1234,7 +1249,7 @@ export default function QuestionBank() {
                                                 disabled={!selectedTopic}
                                             >
                                                 <option value="">All Subtopics</option>
-                                                {subtopics.map(s => <option key={s} value={s}>{s}</option>)}
+                                                {paperSubtopics.map(s => <option key={s} value={s}>{s}</option>)}
                                             </select>
                                         </div>
                                     </div>

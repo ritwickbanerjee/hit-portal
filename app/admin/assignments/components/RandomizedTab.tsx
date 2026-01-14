@@ -48,6 +48,12 @@ export default function RandomizedTab({ onSuccess, user, context, isGlobalAdmin 
 
         const newSubTopics = Array.from(new Set(relevantQuestions.map(q => q.subtopic).filter(Boolean))).sort();
         setSubTopics(newSubTopics);
+
+        // Clear invalid subtopics
+        setFormData(prev => ({
+            ...prev,
+            selectedSubTopics: prev.selectedSubTopics.filter(s => newSubTopics.includes(s))
+        }));
     }, [formData.selectedTopics, allQuestions]);
 
     useEffect(() => {

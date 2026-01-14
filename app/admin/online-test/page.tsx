@@ -21,7 +21,12 @@ export default function OnlineTestPage() {
 
     // Derived Lists (matching QuestionBank logic)
     const topics = useMemo(() => Array.from(new Set(availableQuestions.map(q => q.topic).filter(Boolean))).sort(), [availableQuestions]);
-    const subtopics = useMemo(() => Array.from(new Set(availableQuestions.map(q => q.subtopic).filter(Boolean))).sort(), [availableQuestions]);
+    const subtopics = useMemo(() => {
+        const filtered = filters.topic
+            ? availableQuestions.filter(q => q.topic === filters.topic)
+            : availableQuestions;
+        return Array.from(new Set(filtered.map(q => q.subtopic).filter(Boolean))).sort();
+    }, [availableQuestions, filters.topic]);
 
     const [user, setUser] = useState<any>(null);
     const [config, setConfig] = useState<any>({ teacherAssignments: {} });
@@ -452,7 +457,7 @@ export default function OnlineTestPage() {
                             <select
                                 className="bg-slate-800 border border-slate-700 text-white text-sm rounded px-3 py-2 outline-none focus:border-indigo-500"
                                 value={filters.topic}
-                                onChange={e => setFilters({ ...filters, topic: e.target.value })}
+                                onChange={e => setFilters({ ...filters, topic: e.target.value, subtopic: '' })}
                             >
                                 <option value="">All Topics</option>
                                 {topics.map(t => <option key={t} value={t}>{t}</option>)}

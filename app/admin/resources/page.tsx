@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Loader2, Plus, Trash2, Edit, Link as LinkIcon, FileText, Video, Brain, Copy, Check, Sparkles, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import 'katex/dist/katex.min.css';
@@ -62,6 +62,21 @@ export default function Resources() {
     // AI Verification Control State
     const [showAIModal, setShowAIModal] = useState(false);
     const [aiEnabledTopics, setAiEnabledTopics] = useState<Set<string>>(new Set());
+
+    // Derived Subtopics using useMemo
+    const practiceSubtopics = useMemo(() => {
+        const filtered = practiceForm.selectedTopics.length === 0
+            ? allQuestions
+            : allQuestions.filter(q => practiceForm.selectedTopics.includes(q.topic));
+        return Array.from(new Set(filtered.map(q => q.subtopic).filter(Boolean))).sort();
+    }, [allQuestions, practiceForm.selectedTopics]);
+
+    const videoSubtopics = useMemo(() => {
+        const filtered = !videoForm.topic
+            ? allQuestions
+            : allQuestions.filter(q => q.topic === videoForm.topic);
+        return Array.from(new Set(filtered.map(q => q.subtopic).filter(Boolean))).sort();
+    }, [allQuestions, videoForm.topic]);
 
     useEffect(() => {
         const storedUser = localStorage.getItem('user');
@@ -546,7 +561,7 @@ ${JSON.stringify(selectedData, null, 2)}`;
                                         }}
                                     >
                                         <option value="">All Subtopics</option>
-                                        {subtopics.map(t => <option key={t} value={t}>{t}</option>)}
+                                        {practiceSubtopics.map(t => <option key={t} value={t}>{t}</option>)}
                                     </select>
                                 </div>
                             </div>
@@ -932,7 +947,7 @@ ${JSON.stringify(selectedData, null, 2)}`;
                                             className="w-full bg-gray-700 border-gray-600 rounded text-white p-2"
                                             value={videoForm.subtopic} onChange={e => setVideoForm({ ...videoForm, subtopic: e.target.value })}
                                         />
-                                        <datalist id="subtopics-list">{subtopics.map(t => <option key={t} value={t} />)}</datalist>
+                                        <datalist id="subtopics-list">{videoSubtopics.map(t => <option key={t} value={t} />)}</datalist>
                                     </div>
                                 </div>
                                 <div>
