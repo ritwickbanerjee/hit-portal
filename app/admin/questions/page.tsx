@@ -282,7 +282,11 @@ export default function QuestionBank() {
             const res = await fetch('/api/admin/mock-test-config', { headers });
             let data: any[] = [];
             if (res.ok) {
-                data = await res.json();
+                const responseData = await res.json();
+                console.log('[MOCK TEST LOAD] Loaded config:', responseData);
+                // API returns { facultyName, topics: [] }
+                // Use default empty array if topics is undefined
+                data = responseData.topics || [];
             }
 
             // Get all unique topics from loaded questions
