@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Loader2, Calendar, Users, Clock, Save, Search, Trash2, CheckSquare, Square } from 'lucide-react';
+import { Loader2, Calendar, Search, Save, Trash2, Edit, X, RefreshCw, Check, Clock, Users } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 import InstallPWA from '@/components/InstallPWA';
 
 export default function AdminAttendance() {
@@ -202,14 +203,16 @@ export default function AdminAttendance() {
 
     const handleSaveAttendance = async () => {
         if (!date || !selectedTeacher || selectedTimeSlots.length === 0 || tableStudents.length === 0) {
-            alert('Please fill all fields and ensure students are listed.');
+            toast.error('Please fill all fields and ensure students are listed.');
             return;
         }
 
         const action = editingRecordId ? 'Update' : 'Save';
-        if (!confirm(`${action} attendance for ${selectedTimeSlots.length} slot(s)?`)) return;
+        // Removed confirm dialog to streamline UX
 
         setLoading(true);
+        const toastId = toast.loading(`${action === 'Update' ? 'Updating' : 'Saving'} attendance...`);
+
         try {
             const presentIds = tableStudents.filter(s => attendanceData[s._id]).map(s => s._id);
             const absentIds = tableStudents.filter(s => !attendanceData[s._id]).map(s => s._id);
@@ -246,7 +249,7 @@ export default function AdminAttendance() {
             if (editingRecordId) {
                 res = await fetch(`/api/admin/attendance/${editingRecordId}`, {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', ...getHeaders() },
                     body: JSON.stringify(payload)
                 });
             } else {
@@ -256,24 +259,29 @@ export default function AdminAttendance() {
                 }));
                 res = await fetch('/api/admin/attendance', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', ...getHeaders() },
                     body: JSON.stringify({ records })
                 });
             }
 
             if (!res.ok) throw new Error(`Failed to ${action.toLowerCase()}`);
 
-            alert(`Attendance ${action.toLowerCase()}d successfully!`);
+            toast.success(`Attendance ${action.toLowerCase()}d successfully!`, { id: toastId });
 
             if (editingRecordId) {
                 setEditingRecordId(null);
                 setActiveTab('manage');
                 handleSearchRecords();
             } else {
+                // Reset form to "fresh" state
                 setSelectedTimeSlots([]);
+                setFilters({ dept: '', year: '', course: '' });
+                setAttendanceData({});
+                setSelectAll(true);
+                // Removed switch to manage tab and search logic
             }
         } catch (error: any) {
-            alert(error.message);
+            toast.error(error.message, { id: toastId });
         } finally {
             setLoading(false);
         }
@@ -312,19 +320,24 @@ export default function AdminAttendance() {
     };
 
     const handleDeleteRecord = async (id: string) => {
-        if (!confirm('Delete this record?')) return;
+        // Removed confirm dialog
+        const toastId = toast.loading('Deleting record...');
         try {
             const res = await fetch(`/api/admin/attendance/${id}`, { method: 'DELETE', headers: getHeaders() });
-            if (res.ok) {
-                setSearchResults(prev => prev.filter(r => r._id !== id));
-            }
-        } catch (error) { console.error(error); }
+            if (!res.ok) throw new Error('Failed to delete');
+
+            setSearchResults(prev => prev.filter(r => r._id !== id));
+            toast.success('Record deleted', { id: toastId });
+        } catch (error: any) {
+            toast.error(error.message, { id: toastId });
+        }
     };
 
     const handleDeleteAllFiltered = async () => {
         if (searchResults.length === 0) return;
-        if (!confirm(`Delete ALL ${searchResults.length} records? This cannot be undone.`)) return;
+        // Removed confirm dialog
 
+        const toastId = toast.loading(`Deleting ${searchResults.length} records...`);
         setLoading(true);
         try {
             const ids = searchResults.map(r => r._id);
@@ -334,12 +347,13 @@ export default function AdminAttendance() {
                 body: JSON.stringify({ ids })
             });
 
-            if (res.ok) {
-                setSearchResults([]);
-                alert('All records deleted.');
-            }
-        } catch (error) { console.error(error); }
-        finally { setLoading(false); }
+            if (!res.ok) throw new Error('Failed to delete all');
+
+            setSearchResults([]);
+            toast.success('All records deleted', { id: toastId });
+        } catch (error: any) {
+            toast.error(error.message, { id: toastId });
+        } finally { setLoading(false); }
     };
 
     return (
@@ -351,14 +365,14 @@ export default function AdminAttendance() {
                 <button
                     onClick={() => { setActiveTab('take'); setEditingRecordId(null); }}
                     className={`w-full rounded-lg py-2.5 text-sm font-medium leading-5 transition-all duration-200 ${activeTab === 'take' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/25' : 'text-slate-400 hover:text-white hover:bg-white/5'
-                        }`}
+                        } `}
                 >
                     {editingRecordId ? 'Edit Record' : 'Take Attendance'}
                 </button>
                 <button
                     onClick={() => { setActiveTab('manage'); setEditingRecordId(null); }}
                     className={`w-full rounded-lg py-2.5 text-sm font-medium leading-5 transition-all duration-200 ${activeTab === 'manage' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/25' : 'text-slate-400 hover:text-white hover:bg-white/5'
-                        }`}
+                        } `}
                 >
                     Manage Records
                 </button>
@@ -459,7 +473,7 @@ export default function AdminAttendance() {
                                         className={`px-4 py-2 rounded-lg text-xs font-semibold border transition-all duration-200 ${selectedTimeSlots.includes(slot)
                                             ? 'bg-indigo-600 text-white border-indigo-500 shadow-lg shadow-indigo-500/25 scale-105'
                                             : 'bg-slate-950 text-slate-400 border-white/10 hover:border-white/20 hover:text-slate-200 hover:bg-slate-900'
-                                            } ${editingRecordId ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                            } ${editingRecordId ? 'opacity-50 cursor-not-allowed' : ''} `}
                                     >
                                         {slot}
                                     </button>

@@ -1032,11 +1032,11 @@ export default function QuestionBank() {
                     <span className="bg-gray-800 text-gray-300 px-3 py-1.5 rounded-md text-xs font-bold border border-gray-700">
                         Total: {questions.length}
                     </span>
-                    <button onClick={() => handleModeSwitch('latex')} className="bg-blue-600 hover:bg-blue-500 text-white px-2 py-1.5 md:px-3 md:py-2 rounded-md text-xs md:text-sm font-medium flex items-center gap-2">
-                        Latex
-                    </button>
                     <button onClick={() => handleModeSwitch('json')} className="bg-emerald-600 hover:bg-emerald-500 text-white px-2 py-1.5 md:px-3 md:py-2 rounded-md text-xs md:text-sm font-medium flex items-center gap-2">
                         JSON
+                    </button>
+                    <button onClick={() => handleModeSwitch('latex')} className="bg-blue-600 hover:bg-blue-500 text-white px-2 py-1.5 md:px-3 md:py-2 rounded-md text-xs md:text-sm font-medium flex items-center gap-2">
+                        Latex
                     </button>
                     <button onClick={() => handleModeSwitch('pdf')} className="bg-purple-600 hover:bg-purple-500 text-white px-2 py-1.5 md:px-3 md:py-2 rounded-md text-xs md:text-sm font-medium flex items-center gap-2">
                         PDF

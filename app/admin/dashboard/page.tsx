@@ -2,8 +2,10 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { Loader2, Upload, FileDown, Save, Trash2, Edit, Download, CheckSquare, Square, AlertTriangle, X, ToggleLeft, ToggleRight, Ban, CheckCircle, Search } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 
 export default function AdminDashboard() {
+
     const [loading, setLoading] = useState(false);
     const [config, setConfig] = useState<any>({ attendanceRequirement: 70, attendanceRules: {}, teacherAssignments: {} });
     const [adminEmail, setAdminEmail] = useState<string | null>(null);
@@ -46,13 +48,49 @@ export default function AdminDashboard() {
         setSelectedStudentIds(new Set());
     }, [viewFilter, searchQuery]);
 
-    // Derived Lists for Dropdowns - OPEN ACCESS: Everyone can see all available options
-    const { departments, years, courses } = useMemo(() => {
+    // Derived Lists for Dropdowns - FILTERED by Access Control (For Manage Students)
+    const filteredDropdowns = useMemo(() => {
         const depts = new Set<string>();
         const yrs = new Set<string>();
         const crs = new Set<string>();
 
-        // Always use all students to populate dropdowns so any faculty can tag themselves to any course
+        let availableStudents = students;
+
+        // Access Control Logic
+        if (!isGlobalAdmin && adminEmail) {
+            const assignedKeys = Object.entries(config.teacherAssignments || {}).filter(([key, teachers]: [string, any]) => {
+                return Array.isArray(teachers) && teachers.some((t: any) => t.email?.toLowerCase() === adminEmail.toLowerCase());
+            }).map(([key]) => key);
+
+            if (assignedKeys.length > 0) {
+                availableStudents = students.filter(s => {
+                    const key = `${s.department}_${s.year}_${s.course_code}`;
+                    return assignedKeys.includes(key);
+                });
+            } else {
+                availableStudents = [];
+            }
+        }
+
+        availableStudents.forEach(s => {
+            if (s.department) depts.add(s.department);
+            if (s.year) yrs.add(s.year);
+            if (s.course_code) crs.add(s.course_code);
+        });
+
+        return {
+            departments: Array.from(depts).sort(),
+            years: Array.from(yrs).sort(),
+            courses: Array.from(crs).sort()
+        };
+    }, [students, config, adminEmail, isGlobalAdmin]);
+
+    // Derived Lists for Dropdowns - ALL AVAILABLE (For Assign Course)
+    const allDropdowns = useMemo(() => {
+        const depts = new Set<string>();
+        const yrs = new Set<string>();
+        const crs = new Set<string>();
+
         students.forEach(s => {
             if (s.department) depts.add(s.department);
             if (s.year) yrs.add(s.year);
@@ -291,7 +329,8 @@ export default function AdminDashboard() {
                 setSelectedStudentIds(new Set());
             } else if (deleteConfirm.type === 'assignment' && deleteConfirm.payload) {
                 const { key, email } = deleteConfirm.payload;
-                const newConfig = { ...config };
+                // Deep copy
+                const newConfig = JSON.parse(JSON.stringify(config));
                 if (newConfig.teacherAssignments[key]) {
                     newConfig.teacherAssignments[key] = newConfig.teacherAssignments[key].filter((t: any) => t.email !== email);
                     if (newConfig.teacherAssignments[key].length === 0) delete newConfig.teacherAssignments[key];
@@ -299,7 +338,11 @@ export default function AdminDashboard() {
                 setConfig(newConfig);
                 await fetch('/api/admin/config', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(adminEmail ? { 'X-User-Email': adminEmail } : {}),
+                        ...(isGlobalAdmin ? { 'X-Global-Admin-Key': 'globaladmin_25' } : {})
+                    },
                     body: JSON.stringify(newConfig),
                 });
             }
@@ -482,7 +525,8 @@ export default function AdminDashboard() {
     const handleSaveSettings = async () => {
         setLoading(true);
         try {
-            const newConfig = { ...config };
+            // Deep copy to avoid mutating state directly
+            const newConfig = JSON.parse(JSON.stringify(config));
 
             if (assignFilter.dept && assignFilter.year && assignFilter.course) {
                 const key = `${assignFilter.dept}_${assignFilter.year}_${assignFilter.course}`;
@@ -509,7 +553,11 @@ export default function AdminDashboard() {
 
             const res = await fetch('/api/admin/config', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(adminEmail ? { 'X-User-Email': adminEmail } : {}),
+                    ...(isGlobalAdmin ? { 'X-Global-Admin-Key': 'globaladmin_25' } : {})
+                },
                 body: JSON.stringify(newConfig),
             });
 
@@ -517,9 +565,9 @@ export default function AdminDashboard() {
 
             setConfig(newConfig);
             setTeacherInput({ name: '', email: '' }); // Reset input
-            alert('Settings saved!');
+            toast.success('Settings saved!');
         } catch (error: any) {
-            alert(error.message);
+            toast.error(error.message);
         } finally {
             setLoading(false);
         }
@@ -708,9 +756,10 @@ export default function AdminDashboard() {
                         <select
                             className="bg-transparent text-slate-300 border-none rounded px-3 py-1.5 focus:ring-0 outline-none hover:text-white transition-colors cursor-pointer"
                             value={viewFilter.dept} onChange={e => setViewFilter({ ...viewFilter, dept: e.target.value })}
+                            value={viewFilter.dept} onChange={e => setViewFilter({ ...viewFilter, dept: e.target.value })}
                         >
                             <option value="" className="bg-slate-900 text-slate-200">All Depts</option>
-                            {departments.map(d => <option key={d} value={d} className="bg-slate-900 text-slate-200">{d}</option>)}
+                            {filteredDropdowns.departments.map(d => <option key={d} value={d} className="bg-slate-900 text-slate-200">{d}</option>)}
                         </select>
                         <div className="w-px bg-white/10 my-1"></div>
                         <select
@@ -718,7 +767,7 @@ export default function AdminDashboard() {
                             value={viewFilter.year} onChange={e => setViewFilter({ ...viewFilter, year: e.target.value })}
                         >
                             <option value="" className="bg-slate-900 text-slate-200">All Years</option>
-                            {years.map(y => <option key={y} value={y} className="bg-slate-900 text-slate-200">{y}</option>)}
+                            {filteredDropdowns.years.map(y => <option key={y} value={y} className="bg-slate-900 text-slate-200">{y}</option>)}
                         </select>
                         <div className="w-px bg-white/10 my-1"></div>
                         <select
@@ -726,7 +775,7 @@ export default function AdminDashboard() {
                             value={viewFilter.course} onChange={e => setViewFilter({ ...viewFilter, course: e.target.value })}
                         >
                             <option value="" className="bg-slate-900 text-slate-200">All Courses</option>
-                            {courses.map(c => <option key={c} value={c} className="bg-slate-900 text-slate-200">{c}</option>)}
+                            {filteredDropdowns.courses.map(c => <option key={c} value={c} className="bg-slate-900 text-slate-200">{c}</option>)}
                         </select>
 
                         {visibleStudents.length > 0 && (
@@ -886,7 +935,7 @@ export default function AdminDashboard() {
                             value={assignFilter.dept} onChange={e => setAssignFilter({ ...assignFilter, dept: e.target.value })}
                         >
                             <option value="" className="bg-slate-950 text-slate-300">Select Dept</option>
-                            {departments.map(d => <option key={d} value={d} className="bg-slate-950 text-slate-300">{d}</option>)}
+                            {allDropdowns.departments.map(d => <option key={d} value={d} className="bg-slate-950 text-slate-300">{d}</option>)}
                         </select>
                     </div>
                     <div>
@@ -896,7 +945,7 @@ export default function AdminDashboard() {
                             value={assignFilter.year} onChange={e => setAssignFilter({ ...assignFilter, year: e.target.value })}
                         >
                             <option value="" className="bg-slate-950 text-slate-300">Select Year</option>
-                            {years.map(y => <option key={y} value={y} className="bg-slate-950 text-slate-300">{y}</option>)}
+                            {allDropdowns.years.map(y => <option key={y} value={y} className="bg-slate-950 text-slate-300">{y}</option>)}
                         </select>
                     </div>
                     <div>
@@ -906,7 +955,7 @@ export default function AdminDashboard() {
                             value={assignFilter.course} onChange={e => setAssignFilter({ ...assignFilter, course: e.target.value })}
                         >
                             <option value="" className="bg-slate-950 text-slate-300">Select Course</option>
-                            {courses.map(c => <option key={c} value={c} className="bg-slate-950 text-slate-300">{c}</option>)}
+                            {allDropdowns.courses.map(c => <option key={c} value={c} className="bg-slate-950 text-slate-300">{c}</option>)}
                         </select>
                     </div>
                 </div>

@@ -76,6 +76,14 @@ export default function CustomTab({ onSuccess, user, context, isGlobalAdmin }: P
 
     return (
         <form onSubmit={handleSubmit} className="space-y-8 animate-in fade-in duration-500">
+            <InstructionsBox>
+                <ul className="list-disc list-inside space-y-2">
+                    <li><strong>Custom Assignment:</strong> Create a specific assignment with a fixed set of questions.</li>
+                    <li>All students in the target course/departments will receive the <strong>exact same questions</strong>.</li>
+                    <li>Use the LaTeX editor to write your questions or paste them.</li>
+                    <li>You can preview the rendered LaTeX below before publishing.</li>
+                </ul>
+            </InstructionsBox>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Inputs */}
                 <div className="space-y-6">
@@ -140,15 +148,7 @@ export default function CustomTab({ onSuccess, user, context, isGlobalAdmin }: P
                 </div>
 
                 {/* Info / Help */}
-                <div className="bg-gray-800/50 p-6 rounded-lg border border-gray-700 h-fit">
-                    <h3 className="text-lg font-medium text-white mb-4">Instructions</h3>
-                    <ul className="list-disc list-inside text-sm text-gray-400 space-y-2">
-                        <li>Assignments are automatically linked to your account: <span className="text-blue-400 font-semibold">{user?.name}</span></li>
-                        <li>Only students enrolled in your assigned courses will see this.</li>
-                        <li>You can use LaTeX for mathematical formulas in the description.</li>
-                        <li>Example: <code>$x^2 + 5x + 6 = 0$</code></li>
-                    </ul>
-                </div>
+
             </div>
 
             {/* Description & Preview (Full Width) */}
@@ -167,14 +167,7 @@ export default function CustomTab({ onSuccess, user, context, isGlobalAdmin }: P
                 </div>
             </div>
 
-            <InstructionsBox>
-                <ul className="list-disc list-inside space-y-2">
-                    <li><strong>Custom Assignment:</strong> Create a specific assignment with a fixed set of questions.</li>
-                    <li>All students in the target course/departments will receive the <strong>exact same questions</strong>.</li>
-                    <li>Use the LaTeX editor to write your questions or paste them.</li>
-                    <li>You can preview the rendered LaTeX below before publishing.</li>
-                </ul>
-            </InstructionsBox>
+
 
             <button
                 type="submit"

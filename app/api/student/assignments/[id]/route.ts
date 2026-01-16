@@ -146,10 +146,47 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         const canAccess = isSpecialType || attendancePercent >= requiredAttendance;
 
         // 7. Get student's assigned questions
-        const studentAssignment = await StudentAssignment.findOne({
+        let studentAssignment = await StudentAssignment.findOne({
             studentId: { $in: allStudentIds },
             assignmentId: id
         });
+
+        // 0. Manual Auth Verification (Middleware Fallback)
+
+
+        // 7b. Lazy Generation for new students (Fix for "No questions to show")
+        if (!studentAssignment && canAccess && !isPastDeadline && ['randomized', 'batch_attendance'].includes(assignment.type) && assignment.questionPool?.length > 0) {
+            let countToSelect = 0;
+
+            if (assignment.type === 'randomized') {
+                countToSelect = assignment.questionCount || 0;
+            } else if (assignment.type === 'batch_attendance' && assignment.rules) {
+                const matchingRule = assignment.rules.find((r: any) =>
+                    attendancePercent >= (r.min || 0) && attendancePercent <= (r.max || 100)
+                );
+                if (matchingRule) countToSelect = matchingRule.count || 0;
+            }
+
+            if (countToSelect > 0) {
+                // Shuffle pool and select
+                const shuffled = [...assignment.questionPool].sort(() => 0.5 - Math.random());
+                const selectedIds = shuffled.slice(0, countToSelect);
+
+                try {
+                    studentAssignment = await StudentAssignment.create({
+                        assignmentId: assignment._id,
+                        studentId: student._id,
+                        studentRoll: student.roll,
+                        questionIds: selectedIds,
+                        status: 'pending',
+                        startedAt: new Date()
+                    });
+                } catch (err) {
+                    console.error('Lazy generation failed:', err);
+                    // Continue without crashing, questions will remain empty
+                }
+            }
+        }
 
         let questions: any[] = [];
         if (canAccess && !isPastDeadline) {

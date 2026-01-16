@@ -190,6 +190,14 @@ export default function PersonalizedTab({ onSuccess, user, context, isGlobalAdmi
 
     return (
         <form onSubmit={handleSubmit} className="space-y-8 animate-in fade-in duration-500">
+            <InstructionsBox>
+                <ul className="list-disc list-inside space-y-2">
+                    <li><strong>Personalized Assignment:</strong> Assign a unique set of questions to specific students.</li>
+                    <li><strong>Step 1 Rule:</strong> Use the "Refine Question Pool" section to uncheck any questions you want to <strong>exclude</strong>.</li>
+                    <li>Select the students you want to assign this work to from the list on the right.</li>
+                    <li>Ensure the pool has enough questions to satisfy the "Questions Count" for each student.</li>
+                </ul>
+            </InstructionsBox>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Left Column: Settings */}
                 <div className="space-y-6">
@@ -366,14 +374,7 @@ export default function PersonalizedTab({ onSuccess, user, context, isGlobalAdmi
                 </div>
             </div>
 
-            <InstructionsBox>
-                <ul className="list-disc list-inside space-y-2">
-                    <li><strong>Personalized Assignment:</strong> Assign a unique set of questions to specific students.</li>
-                    <li><strong>Step 1 Rule:</strong> Use the "Refine Question Pool" section to uncheck any questions you want to <strong>exclude</strong>.</li>
-                    <li>Select the students you want to assign this work to from the list on the right.</li>
-                    <li>Ensure the pool has enough questions to satisfy the "Questions Count" for each student.</li>
-                </ul>
-            </InstructionsBox>
+
 
             <button
                 type="submit"
