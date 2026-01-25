@@ -291,6 +291,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
                 year: student.year,
                 course_code: student.course_code,
             }
+        }, {
+            headers: {
+                'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0',
+            }
         });
 
     } catch (error: any) {

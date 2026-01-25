@@ -93,58 +93,101 @@ export default function AssignmentDetailClient({ assignmentId }: AssignmentDetai
         setUploading(true);
         const toastId = toast.loading('Uploading to Google Drive...');
 
-        try {
-            const { assignment, student: studentData } = data;
-            const folderPath = [
-                studentData.course_code,
-                studentData.year,
-                studentData.department,
-                assignment.title.replace(/[^a-z0-9]/gi, '_'),
-            ].join('/');
+        // Retry configuration
+        const MAX_RETRIES = 3;
+        const INITIAL_DELAY = 2000; // 2 seconds
 
-            const fileName = [
-                studentData.roll,
-                studentData.name.replace(/ /g, '_'),
-                studentData.department,
-                studentData.course_code,
-                studentData.year,
-            ].join('_') + '.pdf';
+        const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-            const fileData = await fileToBase64(selectedFile);
-
-            // Debug logging
-            console.log('Upload Debug:', {
-                scriptUrl: data.scriptUrl,
-                fileName,
-                folderPath,
-                fileDataLength: fileData.length
-            });
-
-            // Use server-side proxy to avoid CORS issues
-            const token = localStorage.getItem('auth_token');
-            const response = await fetch('/api/student/upload-to-drive', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ scriptUrl: data.scriptUrl, fileData, fileName, folderPath }),
-            });
-
-            const text = await response.text();
-            let result;
+        const attemptUpload = async (attemptNumber: number): Promise<any> => {
             try {
-                result = JSON.parse(text);
-            } catch {
-                throw new Error('Invalid response from server');
-            }
+                const { assignment, student: studentData } = data;
+                const folderPath = [
+                    studentData.course_code,
+                    studentData.year,
+                    studentData.department,
+                    assignment.title.replace(/[^a-z0-9]/gi, '_'),
+                ].join('/');
 
-            if (result.status !== 'success' || !result.driveLink) {
-                // Show the detailed message from server if available
-                const errorMsg = result.message || result.error || 'Upload failed';
-                throw new Error(errorMsg);
-            }
+                const fileName = [
+                    studentData.roll,
+                    studentData.name.replace(/ /g, '_'),
+                    studentData.department,
+                    studentData.course_code,
+                    studentData.year,
+                ].join('_') + '.pdf';
 
+                const fileData = await fileToBase64(selectedFile);
+
+                // Debug logging
+                console.log('Upload Attempt:', attemptNumber, {
+                    scriptUrl: data.scriptUrl,
+                    fileName,
+                    folderPath,
+                    fileDataLength: fileData.length
+                });
+
+                // Update toast for retries
+                if (attemptNumber > 1) {
+                    toast.loading(`Retrying upload (${attemptNumber}/${MAX_RETRIES})...`, { id: toastId });
+                }
+
+                // Use server-side proxy to avoid CORS issues
+                const token = localStorage.getItem('auth_token');
+                const response = await fetch('/api/student/upload-to-drive', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ scriptUrl: data.scriptUrl, fileData, fileName, folderPath }),
+                });
+
+                const text = await response.text();
+                let result;
+                try {
+                    result = JSON.parse(text);
+                } catch {
+                    throw new Error('Invalid response from server');
+                }
+
+                if (result.status !== 'success' || !result.driveLink) {
+                    // Show the detailed message from server if available
+                    const errorMsg = result.message || result.error || 'Upload failed';
+                    throw new Error(errorMsg);
+                }
+
+                return result; // Success!
+
+            } catch (error: any) {
+                // Check if we should retry
+                const isRetryableError =
+                    error.message.includes('Failed to fetch') ||
+                    error.message.includes('Network Error') ||
+                    error.message.includes('timeout') ||
+                    error.message.includes('Service invoked too many times') ||
+                    error.message.includes('rate limit') ||
+                    error.message.includes('quota');
+
+                if (isRetryableError && attemptNumber < MAX_RETRIES) {
+                    // Exponential backoff: 2s, 4s, 8s
+                    const delay = INITIAL_DELAY * Math.pow(2, attemptNumber - 1);
+                    console.log(`Upload failed, retrying in ${delay / 1000}s...`, error.message);
+                    toast.loading(`Upload failed, retrying in ${delay / 1000}s...`, { id: toastId });
+                    await sleep(delay);
+                    return attemptUpload(attemptNumber + 1); // Recursive retry
+                } else {
+                    throw error; // Give up after max retries or non-retryable error
+                }
+            }
+        };
+
+        try {
+            // Start upload with retry logic
+            const result = await attemptUpload(1);
+
+            // Save submission to database
+            const token = localStorage.getItem('auth_token');
             const saveRes = await fetch('/api/student/submissions', {
                 method: 'POST',
                 headers: {
@@ -152,8 +195,8 @@ export default function AssignmentDetailClient({ assignmentId }: AssignmentDetai
                     'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
-                    assignmentId: assignment._id,
-                    studentId: studentData._id,
+                    assignmentId: data.assignment._id,
+                    studentId: data.student._id,
                     driveLink: result.driveLink,
                 }),
             });
@@ -165,11 +208,13 @@ export default function AssignmentDetailClient({ assignmentId }: AssignmentDetai
             toast.success('Submitted successfully!', { id: toastId });
             setSelectedFile(null);
             if (fileInputRef.current) fileInputRef.current.value = '';
-            fetchAssignmentDetail(studentData._id);
+            fetchAssignmentDetail(data.student._id);
         } catch (error: any) {
             let msg = error.message;
             if (msg.includes('Failed to fetch')) {
-                msg = "Network Error. Check if Google Script is deployed as 'Anyone'.";
+                msg = "Network Error. Please check your internet connection and try again.";
+            } else if (msg.includes('quota') || msg.includes('rate limit')) {
+                msg = "Google Drive is busy. Please wait a few minutes and try again.";
             }
             toast.error(msg, { id: toastId });
         } finally {
