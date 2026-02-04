@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Loader2, Plus, Trash2, Edit, Link as LinkIcon, FileText, Video, Brain, Copy, Check, Sparkles, X } from 'lucide-react';
+import { Loader2, Plus, Trash2, Edit, Link as LinkIcon, FileText, Video, Brain, Copy, Check, Sparkles, X, AlertCircle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import 'katex/dist/katex.min.css';
 
@@ -41,6 +41,11 @@ export default function Resources() {
     const [errorLine, setErrorLine] = useState<number | null>(null);
     const [isGeneratingHints, setIsGeneratingHints] = useState(false);
     const [usageRefreshTrigger, setUsageRefreshTrigger] = useState(0);
+
+    // Bulk Paste State
+    const [showBulkImport, setShowBulkImport] = useState(false);
+    const [bulkJsonInput, setBulkJsonInput] = useState('');
+    const [bulkJsonError, setBulkJsonError] = useState<string | null>(null);
 
     const [materialForm, setMaterialForm] = useState({
         title: '', url: '', targetDepartments: [] as string[], targetYear: '', targetCourse: ''
@@ -382,6 +387,73 @@ ${JSON.stringify(selectedData, null, 2)}`;
             return { ...prev, hintsData: newData };
         });
     };
+
+    const handleBulkImport = () => {
+        setBulkJsonError(null);
+
+        if (!bulkJsonInput.trim()) {
+            setBulkJsonError('Please paste JSON data');
+            return;
+        }
+
+        try {
+            const parsed = JSON.parse(bulkJsonInput);
+
+            // Validate it's an array
+            if (!Array.isArray(parsed)) {
+                setBulkJsonError('JSON must be an array of question objects');
+                return;
+            }
+
+            // Validate structure
+            const validItems: any[] = [];
+            const invalidItems: string[] = [];
+
+            parsed.forEach((item, idx) => {
+                if (!item.id) {
+                    invalidItems.push(`Item ${idx + 1}: missing 'id' field`);
+                    return;
+                }
+                if (!item.hints || !Array.isArray(item.hints)) {
+                    invalidItems.push(`Item ${idx + 1}: missing or invalid 'hints' array`);
+                    return;
+                }
+
+                // Find matching question from our selected questions
+                const matchingQuestion = allQuestions.find(q => q._id === item.id);
+                if (matchingQuestion) {
+                    validItems.push({
+                        id: item.id,
+                        topic: item.topic || matchingQuestion.topic,
+                        content: item.content || matchingQuestion.text,
+                        hints: item.hints
+                    });
+                }
+            });
+
+            if (invalidItems.length > 0) {
+                setBulkJsonError(`Validation errors:\n${invalidItems.join('\n')}`);
+                return;
+            }
+
+            if (validItems.length === 0) {
+                setBulkJsonError('No matching questions found. Make sure the IDs in your JSON match the selected questions.');
+                return;
+            }
+
+            // Success! Update hintsData
+            setHintsForm(prev => ({ ...prev, hintsData: validItems }));
+            toast.success(`Imported ${validItems.length} question(s) with hints!`);
+
+            // Clear the input and close the section
+            setBulkJsonInput('');
+            setShowBulkImport(false);
+
+        } catch (error: any) {
+            setBulkJsonError(`Invalid JSON: ${error.message}`);
+        }
+    };
+
 
     const submitHints = async () => {
         if (!hintsForm.hintsData.length) return toast.error('Invalid or missing AI output');
@@ -744,6 +816,78 @@ ${JSON.stringify(selectedData, null, 2)}`;
                                         </div>
                                     </div>
                                 </div>
+                            </div>
+
+                            {/* Bulk JSON Import Section */}
+                            <div className="bg-gray-800 rounded-lg border border-indigo-500/30 overflow-hidden transition-all">
+                                <button
+                                    onClick={() => setShowBulkImport(!showBulkImport)}
+                                    className="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-gray-750 transition-colors"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-full bg-indigo-600/20 flex items-center justify-center">
+                                            <FileText className="h-4 w-4 text-indigo-400" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-lg font-bold text-white">2B. Bulk JSON Import (Optional)</h3>
+                                            <p className="text-xs text-gray-400">Paste complete AI output to import all hints at once</p>
+                                        </div>
+                                    </div>
+                                    <div className={`transition-transform ${showBulkImport ? 'rotate-180' : ''}`}>
+                                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </div>
+                                </button>
+
+                                {showBulkImport && (
+                                    <div className="px-6 pb-6 space-y-4 border-t border-gray-700">
+                                        <div className="pt-4">
+                                            <label className="block text-sm font-medium text-gray-300 mb-2">
+                                                Paste AI-Generated JSON Array
+                                            </label>
+                                            <textarea
+                                                value={bulkJsonInput}
+                                                onChange={(e) => setBulkJsonInput(e.target.value)}
+                                                placeholder={`[\n  {\n    "id": "question_id_here",\n    "topic": "Topic Name",\n    "content": "Question text...",\n    "hints": ["Hint 1", "Hint 2", "Hint 3"]\n  },\n  ...\n]`}
+                                                className="w-full h-64 bg-gray-900 border border-gray-600 rounded-lg p-4 text-sm font-mono text-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+                                                spellCheck={false}
+                                            />
+                                            {bulkJsonError && (
+                                                <div className="mt-2 p-3 bg-red-900/20 border border-red-500/50 rounded-lg flex items-start gap-2">
+                                                    <AlertCircle className="h-4 w-4 text-red-400 mt-0.5 flex-shrink-0" />
+                                                    <div className="text-sm text-red-300 whitespace-pre-line">{bulkJsonError}</div>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="flex gap-3">
+                                            <button
+                                                onClick={handleBulkImport}
+                                                disabled={!bulkJsonInput.trim()}
+                                                className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white py-3 rounded-lg font-bold flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 disabled:grayscale transition-all"
+                                            >
+                                                <Check className="h-5 w-5" />
+                                                Parse & Import JSON
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    setBulkJsonInput('');
+                                                    setBulkJsonError(null);
+                                                }}
+                                                className="px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+                                            >
+                                                Clear
+                                            </button>
+                                        </div>
+
+                                        <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-3">
+                                            <p className="text-xs text-blue-300">
+                                                <strong>💡 Tip:</strong> After copying your prompt and getting the AI response, paste the entire JSON array here. The system will automatically match question IDs and import all hints at once.
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="bg-gray-800 rounded-lg border border-gray-700 shadow-xl overflow-hidden flex flex-col transition-all duration-300">
@@ -1261,6 +1405,11 @@ ${JSON.stringify(selectedData, null, 2)}`;
                                                 'bg-green-900 text-green-300'
                                         }`}>{r.type}</span>
                                     <span className="text-xs bg-gray-700 text-gray-300 px-1.5 py-0.5 rounded">{r.targetCourse || 'All'}</span>
+                                </div>
+                                <div className="text-xs text-gray-400 mb-1">
+                                    {r.targetDepartments && r.targetDepartments.length > 0
+                                        ? `${r.targetDepartments.join(', ')} - ${r.targetYear || 'N/A'}`
+                                        : 'All Departments'}
                                 </div>
                                 <div className="text-xs text-gray-500 flex justify-between">
                                     <span>{new Date(r.createdAt).toLocaleDateString()}</span>
