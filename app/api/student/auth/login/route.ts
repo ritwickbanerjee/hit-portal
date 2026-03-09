@@ -60,6 +60,9 @@ export async function POST(req: Request) {
             );
         }
 
+        // Mark all records for this roll as having logged in (first-time login tracking)
+        await Student.updateMany({ roll }, { $set: { hasLoggedIn: true } });
+
         // Use the authenticated student record for ID, but aggregate courses
         const student = activeVerifiedStudent;
 

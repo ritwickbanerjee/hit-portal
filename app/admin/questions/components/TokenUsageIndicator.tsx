@@ -80,7 +80,7 @@ export default function TokenUsageIndicator({ userEmail, onQuotaExhausted, refre
             <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                     <Zap className={`h-4 w-4 ${isAtLimit ? 'text-red-400' : isNearLimit ? 'text-yellow-400' : 'text-blue-400'}`} />
-                    <h4 className="text-sm font-bold text-white">Global API Usage (Passive)</h4>
+                    <h4 className="text-sm font-bold text-white">Global API Usage</h4>
                 </div>
                 <div className="flex items-center gap-1.5 text-xs text-gray-400">
                     <Clock className="h-3 w-3" />

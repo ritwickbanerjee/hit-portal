@@ -1364,7 +1364,7 @@ export default function QuestionBank() {
                     <div className="bg-gray-900 p-4 border-b border-gray-700 flex justify-between items-center">
                         <div className="flex items-center gap-3">
                             <h3 className="text-lg font-bold text-white">
-                                {editorMode === 'latex' ? 'LATEX Editor Mode' :
+                                {editorMode === 'latex' ? 'LATEX' :
                                     editorMode === 'json' ? 'JSON Editor Mode' :
                                         editorMode === 'image' ? 'Image Editor Mode' : 'AI Editor'}
                             </h3>
@@ -1499,14 +1499,16 @@ export default function QuestionBank() {
                         )
                     }
 
-
-                    <textarea
-                        className="w-full h-48 bg-gray-950 border border-gray-700 rounded-lg p-3 text-xs md:text-sm font-mono text-emerald-400 focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none resize-y"
-                        placeholder={`[\n  {\n    "text": "Question text...",\n    "type": "broad",\n    "topic": "Math",\n    "subtopic": "Algebra"\n  }\n]`}
-                        value={jsonContent}
-                        onChange={handleJsonInput}
-                        spellCheck={false}
-                    />
+                    {/* Hide bulk JSON editor in latex mode */}
+                    {editorMode !== 'latex' && (
+                        <textarea
+                            className="w-full h-48 bg-gray-950 border border-gray-700 rounded-lg p-3 text-xs md:text-sm font-mono text-emerald-400 focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none resize-y"
+                            placeholder={`[\n  {\n    "text": "Question text...",\n    "type": "broad",\n    "topic": "Math",\n    "subtopic": "Algebra"\n  }\n]`}
+                            value={jsonContent}
+                            onChange={handleJsonInput}
+                            spellCheck={false}
+                        />
+                    )}
                 </div >
             )
             }

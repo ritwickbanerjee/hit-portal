@@ -30,6 +30,8 @@ export default function AssignmentsPage() {
     const [editModal, setEditModal] = useState<{ open: boolean; assignment: any }>({ open: false, assignment: null });
     const [editDeadline, setEditDeadline] = useState('');
     const [editStartTime, setEditStartTime] = useState('');
+    const [editDepartments, setEditDepartments] = useState<string[]>([]);
+    const [editYear, setEditYear] = useState('');
     const [saving, setSaving] = useState(false);
 
     // Delete Modal State
@@ -169,6 +171,8 @@ export default function AssignmentsPage() {
         const startDate = assignment.startTime ? new Date(assignment.startTime) : null;
         setEditDeadline(deadlineDate.toISOString().slice(0, 16));
         setEditStartTime(startDate ? startDate.toISOString().slice(0, 16) : '');
+        setEditDepartments(assignment.targetDepartments || []);
+        setEditYear(assignment.targetYear || '');
     };
 
     const handleSaveEdit = async () => {
@@ -183,7 +187,9 @@ export default function AssignmentsPage() {
                 body: JSON.stringify({
                     id: editModal.assignment._id,
                     deadline: editDeadline,
-                    startTime: editStartTime || undefined
+                    startTime: editStartTime || undefined,
+                    targetDepartments: editDepartments,
+                    targetYear: editYear
                 })
             });
 
@@ -204,8 +210,8 @@ export default function AssignmentsPage() {
 
     const tabs = [
         { id: 'custom', label: 'Custom Assignment', icon: FileText },
-        { id: 'randomized', label: 'Randomized', icon: Shuffle },
-        { id: 'batch', label: 'Manually Randomized', icon: Users },
+        { id: 'randomized', label: 'Fixed Randomized', icon: Shuffle },
+        { id: 'batch', label: 'Variable Randomized', icon: Users },
         { id: 'personalized', label: 'Personalized', icon: UserCheck },
     ];
 
@@ -259,13 +265,14 @@ export default function AssignmentsPage() {
                                 <th className="px-6 py-3">Type</th>
                                 <th className="px-6 py-3">Faculty</th>
                                 <th className="px-6 py-3">Course</th>
+                                <th className="px-6 py-3">Dept+Year</th>
                                 <th className="px-6 py-3">Deadline</th>
                                 <th className="px-6 py-3 text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-700">
                             {assignments.length === 0 ? (
-                                <tr><td colSpan={6} className="text-center py-8 text-gray-500">No assignments found</td></tr>
+                                <tr><td colSpan={7} className="text-center py-8 text-gray-500">No assignments found</td></tr>
                             ) : (
                                 assignments.map((a) => (
                                     <tr key={a._id} className="hover:bg-gray-700/30 transition-colors">
@@ -277,7 +284,12 @@ export default function AssignmentsPage() {
                                         </td>
                                         <td className="px-6 py-4">{a.facultyName}</td>
                                         <td className="px-6 py-4">{a.targetCourse}</td>
-                                        <td className="px-6 py-4">{new Date(a.deadline).toLocaleString()}</td>
+                                        <td className="px-6 py-4">
+                                            {a.targetDepartments && a.targetDepartments.length > 0
+                                                ? `${a.targetDepartments.join(', ')} - ${a.targetYear || 'N/A'}`
+                                                : 'N/A'}
+                                        </td>
+                                        <td className="px-6 py-4">{new Date(a.deadline).toLocaleString('en-IN')}</td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex items-center justify-end gap-2">
                                                 <button
@@ -380,6 +392,57 @@ export default function AssignmentsPage() {
                                     onClick={(e: any) => e.target.showPicker && e.target.showPicker()}
                                     required
                                 />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-2">Departments</label>
+                                <div className="relative">
+                                    <button
+                                        type="button"
+                                        className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white text-left flex justify-between items-center"
+                                        onClick={() => {
+                                            const dropdown = document.getElementById('edit-dept-dropdown');
+                                            dropdown?.classList.toggle('hidden');
+                                        }}
+                                    >
+                                        <span className="truncate">
+                                            {editDepartments.length > 0 ? editDepartments.join(', ') : 'Select Departments'}
+                                        </span>
+                                        <span className="text-xs">▼</span>
+                                    </button>
+                                    <div id="edit-dept-dropdown" className="hidden absolute top-full left-0 w-full bg-gray-900 border border-gray-600 rounded mt-1 z-10 max-h-40 overflow-y-auto">
+                                        {allowedContext.depts.map(d => (
+                                            <label key={d} className="flex items-center gap-2 p-2 hover:bg-gray-700 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={editDepartments.includes(d)}
+                                                    onChange={(e) => {
+                                                        if (e.target.checked) {
+                                                            setEditDepartments([...editDepartments, d]);
+                                                        } else {
+                                                            setEditDepartments(editDepartments.filter(x => x !== d));
+                                                        }
+                                                    }}
+                                                />
+                                                <span className="text-sm text-white">{d}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-2">Year</label>
+                                <select
+                                    className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    value={editYear}
+                                    onChange={(e) => setEditYear(e.target.value)}
+                                >
+                                    <option value="">Select Year</option>
+                                    {allowedContext.years.map(y => (
+                                        <option key={y} value={y}>{y}</option>
+                                    ))}
+                                </select>
                             </div>
 
                             <div className="flex gap-3 pt-4">

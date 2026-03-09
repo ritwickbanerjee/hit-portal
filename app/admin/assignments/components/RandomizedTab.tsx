@@ -20,7 +20,7 @@ export default function RandomizedTab({ onSuccess, user, context, isGlobalAdmin 
     const [subTopics, setSubTopics] = useState<string[]>([]);
     const [allQuestions, setAllQuestions] = useState<any[]>([]);
 
-    // Step 1 Rule: Pool of allowed questions (initially all, then filtered by user)
+    // Pool of allowed questions (initially all, then filtered by user)
     const [allowedQuestionIds, setAllowedQuestionIds] = useState<string[]>([]);
 
     const [formData, setFormData] = useState({
@@ -162,7 +162,7 @@ export default function RandomizedTab({ onSuccess, user, context, isGlobalAdmin 
             <InstructionsBox>
                 <ul className="list-disc list-inside space-y-2">
                     <li><strong>Randomized Assignment:</strong> Each student gets a unique set of questions randomly picked from your selected pool.</li>
-                    <li><strong>Step 1 Rule:</strong> Use the "Refine Question Pool" section to uncheck any questions you want to <strong>exclude</strong>. Unchecked questions will NEVER be assigned to any student.</li>
+                    <li>Use the "Refine Question Pool" section to uncheck any questions you want to <strong>exclude</strong>. Unchecked questions will NEVER be assigned to any student.</li>
                     <li>You can filter the pool by topics first, then manually refine the selection.</li>
                     <li>Ensure you have selected enough questions in the pool to satisfy the "Questions Count" requirement.</li>
                 </ul>
@@ -276,7 +276,7 @@ export default function RandomizedTab({ onSuccess, user, context, isGlobalAdmin 
 
                 {/* Right Column: Question Exclusion (2/3 width) */}
                 <div className="space-y-4 lg:col-span-2">
-                    <label className="block text-sm font-medium text-gray-300">Step 1: Refine Question Pool</label>
+                    <label className="block text-sm font-medium text-gray-300">Refine Question Pool</label>
                     <QuestionSelector
                         questions={filteredQuestions}
                         selectedIds={allowedQuestionIds}

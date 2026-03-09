@@ -306,7 +306,7 @@ export async function PUT(req: Request) {
     try {
         await connectDB();
         const body = await req.json();
-        const { id, deadline, startTime } = body;
+        const { id, deadline, startTime, targetDepartments, targetYear } = body;
         const email = req.headers.get('X-User-Email');
         const adminKey = req.headers.get('X-Global-Admin-Key');
 
@@ -318,6 +318,8 @@ export async function PUT(req: Request) {
         const updateData: any = {};
         if (deadline) updateData.deadline = new Date(deadline);
         if (startTime) updateData.startTime = new Date(startTime);
+        if (targetDepartments !== undefined) updateData.targetDepartments = targetDepartments;
+        if (targetYear !== undefined) updateData.targetYear = targetYear;
 
         let assignment;
         if (adminKey === GLOBAL_ADMIN_KEY) {

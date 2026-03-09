@@ -470,6 +470,18 @@ export default function OnlineTestPage() {
                                 <option value="">All Subtopics</option>
                                 {subtopics.map(t => <option key={t} value={t}>{t}</option>)}
                             </select>
+                            <select
+                                className="bg-slate-800 border border-slate-700 text-white text-sm rounded px-3 py-2 outline-none focus:border-indigo-500"
+                                value={filters.type}
+                                onChange={e => setFilters({ ...filters, type: e.target.value })}
+                            >
+                                <option value="">All Types</option>
+                                <option value="mcq">MCQ</option>
+                                <option value="msq">MSQ</option>
+                                <option value="broad">Broad</option>
+                                <option value="number">Number</option>
+                                <option value="blanks">Fill in Blanks</option>
+                            </select>
                         </div>
 
                         {/* Question List */}

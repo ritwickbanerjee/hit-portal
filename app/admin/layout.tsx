@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
     Users, ClipboardList, CheckSquare, FileText,
-    Upload, BarChart, BookOpen, LogOut, Menu, X, GraduationCap
+    Upload, BarChart, BookOpen, LogOut, Menu, X, GraduationCap, Laptop
 } from 'lucide-react';
 import InstallPWA from '@/components/InstallPWA';
 
@@ -129,7 +129,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         { name: 'Question Bank', href: '/admin/questions', icon: FileText },
         { name: 'Assignments', href: '/admin/assignments', icon: Upload },
         { name: 'Submissions', href: '/admin/submissions', icon: FileText },
-        { name: 'Online Test', href: '/admin/online-test', icon: Users }, // Using Users temporarily, will switch to Laptop if available or keep generic
+        { name: 'Online Test', href: '/admin/online-test', icon: Laptop },
         { name: 'Student Marks', href: '/admin/marks', icon: BarChart },
         { name: 'Study Materials', href: '/admin/resources', icon: BookOpen },
     ];

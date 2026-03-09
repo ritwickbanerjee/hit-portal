@@ -380,23 +380,38 @@ export default function StudentDashboard() {
                             </div>
                         </Link>
 
-                        {/* Resources Card - Centered on second row */}
-                        <div className="col-span-2 flex flex-col items-center">
-                            <Link href="/student/resources" className="group w-full flex justify-center mb-4">
-                                <div className="h-full w-[calc(50%-0.25rem)] p-3 sm:p-6 rounded-xl sm:rounded-2xl bg-gradient-to-br from-purple-900/40 to-pink-900/20 border border-purple-500/20 hover:border-purple-400/50 transition-all hover:scale-[1.02] flex flex-col items-center text-center">
-                                    <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center mb-2 sm:mb-4 shadow-lg">
-                                        <BookOpen className="h-5 w-5 sm:h-7 sm:w-7 text-white" />
-                                    </div>
-                                    <h3 className="text-xs sm:text-lg font-bold text-white mb-0.5 sm:mb-1">Resources</h3>
-                                    <p className="text-[9px] sm:text-xs text-purple-300/60 hidden sm:block">Study materials</p>
-                                    <div className="flex items-center gap-1 text-purple-400 text-[10px] sm:text-xs mt-1 sm:mt-3">
-                                        <span className="hidden sm:inline">Browse</span>
-                                        <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4" />
-                                    </div>
+                        {/* Resources Card */}
+                        <Link href="/student/resources" className="group">
+                            <div className="h-full p-3 sm:p-6 rounded-xl sm:rounded-2xl bg-gradient-to-br from-purple-900/40 to-pink-900/20 border border-purple-500/20 hover:border-purple-400/50 transition-all hover:scale-[1.02] flex flex-col items-center text-center">
+                                <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center mb-2 sm:mb-4 shadow-lg">
+                                    <BookOpen className="h-5 w-5 sm:h-7 sm:w-7 text-white" />
                                 </div>
-                            </Link>
+                                <h3 className="text-xs sm:text-lg font-bold text-white mb-0.5 sm:mb-1">Resources</h3>
+                                <p className="text-[9px] sm:text-xs text-purple-300/60 hidden sm:block">Study materials</p>
+                                <div className="flex items-center gap-1 text-purple-400 text-[10px] sm:text-xs mt-1 sm:mt-3">
+                                    <span className="hidden sm:inline">Browse</span>
+                                    <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4" />
+                                </div>
+                            </div>
+                        </Link>
 
-                            {/* PWA Install Button */}
+                        {/* Online Test Card */}
+                        <Link href="/student/online-test" className="group">
+                            <div className="h-full p-3 sm:p-6 rounded-xl sm:rounded-2xl bg-gradient-to-br from-orange-900/40 to-red-900/20 border border-orange-500/20 hover:border-orange-400/50 transition-all hover:scale-[1.02] flex flex-col items-center text-center">
+                                <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center mb-2 sm:mb-4 shadow-lg">
+                                    <Sparkles className="h-5 w-5 sm:h-7 sm:w-7 text-white" />
+                                </div>
+                                <h3 className="text-xs sm:text-lg font-bold text-white mb-0.5 sm:mb-1">Online Test</h3>
+                                <p className="text-[9px] sm:text-xs text-orange-300/60 hidden sm:block">Take exams</p>
+                                <div className="flex items-center gap-1 text-orange-400 text-[10px] sm:text-xs mt-1 sm:mt-3">
+                                    <span className="hidden sm:inline">Start</span>
+                                    <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4" />
+                                </div>
+                            </div>
+                        </Link>
+
+                        {/* PWA Install Button - Full Width Below */}
+                        <div className="col-span-2 flex justify-center mt-2">
                             <InstallPWA type="student" />
                         </div>
                     </div>

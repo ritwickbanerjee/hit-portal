@@ -64,6 +64,10 @@ const StudentSchema = new mongoose.Schema({
         of: Number,
         default: {}
     },
+    hasLoggedIn: {
+        type: Boolean,
+        default: false
+    },
     loginDisabled: {
         type: Boolean,
         default: false

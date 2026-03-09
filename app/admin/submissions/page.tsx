@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Loader2, Search, Download, Save, FileText, CheckCircle, XCircle } from 'lucide-react';
+import { Loader2, Search, Download, Save, FileText, CheckCircle, XCircle, Eye, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import InstructionsBox from '../assignments/components/InstructionsBox';
+import 'katex/dist/katex.min.css';
+import Latex from 'react-latex-next';
 
 export default function SubmissionsPage() {
     const [loading, setLoading] = useState(true);
@@ -59,6 +61,12 @@ export default function SubmissionsPage() {
 
     const [reportData, setReportData] = useState<any[]>([]);
     const [showReport, setShowReport] = useState(false);
+
+    // View Questions Modal State
+    const [viewQuestionsModal, setViewQuestionsModal] = useState(false);
+    const [viewQuestionsData, setViewQuestionsData] = useState<any[]>([]);
+    const [viewQuestionsLoading, setViewQuestionsLoading] = useState(false);
+    const [viewQuestionsStudent, setViewQuestionsStudent] = useState('');
 
     useEffect(() => {
         const init = async () => {
@@ -297,6 +305,29 @@ export default function SubmissionsPage() {
         document.body.removeChild(link);
     };
 
+    const handleViewQuestions = async (studentId: string, studentName: string) => {
+        if (!filters.assignmentId) return;
+        setViewQuestionsLoading(true);
+        setViewQuestionsStudent(studentName);
+        setViewQuestionsModal(true);
+        setViewQuestionsData([]);
+
+        try {
+            const res = await fetch(`/api/admin/submissions/student-questions?studentId=${studentId}&assignmentId=${filters.assignmentId}`);
+            if (res.ok) {
+                const data = await res.json();
+                setViewQuestionsData(data.questions || []);
+            } else {
+                toast.error('Failed to load questions');
+            }
+        } catch (error) {
+            console.error('Error fetching questions:', error);
+            toast.error('Error loading questions');
+        } finally {
+            setViewQuestionsLoading(false);
+        }
+    };
+
     if (loading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin h-8 w-8 text-blue-500" /></div>;
 
     return (
@@ -399,11 +430,12 @@ export default function SubmissionsPage() {
                                     <th className="px-4 py-3 text-center w-32">Adj.</th>
                                     <th className="px-4 py-3 text-left">Attd. %</th>
                                     <th className="px-4 py-3 text-left">File</th>
+                                    <th className="px-4 py-3 text-center">View Questions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-700">
                                 {reportData.length === 0 ? (
-                                    <tr><td colSpan={9} className="text-center py-8 text-gray-500">No students found matching criteria.</td></tr>
+                                    <tr><td colSpan={10} className="text-center py-8 text-gray-500">No students found matching criteria.</td></tr>
                                 ) : (
                                     reportData.map((d) => (
                                         <tr key={d.studentId} className="hover:bg-gray-700/30 transition-colors">
@@ -444,11 +476,82 @@ export default function SubmissionsPage() {
                                                     </a>
                                                 ) : <span className="text-gray-600">-</span>}
                                             </td>
+                                            <td className="px-4 py-3 text-center">
+                                                <button
+                                                    onClick={() => handleViewQuestions(d.studentId, d.name)}
+                                                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white text-xs font-medium transition-all border border-indigo-500/30"
+                                                >
+                                                    <Eye className="h-3 w-3" /> View
+                                                </button>
+                                            </td>
                                         </tr>
                                     ))
                                 )}
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            )}
+
+            {/* View Questions Modal */}
+            {viewQuestionsModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+                    <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-3xl max-h-[80vh] flex flex-col shadow-2xl">
+                        <div className="flex justify-between items-center px-6 py-4 border-b border-gray-700">
+                            <div>
+                                <h3 className="text-lg font-bold text-white">Assigned Questions</h3>
+                                <p className="text-sm text-gray-400">Student: {viewQuestionsStudent}</p>
+                            </div>
+                            <button
+                                onClick={() => setViewQuestionsModal(false)}
+                                className="text-gray-400 hover:text-white transition-colors"
+                            >
+                                <X className="h-6 w-6" />
+                            </button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+                            {viewQuestionsLoading ? (
+                                <div className="flex justify-center py-12">
+                                    <Loader2 className="animate-spin h-8 w-8 text-blue-500" />
+                                </div>
+                            ) : viewQuestionsData.length === 0 ? (
+                                <div className="text-center py-12 text-gray-500">
+                                    <p>No questions found for this student.</p>
+                                    <p className="text-xs mt-1">This may happen for non-randomized assignments.</p>
+                                </div>
+                            ) : (
+                                viewQuestionsData.map((q: any, idx: number) => (
+                                    <div key={q._id || idx} className="bg-gray-800/50 border border-gray-700 rounded-xl p-4">
+                                        <div className="flex items-start gap-3">
+                                            <span className="shrink-0 w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-sm font-bold">
+                                                {idx + 1}
+                                            </span>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex gap-2 mb-2 flex-wrap">
+                                                    {q.topic && <span className="text-[10px] bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded uppercase font-bold">{q.topic}</span>}
+                                                    {q.subtopic && <span className="text-[10px] bg-slate-600 text-slate-300 px-1.5 py-0.5 rounded uppercase font-bold">{q.subtopic}</span>}
+                                                    {q.type && <span className="text-[10px] bg-purple-900 text-purple-200 px-1.5 py-0.5 rounded uppercase font-bold">{q.type}</span>}
+                                                </div>
+                                                <div className="text-sm text-gray-200 leading-relaxed">
+                                                    <Latex>{q.text || ''}</Latex>
+                                                </div>
+                                                {q.image && (
+                                                    <img src={q.image} alt="Question" className="mt-3 max-h-48 rounded-lg border border-gray-700" />
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                        <div className="px-6 py-3 border-t border-gray-700">
+                            <button
+                                onClick={() => setViewQuestionsModal(false)}
+                                className="w-full py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium transition-colors"
+                            >
+                                Close
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

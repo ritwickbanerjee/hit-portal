@@ -26,7 +26,7 @@ export default function PersonalizedTab({ onSuccess, user, context, isGlobalAdmi
     const [filterYear, setFilterYear] = useState('');
     const [filterCourse, setFilterCourse] = useState('');
 
-    // Step 1 Rule: Pool of allowed questions
+    // Pool of allowed questions
     const [allowedQuestionIds, setAllowedQuestionIds] = useState<string[]>([]);
     const [filteredQuestions, setFilteredQuestions] = useState<any[]>([]);
 
@@ -193,7 +193,7 @@ export default function PersonalizedTab({ onSuccess, user, context, isGlobalAdmi
             <InstructionsBox>
                 <ul className="list-disc list-inside space-y-2">
                     <li><strong>Personalized Assignment:</strong> Assign a unique set of questions to specific students.</li>
-                    <li><strong>Step 1 Rule:</strong> Use the "Refine Question Pool" section to uncheck any questions you want to <strong>exclude</strong>.</li>
+                    <li>Use the "Refine Question Pool" section to uncheck any questions you want to <strong>exclude</strong>.</li>
                     <li>Select the students you want to assign this work to from the list on the right.</li>
                     <li>Ensure the pool has enough questions to satisfy the "Questions Count" for each student.</li>
                 </ul>
@@ -283,7 +283,7 @@ export default function PersonalizedTab({ onSuccess, user, context, isGlobalAdmi
                     </div>
 
                     <div className="space-y-2">
-                        <label className="block text-sm font-medium text-gray-300">Step 1: Refine Question Pool</label>
+                        <label className="block text-sm font-medium text-gray-300">Refine Question Pool</label>
                         <QuestionSelector
                             questions={filteredQuestions}
                             selectedIds={allowedQuestionIds}

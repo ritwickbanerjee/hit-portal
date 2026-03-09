@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Loader2, Upload, FileDown, Save, Trash2, Edit, Download, CheckSquare, Square, AlertTriangle, X, ToggleLeft, ToggleRight, Ban, CheckCircle, Search } from 'lucide-react';
+import { Loader2, Upload, FileDown, Save, Trash2, Edit, Download, CheckSquare, Square, AlertTriangle, X, ToggleLeft, ToggleRight, Ban, CheckCircle, Search, XCircle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 export default function AdminDashboard() {
@@ -836,6 +836,7 @@ export default function AdminDashboard() {
                                     </th>
                                     <th className="px-3 py-3 font-semibold tracking-wider">Name</th>
                                     <th className="px-3 py-3 font-semibold tracking-wider">Email</th>
+                                    <th className="px-3 py-3 font-semibold tracking-wider text-center">Login<br />Status</th>
                                     <th className="px-3 py-3 font-semibold tracking-wider">Roll</th>
                                     <th className="px-3 py-3 font-semibold tracking-wider">Dept/Year</th>
                                     <th className="px-1 py-3 font-semibold tracking-wider font-bold">Course</th>
@@ -845,7 +846,7 @@ export default function AdminDashboard() {
                             </thead>
                             <tbody className="divide-y divide-white/5 bg-transparent">
                                 {visibleStudents.length === 0 ? (
-                                    <tr><td colSpan={8} className="text-center py-12 text-slate-500 italic">No students found matching filters (or no assignment access).</td></tr>
+                                    <tr><td colSpan={9} className="text-center py-12 text-slate-500 italic">No students found matching filters (or no assignment access).</td></tr>
                                 ) : (
                                     visibleStudents.map((s) => (
                                         <tr key={s._id} className={`transition-colors group ${selectedStudentIds.has(s._id) ? 'bg-indigo-500/10 hover:bg-indigo-500/20' : 'hover:bg-white/5'}`}>
@@ -864,6 +865,13 @@ export default function AdminDashboard() {
                                             </td>
                                             <td className="px-3 py-3 font-medium text-white truncate max-w-[150px]" title={s.name}>{s.name}</td>
                                             <td className="px-3 py-3 truncate max-w-[200px]" title={s.email}>{s.email}</td>
+                                            <td className="px-3 py-3 text-center">
+                                                {s.hasLoggedIn ? (
+                                                    <span title="Has logged in"><CheckCircle className="h-4 w-4 text-green-400 mx-auto" /></span>
+                                                ) : (
+                                                    <span title="Never logged in"><XCircle className="h-4 w-4 text-red-400 mx-auto" /></span>
+                                                )}
+                                            </td>
                                             <td className="px-3 py-3 font-mono text-xs">{s.roll}</td>
                                             <td className="px-3 py-3">
                                                 <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px] border border-white/5">{s.department}</span>
