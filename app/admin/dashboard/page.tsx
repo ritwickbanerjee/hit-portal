@@ -840,7 +840,7 @@ export default function AdminDashboard() {
                                     <th className="px-3 py-3 font-semibold tracking-wider">Roll</th>
                                     <th className="px-3 py-3 font-semibold tracking-wider">Dept/Year</th>
                                     <th className="px-1 py-3 font-semibold tracking-wider font-bold">Course</th>
-                                    <th className="px-1 py-3 font-semibold tracking-wider text-center leading-tight">Login<br />Status</th>
+                                    <th className="px-1 py-3 font-semibold tracking-wider text-center leading-tight">Account<br />Access</th>
                                     <th className="px-1 py-3 font-semibold tracking-wider text-right">Actions</th>
                                 </tr>
                             </thead>
