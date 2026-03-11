@@ -7,10 +7,12 @@ export default function StudentLayout({
 }) {
     return (
         <div className="min-h-screen flex flex-col bg-[#0a0f1a]">
-            <div className="flex-1 w-full">
+            <div className="flex-1 w-full pb-8">
                 {children}
             </div>
-            <StudentFooter />
+            <div className="sticky bottom-0 z-40 w-full bg-[#0a0f1a]/95 backdrop-blur-sm">
+                <StudentFooter />
+            </div>
         </div>
     );
 }

@@ -3,30 +3,31 @@
 import { useState } from "react";
 
 const facultyEmails = [
-    { name: "Sandip Chatterjee", email: "sandip.chatterjee@heritageit.edu" },
+    { name: "Ashesh Paul", email: "ashesh.paul@heritageit.edu" },
     { name: "Dipankar Chakraborty", email: "dipankar.chakraborty@heritageit.edu" },
     { name: "Moulipriya Sarkar", email: "moulipriya.sarkar@heritageit.edu" },
-    { name: "Somjit Datta", email: "somjit.datta@heritageit.edu" },
-    { name: "Sudipta Sarkar", email: "sudipta.sarkar@heritageit.edu" },
-    { name: "Samarpita Bhattacharya", email: "samarpita.bhattacharya@heritageit.edu" },
-    { name: "Venu Bihani", email: "venu.bihani@heritageit.edu" },
     { name: "Moumita Pramanik", email: "moumita.pramanik@heritageit.edu" },
+    { name: "Ritwick Banerjee", email: "ritwick.banerjee@heritageit.edu" },
+    { name: "Samarpita Bhattacharya", email: "samarpita.bhattacharya@heritageit.edu" },
+    { name: "Sandip Chatterjee", email: "sandip.chatterjee@heritageit.edu" },
+    { name: "Somjit Datta", email: "somjit.datta@heritageit.edu" },
     { name: "Souvik Ghosh", email: "souvikghosh@heritageit.edu" },
-    { name: "Ashesh Paul", email: "ashesh.paul@heritageit.edu" },
     { name: "Souvik Kundu", email: "souvik.kundu@heritageit.edu" },
-    { name: "Sudipta Roy", email: "sudipta.roy@tha.edu.in" }
+    { name: "Sudipta Roy", email: "sudipta.roy@tha.edu.in" },
+    { name: "Sudipta Sarkar", email: "sudipta.sarkar@heritageit.edu" },
+    { name: "Venu Bihani", email: "venu.bihani@heritageit.edu" }
 ];
 
 export default function StudentFooter() {
     const [isModalOpen, setIsModalOpen] = useState(false);
 
     return (
-        <footer className="py-4 text-center bg-[#0a0f1a] text-gray-500 border-t border-white/5 mt-auto z-10 relative flex flex-col items-center gap-2">
+        <footer className="py-4 text-center text-gray-500 border-t border-white/5 mt-auto z-10 relative flex flex-col items-center gap-2 w-full">
             <button
                 onClick={() => setIsModalOpen(true)}
-                className="text-xs hover:text-white transition-colors bg-white/5 px-3 py-1.5 rounded-md border border-white/10 hover:bg-white/10"
+                className="text-xs transition-colors bg-white/5 px-4 py-2 rounded-md border-2 border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.6)] text-blue-400 font-bold hover:bg-blue-500/10 hover:text-blue-300"
             >
-                Faculty email
+                Math Faculty Email id's
             </button>
             <p className="text-[10px]">&copy; {new Date().getFullYear()} Dept. of Mathematics, HIT (Developed by Dr. Ritwick Banerjee)</p>
 
