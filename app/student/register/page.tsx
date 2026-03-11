@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Loader2, Mail, Lock, User, ArrowRight, CheckCircle, Eye, EyeOff, Sparkles, GraduationCap } from 'lucide-react';
@@ -17,11 +17,23 @@ export default function StudentRegister() {
     const [otp, setOtp] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [timer, setTimer] = useState(0);
 
     const router = useRouter();
 
-    const handleIdentify = async (e: React.FormEvent) => {
-        e.preventDefault();
+    useEffect(() => {
+        let interval: NodeJS.Timeout;
+        if (timer > 0) {
+            interval = setInterval(() => {
+                setTimer((prev) => prev - 1);
+            }, 1000);
+        }
+        return () => clearInterval(interval);
+    }, [timer]);
+
+    const handleIdentify = async (e?: React.FormEvent | React.MouseEvent) => {
+        if (e) e.preventDefault();
+        if (timer > 0) return;
         setLoading(true);
 
         try {
@@ -36,6 +48,7 @@ export default function StudentRegister() {
 
             toast.success(data.message || 'OTP sent to your email!');
             setStep(2);
+            setTimer(60);
         } catch (err: any) {
             toast.error(err.message);
         } finally {
@@ -238,6 +251,28 @@ export default function StudentRegister() {
                                     </>
                                 )}
                             </button>
+
+                            <div className="flex flex-col items-center mt-6">
+                                {timer > 0 ? (
+                                    <p className="text-sm text-gray-400">Resend OTP in <span className="text-emerald-400 font-mono font-bold">{timer}</span>s</p>
+                                ) : (
+                                    <div className="text-center space-y-3 w-full">
+                                        <button 
+                                            type="button" 
+                                            onClick={handleIdentify} 
+                                            disabled={loading}
+                                            className="text-sm text-emerald-400 hover:text-emerald-300 font-bold transition-colors cursor-pointer disabled:opacity-50"
+                                        >
+                                            {loading ? 'Sending...' : 'Resend OTP'}
+                                        </button>
+                                        <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+                                            <p className="text-xs text-amber-500/90 leading-relaxed font-medium">
+                                                If you don't get OTP recheck your email id. If email id is correct then consider trying tomorrow as our system may have reached the OTP sending limit for today
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </form>
                     )}
 
