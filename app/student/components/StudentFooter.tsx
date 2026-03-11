@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 
 const facultyEmails = [
     { name: "Ashesh Paul", email: "ashesh.paul@heritageit.edu" },
@@ -20,6 +21,22 @@ const facultyEmails = [
 
 export default function StudentFooter() {
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    useEffect(() => {
+        if (isModalOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+        return () => {
+            document.body.style.overflow = '';
+        };
+    }, [isModalOpen]);
 
     return (
         <footer className="py-4 text-center text-gray-500 border-t border-white/5 mt-auto z-10 relative flex flex-col items-center gap-2 w-full">
@@ -31,9 +48,15 @@ export default function StudentFooter() {
             </button>
             <p className="text-[10px]">&copy; {new Date().getFullYear()} Dept. of Mathematics, HIT (Developed by Dr. Ritwick Banerjee)</p>
 
-            {isModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-                    <div className="bg-[#111827] border border-white/10 rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[85vh]">
+            {isModalOpen && mounted && createPortal(
+                <div 
+                    className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overscroll-none" 
+                    onClick={() => setIsModalOpen(false)}
+                >
+                    <div 
+                        className="bg-[#111827] border border-white/10 rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[85vh]"
+                        onClick={(e) => e.stopPropagation()}
+                    >
                         <div className="flex items-center justify-between p-5 border-b border-white/10 bg-white/5">
                             <h2 className="text-white font-medium text-lg">Faculty Emails</h2>
                             <button
@@ -45,7 +68,7 @@ export default function StudentFooter() {
                                 </svg>
                             </button>
                         </div>
-                        <div className="p-4 overflow-y-auto flex-1 custom-scrollbar">
+                        <div className="p-4 overflow-y-auto overscroll-none flex-1 custom-scrollbar">
                             <ul className="space-y-3">
                                 {facultyEmails.map((faculty, index) => (
                                     <li key={index} className="flex flex-col items-start bg-white/5 p-3 rounded-lg border border-white/5 hover:bg-white/10 transition-colors">
@@ -58,7 +81,8 @@ export default function StudentFooter() {
                             </ul>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </footer>
     );
