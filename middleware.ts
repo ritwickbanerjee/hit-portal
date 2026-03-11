@@ -13,12 +13,8 @@ export async function middleware(req: NextRequest) {
     }
 
     if (req.nextUrl.pathname.startsWith('/api/admin')) {
-        // Allow legacy admin auth headers to bypass JWT check
-        const globalKey = req.headers.get('x-global-admin-key');
-        const userEmail = req.headers.get('x-user-email');
-        if (globalKey || userEmail) {
-            return NextResponse.next();
-        }
+        // We no longer allow legacy admin auth headers to bypass JWT check.
+        // The token MUST be verified for any admin route.
     }
 
     // 2. Check for the token in cookies OR headers
@@ -43,6 +39,24 @@ export async function middleware(req: NextRequest) {
         const requestHeaders = new Headers(req.headers);
         requestHeaders.set('x-user-id', payload.userId as string);
         requestHeaders.set('x-user-role', payload.role as string);
+
+        // SECURE ADMIN FIX: Override client-provided identity headers with verified JWT data
+        if (payload.role === 'admin' && payload.email) {
+            requestHeaders.set('x-user-email', payload.email as string);
+            
+            // If the client provided a global admin key, pass it through ONLY IF they are a valid admin.
+            // The endpoints themselves double-check this key if needed.
+            const clientGlobalKey = req.headers.get('x-global-admin-key');
+            if (clientGlobalKey) {
+                requestHeaders.set('x-global-admin-key', clientGlobalKey);
+            } else {
+                requestHeaders.delete('x-global-admin-key'); // Strip it just in case
+            }
+        } else {
+             // For students, ensure they can NEVER pass an x-user-email or x-global-admin-key spoofed header
+             requestHeaders.delete('x-user-email');
+             requestHeaders.delete('x-global-admin-key');
+        }
 
         console.log(`[Middleware] Authenticated User: ${payload.userId} (${payload.role})`);
 

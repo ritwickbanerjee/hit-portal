@@ -25,6 +25,7 @@ export default function AdminReports() {
     const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
     const [reportFilters, setReportFilters] = useState({ dept: '', year: '', course: '' });
     const [selectedFaculties, setSelectedFaculties] = useState<string[]>([]);
+    const [isFacultyDropdownOpen, setIsFacultyDropdownOpen] = useState(false);
     const [reportData, setReportData] = useState<{ students: any[], records: any[] } | null>(null);
 
     // Edit Modal
@@ -773,14 +774,25 @@ Treat this matter with extreme urgency.`;
                     </div>
 
                     {/* Faculty Multi-Select */}
-                    <div className="relative group z-50">
+                    <div className="relative z-50">
                         <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Faculty Filter</label>
-                        <button className="bg-slate-900 border border-white/10 rounded-lg text-slate-300 px-3 py-2 w-full text-left text-sm flex justify-between items-center focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all hover:bg-slate-800">
+                        <button 
+                            type="button"
+                            onClick={() => setIsFacultyDropdownOpen(!isFacultyDropdownOpen)}
+                            className="bg-slate-900 border border-white/10 rounded-lg text-slate-300 px-3 py-2 w-full text-left text-sm flex justify-between items-center focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all hover:bg-slate-800"
+                        >
                             <span className="truncate">
                                 {selectedFaculties.length === 0 ? 'All Faculties' : `${selectedFaculties.length} Selected`}
                             </span>
                         </button>
-                        <div className="absolute hidden group-hover:block bg-slate-900 border border-white/10 rounded-lg shadow-2xl z-50 w-64 p-2 max-h-60 overflow-y-auto bottom-full mb-1 custom-scrollbar">
+                        
+                        {/* Overlay to close on outside click for mobile */}
+                        {isFacultyDropdownOpen && (
+                            <div className="fixed inset-0 z-40" onClick={() => setIsFacultyDropdownOpen(false)}></div>
+                        )}
+
+                        {isFacultyDropdownOpen && (
+                            <div className="absolute bg-slate-900 border border-white/10 rounded-lg shadow-2xl z-50 w-64 p-2 max-h-60 overflow-y-auto bottom-full mb-1 custom-scrollbar">
                             {availableFaculties.length === 0 ? (
                                 <div className="text-slate-500 text-xs p-2 italic">Select Course First</div>
                             ) : (
@@ -819,6 +831,7 @@ Treat this matter with extreme urgency.`;
                                 </div>
                             )}
                         </div>
+                        )}
                     </div>
                 </div>
 
@@ -978,6 +991,30 @@ Treat this matter with extreme urgency.`;
                                                 );
                                             })}
                                         </tbody>
+                                        {reportData.students.length > 0 && reportData.records.length > 0 && (
+                                            <tfoot className="bg-slate-900/80 sticky bottom-0 z-20 shadow-[0_-4px_12px_-4px_rgba(0,0,0,0.5)] border-t border-white/10">
+                                                <tr>
+                                                    <td className="px-4 py-3 text-right font-bold text-slate-300 sticky left-0 z-30 bg-slate-900 border-r border-white/5">
+                                                        Total Present <br/><span className="text-slate-500 font-normal">Total Absent</span>
+                                                    </td>
+                                                    {reportData.records.map((r: any) => {
+                                                        let pCount = 0;
+                                                        let aCount = 0;
+                                                        reportData.students.forEach(student => {
+                                                            if (r.presentStudentIds?.includes(student._id)) pCount++;
+                                                            else if (r.absentStudentIds?.includes(student._id)) aCount++;
+                                                        });
+                                                        return (
+                                                            <td key={`total-${r._id}`} className="px-2 py-3 text-center border-l border-white/5 bg-slate-900/80">
+                                                                <div className="text-emerald-400 font-bold text-sm">{pCount}P</div>
+                                                                <div className="text-red-400 font-bold text-[10px] mt-0.5">{aCount}A</div>
+                                                            </td>
+                                                        );
+                                                    })}
+                                                    <td colSpan={2} className="px-3 py-3 border-l border-white/10 bg-slate-900"></td>
+                                                </tr>
+                                            </tfoot>
+                                        )}
                                     </table>
                                 </div>
                             </div>
