@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { MongoClient } from 'mongodb';
-
-const MONGO_URI = process.env.MONGODB_URI || '';
-const DB_NAME = 'HIT_Portal';
+import connectDB from '@/lib/db';
+import mongoose from 'mongoose';
 
 export async function GET(req: NextRequest) {
     try {
         // No auth required - students need to check which topics are enabled
-        const client = await MongoClient.connect(MONGO_URI);
-        const db = client.db(DB_NAME);
+        await connectDB();
+        const db = mongoose.connection.db;
+
+        if (!db) {
+            throw new Error("Database not connected");
+        }
 
         const config = await db.collection('configs').findOne({});
-
-        await client.close();
 
         const enabledTopics = config?.aiEnabledTopics || [];
         return NextResponse.json({ enabledTopics });
@@ -35,16 +35,18 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Invalid data' }, { status: 400 });
         }
 
-        const client = await MongoClient.connect(MONGO_URI);
-        const db = client.db(DB_NAME);
+        await connectDB();
+        const db = mongoose.connection.db;
+
+        if (!db) {
+            throw new Error("Database not connected");
+        }
 
         await db.collection('configs').updateOne(
             {},
             { $set: { aiEnabledTopics: enabledTopics } },
             { upsert: true }
         );
-
-        await client.close();
 
         return NextResponse.json({ success: true });
     } catch (error) {
