@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { Loader2, Calendar, Search, Save, Trash2, Edit, X, RefreshCw, Check, Clock, Users } from 'lucide-react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { Loader2, Calendar, Search, Save, Trash2, Edit, X, RefreshCw, Check, Clock, Users, Mic, MicOff } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import InstallPWA from '@/components/InstallPWA';
 
@@ -22,6 +22,8 @@ export default function AdminAttendance() {
     const [attendanceData, setAttendanceData] = useState<Record<string, boolean>>({}); // studentId -> present (true/false)
     const [selectAll, setSelectAll] = useState(true);
     const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
+    const [isRecording, setIsRecording] = useState(false);
+    const recognitionRef = useRef<any>(null);
 
     // Manage Attendance State
     const [manageFilters, setManageFilters] = useState({ date: new Date().toISOString().split('T')[0], dept: '', year: '', course: '' });
@@ -168,6 +170,93 @@ export default function AdminAttendance() {
             }
         }
     }, [availableTeachers, adminEmail, editingRecordId]);
+
+    const tableStudentsRef = useRef(tableStudents);
+    useEffect(() => {
+        tableStudentsRef.current = tableStudents;
+    }, [tableStudents]);
+
+    const startRecording = () => {
+        if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+            toast.error("Your browser doesn't support speech recognition.");
+            return;
+        }
+
+        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        const recognition = new SpeechRecognition();
+        
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'en-US';
+
+        recognition.onstart = () => {
+            setIsRecording(true);
+            toast.success("Recording started. Speak 3-digit roll numbers.");
+        };
+
+        recognition.onresult = (event: any) => {
+            let finalTranscript = '';
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+                if (event.results[i].isFinal) {
+                    finalTranscript += event.results[i][0].transcript;
+                }
+            }
+            if (finalTranscript) {
+                const wordMap: Record<string, string> = {
+                    'zero': '0', 'one': '1', 'two': '2', 'three': '3', 'four': '4', 
+                    'five': '5', 'six': '6', 'seven': '7', 'eight': '8', 'nine': '9'
+                };
+                let normalized = finalTranscript.toLowerCase();
+                Object.keys(wordMap).forEach(word => {
+                    normalized = normalized.replaceAll(word, wordMap[word]);
+                });
+                
+                const digitsOnly = normalized.replace(/\D/g, '');
+                const matches = digitsOnly.match(/\d{3}/g) || [];
+                
+                if (matches.length > 0) {
+                    setAttendanceData(prev => {
+                        const newData = { ...prev };
+                        let foundAny = false;
+                        let foundMatches: string[] = [];
+                        
+                        matches.forEach(match => {
+                            const student = tableStudentsRef.current.find((s: any) => s.roll && s.roll.endsWith(match));
+                            if (student && newData[student._id] !== false) {
+                                newData[student._id] = false; // mark absent
+                                foundAny = true;
+                                foundMatches.push(match);
+                            }
+                        });
+                        
+                        if (foundAny) toast.success(`Marked absent: ${foundMatches.join(', ')}`);
+                        return newData;
+                    });
+                }
+            }
+        };
+
+        recognition.onerror = (event: any) => {
+            if (event.error !== 'no-speech') {
+                toast.error("Microphone error: " + event.error);
+                setIsRecording(false);
+            }
+        };
+
+        recognition.onend = () => {
+            setIsRecording(false);
+        };
+
+        recognitionRef.current = recognition;
+        recognition.start();
+    };
+
+    const stopRecording = () => {
+        if (recognitionRef.current) {
+            recognitionRef.current.stop();
+        }
+        setIsRecording(false);
+    };
 
     // Handlers
     const handleSelectAll = () => {
@@ -493,6 +582,13 @@ export default function AdminAttendance() {
                                 </span>
                                 <span className="text-slate-500 text-sm font-normal md:ml-2">({tableStudents.length} Students)</span>
                             </h3>
+                            <button
+                                onClick={() => isRecording ? stopRecording() : startRecording()}
+                                className={`md:hidden flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${isRecording ? 'bg-rose-500 text-white shadow-[0_0_15px_rgba(244,63,94,0.5)] animate-pulse' : 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30'}`}
+                            >
+                                {isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                                {isRecording ? 'Stop Voice' : 'Voice Mark'}
+                            </button>
                         </div>
                         <div className="overflow-x-auto max-h-[500px] custom-scrollbar">
                             <table className="min-w-full divide-y divide-white/5">
