@@ -27,6 +27,7 @@ export default function AdminAttendance() {
     const [recognizedRolls, setRecognizedRolls] = useState<string[]>([]);
     const recognitionRef = useRef<any>(null);
     const manualStopRef = useRef<boolean>(false);
+    const recordingModeRef = useRef<'absent' | 'present' | null>(null);
 
     // Manage Attendance State
     const [manageFilters, setManageFilters] = useState({ date: new Date().toISOString().split('T')[0], dept: '', year: '', course: '' });
@@ -193,26 +194,24 @@ export default function AdminAttendance() {
         recognition.lang = 'en-US';
         manualStopRef.current = false;
         setRecordingMode(mode);
+        recordingModeRef.current = mode;
         setRecognizedRolls([]);
 
         recognition.onstart = () => {
             setIsRecording(true);
-            toast.success(`Recording started tracking ${mode}. Speak 2-digit roll numbers.`);
         };
 
         recognition.onresult = (event: any) => {
-            let finalTranscript = '';
+            let currentTranscript = '';
             for (let i = event.resultIndex; i < event.results.length; ++i) {
-                if (event.results[i].isFinal) {
-                    finalTranscript += event.results[i][0].transcript;
-                }
+                currentTranscript += event.results[i][0].transcript;
             }
-            if (finalTranscript) {
+            if (currentTranscript) {
                 const wordMap: Record<string, string> = {
                     'zero': '0', 'one': '1', 'two': '2', 'three': '3', 'four': '4', 
                     'five': '5', 'six': '6', 'seven': '7', 'eight': '8', 'nine': '9'
                 };
-                let normalized = finalTranscript.toLowerCase();
+                let normalized = currentTranscript.toLowerCase();
                 Object.keys(wordMap).forEach(word => {
                     normalized = normalized.replaceAll(word, wordMap[word]);
                 });
@@ -231,6 +230,23 @@ export default function AdminAttendance() {
                             }
                         });
                         return updated ? newRolls : prev;
+                    });
+                    
+                    // Live Checkbox Updates
+                    setAttendanceData(prev => {
+                        const newData = { ...prev };
+                        let appliedCount = 0;
+                        matches.forEach(match => {
+                            const student = tableStudentsRef.current.find((s: any) => s.roll && s.roll.endsWith(match));
+                            if (student) {
+                                const targetStatus = recordingModeRef.current === 'present';
+                                if (newData[student._id] !== targetStatus) {
+                                    newData[student._id] = targetStatus;
+                                    appliedCount++;
+                                }
+                            }
+                        });
+                        return appliedCount > 0 ? newData : prev;
                     });
                 }
             }
@@ -263,33 +279,8 @@ export default function AdminAttendance() {
             recognitionRef.current.stop();
         }
         setIsRecording(false);
-
-        if (recognizedRolls.length > 0 && recordingMode) {
-            setAttendanceData(prev => {
-                const newData = { ...prev };
-                let appliedCount = 0;
-                
-                recognizedRolls.forEach(match => {
-                    const student = tableStudentsRef.current.find((s: any) => s.roll && s.roll.endsWith(match));
-                    if (student) {
-                        const targetStatus = recordingMode === 'present';
-                        if (newData[student._id] !== targetStatus) {
-                            newData[student._id] = targetStatus;
-                            appliedCount++;
-                        }
-                    }
-                });
-                
-                if (appliedCount > 0) {
-                    toast.success(`Marked ${appliedCount} students as ${recordingMode}.`);
-                } else {
-                    toast.success(`Checked heard rolls, no new changes were necessary.`);
-                }
-                return newData;
-            });
-        }
-        
         setRecordingMode(null);
+        recordingModeRef.current = null;
         setRecognizedRolls([]);
     };
 
@@ -609,33 +600,33 @@ export default function AdminAttendance() {
 
                     {/* Student List */}
                     <div className="bg-slate-900/50 backdrop-blur-xl border border-white/5 rounded-2xl shadow-xl overflow-hidden mt-8">
-                        <div className="p-5 border-b border-white/5 flex justify-between items-center bg-slate-900/50">
-                            <h3 className="text-lg font-bold text-white flex flex-col md:flex-row md:items-center gap-1 md:gap-2">
+                        <div className="p-4 sm:p-5 border-b border-white/5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900/50">
+                            <h3 className="text-lg font-bold text-white flex flex-wrap items-center gap-1 md:gap-2">
                                 <span className="flex items-center gap-2">
                                     <Users className="h-5 w-5 text-indigo-400" />
                                     Mark Attendance
                                 </span>
-                                <span className="text-slate-500 text-sm font-normal md:ml-2">({tableStudents.length} Students)</span>
+                                <span className="text-slate-500 text-sm font-normal">({tableStudents.length} Students)</span>
                             </h3>
-                            <div className="md:hidden flex flex-col md:flex-row items-center gap-2">
+                            <div className="md:hidden flex flex-wrap w-full sm:w-auto items-center gap-2 mt-1 sm:mt-0">
                                 {isRecording ? (
                                     <button
                                         onClick={stopRecording}
-                                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all bg-rose-500 text-white shadow-[0_0_15px_rgba(244,63,94,0.5)] animate-pulse hover:bg-rose-400"
+                                        className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-bold transition-all bg-rose-500 text-white shadow-[0_0_15px_rgba(244,63,94,0.5)] animate-pulse hover:bg-rose-400 flex-1 justify-center sm:flex-none"
                                     >
                                         <MicOff className="h-4 w-4" /> Stop Voice
                                     </button>
                                 ) : (
-                                    <div className="flex gap-2">
+                                    <div className="flex gap-2 w-full sm:w-auto">
                                         <button
                                             onClick={() => startRecording('absent')}
-                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all bg-rose-500/10 text-rose-400 border border-rose-500/30 hover:bg-rose-500/20 shadow-sm whitespace-nowrap"
+                                            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-bold transition-all bg-rose-500/10 text-rose-400 border border-rose-500/30 hover:bg-rose-500/20 shadow-sm flex-1 sm:flex-none whitespace-nowrap"
                                         >
                                             <Mic className="h-4 w-4" /> Voice Absent
                                         </button>
                                         <button
                                             onClick={() => startRecording('present')}
-                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20 shadow-sm whitespace-nowrap"
+                                            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-bold transition-all bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20 shadow-sm flex-1 sm:flex-none whitespace-nowrap"
                                         >
                                             <Mic className="h-4 w-4" /> Voice Present
                                         </button>
