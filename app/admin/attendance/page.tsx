@@ -23,7 +23,10 @@ export default function AdminAttendance() {
     const [selectAll, setSelectAll] = useState(true);
     const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
     const [isRecording, setIsRecording] = useState(false);
+    const [recordingMode, setRecordingMode] = useState<'absent' | 'present' | null>(null);
+    const [recognizedRolls, setRecognizedRolls] = useState<string[]>([]);
     const recognitionRef = useRef<any>(null);
+    const manualStopRef = useRef<boolean>(false);
 
     // Manage Attendance State
     const [manageFilters, setManageFilters] = useState({ date: new Date().toISOString().split('T')[0], dept: '', year: '', course: '' });
@@ -176,7 +179,7 @@ export default function AdminAttendance() {
         tableStudentsRef.current = tableStudents;
     }, [tableStudents]);
 
-    const startRecording = () => {
+    const startRecording = (mode: 'absent' | 'present') => {
         if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
             toast.error("Your browser doesn't support speech recognition.");
             return;
@@ -188,10 +191,13 @@ export default function AdminAttendance() {
         recognition.continuous = true;
         recognition.interimResults = true;
         recognition.lang = 'en-US';
+        manualStopRef.current = false;
+        setRecordingMode(mode);
+        setRecognizedRolls([]);
 
         recognition.onstart = () => {
             setIsRecording(true);
-            toast.success("Recording started. Speak 3-digit roll numbers.");
+            toast.success(`Recording started tracking ${mode}. Speak 2-digit roll numbers.`);
         };
 
         recognition.onresult = (event: any) => {
@@ -212,25 +218,19 @@ export default function AdminAttendance() {
                 });
                 
                 const digitsOnly = normalized.replace(/\D/g, '');
-                const matches = digitsOnly.match(/\d{3}/g) || [];
+                const matches = digitsOnly.match(/\d{2}/g) || [];
                 
                 if (matches.length > 0) {
-                    setAttendanceData(prev => {
-                        const newData = { ...prev };
-                        let foundAny = false;
-                        let foundMatches: string[] = [];
-                        
+                    setRecognizedRolls(prev => {
+                        const newRolls = [...prev];
+                        let updated = false;
                         matches.forEach(match => {
-                            const student = tableStudentsRef.current.find((s: any) => s.roll && s.roll.endsWith(match));
-                            if (student && newData[student._id] !== false) {
-                                newData[student._id] = false; // mark absent
-                                foundAny = true;
-                                foundMatches.push(match);
+                            if (!newRolls.includes(match)) {
+                                newRolls.push(match);
+                                updated = true;
                             }
                         });
-                        
-                        if (foundAny) toast.success(`Marked absent: ${foundMatches.join(', ')}`);
-                        return newData;
+                        return updated ? newRolls : prev;
                     });
                 }
             }
@@ -239,12 +239,18 @@ export default function AdminAttendance() {
         recognition.onerror = (event: any) => {
             if (event.error !== 'no-speech') {
                 toast.error("Microphone error: " + event.error);
-                setIsRecording(false);
+                if (manualStopRef.current) setIsRecording(false);
             }
         };
 
         recognition.onend = () => {
-            setIsRecording(false);
+            if (!manualStopRef.current) {
+                try {
+                    recognitionRef.current?.start();
+                } catch(e) {}
+            } else {
+                setIsRecording(false);
+            }
         };
 
         recognitionRef.current = recognition;
@@ -252,10 +258,39 @@ export default function AdminAttendance() {
     };
 
     const stopRecording = () => {
+        manualStopRef.current = true;
         if (recognitionRef.current) {
             recognitionRef.current.stop();
         }
         setIsRecording(false);
+
+        if (recognizedRolls.length > 0 && recordingMode) {
+            setAttendanceData(prev => {
+                const newData = { ...prev };
+                let appliedCount = 0;
+                
+                recognizedRolls.forEach(match => {
+                    const student = tableStudentsRef.current.find((s: any) => s.roll && s.roll.endsWith(match));
+                    if (student) {
+                        const targetStatus = recordingMode === 'present';
+                        if (newData[student._id] !== targetStatus) {
+                            newData[student._id] = targetStatus;
+                            appliedCount++;
+                        }
+                    }
+                });
+                
+                if (appliedCount > 0) {
+                    toast.success(`Marked ${appliedCount} students as ${recordingMode}.`);
+                } else {
+                    toast.success(`Checked heard rolls, no new changes were necessary.`);
+                }
+                return newData;
+            });
+        }
+        
+        setRecordingMode(null);
+        setRecognizedRolls([]);
     };
 
     // Handlers
@@ -582,14 +617,56 @@ export default function AdminAttendance() {
                                 </span>
                                 <span className="text-slate-500 text-sm font-normal md:ml-2">({tableStudents.length} Students)</span>
                             </h3>
-                            <button
-                                onClick={() => isRecording ? stopRecording() : startRecording()}
-                                className={`md:hidden flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${isRecording ? 'bg-rose-500 text-white shadow-[0_0_15px_rgba(244,63,94,0.5)] animate-pulse' : 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30'}`}
-                            >
-                                {isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-                                {isRecording ? 'Stop Voice' : 'Voice Mark'}
-                            </button>
+                            <div className="md:hidden flex flex-col md:flex-row items-center gap-2">
+                                {isRecording ? (
+                                    <button
+                                        onClick={stopRecording}
+                                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all bg-rose-500 text-white shadow-[0_0_15px_rgba(244,63,94,0.5)] animate-pulse hover:bg-rose-400"
+                                    >
+                                        <MicOff className="h-4 w-4" /> Stop Voice
+                                    </button>
+                                ) : (
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => startRecording('absent')}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all bg-rose-500/10 text-rose-400 border border-rose-500/30 hover:bg-rose-500/20 shadow-sm whitespace-nowrap"
+                                        >
+                                            <Mic className="h-4 w-4" /> Voice Absent
+                                        </button>
+                                        <button
+                                            onClick={() => startRecording('present')}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20 shadow-sm whitespace-nowrap"
+                                        >
+                                            <Mic className="h-4 w-4" /> Voice Present
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
                         </div>
+
+                        {/* Live List Display */}
+                        {isRecording && (
+                            <div className="bg-slate-950/80 p-4 border-b border-white/5 animate-in slide-in-from-top-2 duration-300">
+                                <div className="flex items-center gap-3 mb-2 text-sm text-slate-300">
+                                    <span className="relative flex h-3 w-3">
+                                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                                      <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500"></span>
+                                    </span>
+                                    Listening for 2-digit roll numbers to mark <span className={`font-bold uppercase ${recordingMode === 'present' ? 'text-emerald-400' : 'text-rose-400'}`}>{recordingMode}</span>:
+                                </div>
+                                <div className="flex flex-wrap gap-2 min-h-8 items-center">
+                                    {recognizedRolls.length === 0 ? (
+                                        <span className="text-slate-500 italic text-xs">Waiting for numbers...</span>
+                                    ) : (
+                                        recognizedRolls.map((roll, idx) => (
+                                            <span key={idx} className={`px-2.5 py-1 rounded-md text-sm font-bold shadow-sm flex items-center gap-1 animate-in zoom-in duration-200 ${recordingMode === 'present' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'}`}>
+                                                {roll}
+                                            </span>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+                        )}
                         <div className="overflow-x-auto max-h-[500px] custom-scrollbar">
                             <table className="min-w-full divide-y divide-white/5">
                                 <thead className="bg-slate-950/80 backdrop-blur-md sticky top-0 z-10">

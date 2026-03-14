@@ -26,7 +26,7 @@ export default function BatchTab({ onSuccess, user, context, isGlobalAdmin }: Pr
     const [subTopics, setSubTopics] = useState<string[]>([]);
     const [allQuestions, setAllQuestions] = useState<any[]>([]);
 
-    // Step 1 Rule: Pool of allowed questions
+    // Pool of allowed questions
     const [allowedQuestionIds, setAllowedQuestionIds] = useState<string[]>([]);
     const [filteredQuestions, setFilteredQuestions] = useState<any[]>([]);
 
@@ -205,7 +205,7 @@ export default function BatchTab({ onSuccess, user, context, isGlobalAdmin }: Pr
                             <li>If a student's attendance falls on a boundary (e.g., exactly 70%), they are considered for the <strong>upper interval</strong> (e.g., 70-100%).</li>
                         </ul>
                     </li>
-                    <li><strong>Step 1 Rule:</strong> Use the "Refine Question Pool" section to uncheck any questions you want to <strong>exclude</strong>.</li>
+                    <li>Use the "Refine Question Pool" section to uncheck any questions you want to <strong>exclude</strong>.</li>
                     <li>Questions are drawn from the pool based on the <strong>Topic Weights</strong> you define.</li>
                 </ul>
             </InstructionsBox>
