@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
     Users, ClipboardList, CheckSquare, FileText,
-    Upload, BarChart, BookOpen, LogOut, Menu, X, GraduationCap, Laptop
+    Upload, BarChart, BookOpen, LogOut, Menu, X, GraduationCap, Laptop, CalendarDays
 } from 'lucide-react';
 import InstallPWA from '@/components/InstallPWA';
 
@@ -126,6 +126,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         { name: 'Student & Course Management', href: '/admin/dashboard', icon: Users },
         { name: 'Mark Daily Attendance', href: '/admin/attendance', icon: CheckSquare },
         { name: 'Track Attendance', href: '/admin/reports', icon: ClipboardList },
+        { name: 'My Routine', href: '/admin/routine', icon: CalendarDays },
         { name: 'Question Bank', href: '/admin/questions', icon: FileText },
         { name: 'Assignments', href: '/admin/assignments', icon: Upload },
         { name: 'Submissions', href: '/admin/submissions', icon: FileText },
@@ -280,6 +281,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                             <p className="text-slate-400 text-sm mt-1">
                                 {pathname === '/admin/dashboard' && ''}
                                 {pathname === '/admin/reports' && 'Manage attendance and generate detailed reports'}
+                                {pathname === '/admin/routine' && 'View your individual teaching schedule'}
                                 {pathname === '/admin/attendance' && 'Mark daily attendance for students'}
                                 {pathname === '/admin/questions' && 'Manage question bank'}
                                 {pathname === '/admin/assignments' && 'Manage assignments'}
