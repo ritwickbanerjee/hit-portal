@@ -54,6 +54,9 @@ const OnlineTestSchema = new mongoose.Schema({
         }]
     }],
     deployment: {
+        department: [{ type: String }],
+        year: { type: String },
+        course: { type: String },
         batches: [{ type: String }], // Batch names from Google Sheets
         students: [{
             phoneNumber: { type: String }, // Student phone number (unique identifier)

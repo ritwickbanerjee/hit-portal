@@ -1,7 +1,10 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, Search, FileText, Calendar, Users, Clock, Trash2, Edit, Check, X, ArrowRight, ArrowLeft, Save } from 'lucide-react';
+import {
+    Plus, Check, X, FileText, ArrowRight, Save, Clock, Users,
+    BrainCircuit, MousePointerClick, AlignLeft, RefreshCw, Layers, Edit, Filter, Search, BookOpen, User, BookMarked, ExternalLink, Hash, ArrowLeft, GripVertical, PlusCircle, Trash2
+} from 'lucide-react';
 import 'katex/dist/katex.min.css';
 import Latex from 'react-latex-next';
 
@@ -54,6 +57,22 @@ export default function OnlineTestPage() {
         };
         init();
     }, []);
+
+    // NEW: Auto-calculate duration based on per-question timer
+    useEffect(() => {
+        if (currentTest?.config?.enablePerQuestionTimer && currentTest?.config?.perQuestionDuration && currentTest?.questions?.length > 0) {
+            const calculatedDuration = Math.ceil((currentTest.config.perQuestionDuration * currentTest.questions.length) / 60);
+            if (currentTest.deployment?.durationMinutes !== calculatedDuration) {
+                setCurrentTest((prev: any) => ({
+                    ...prev,
+                    deployment: {
+                        ...(prev?.deployment || {}),
+                        durationMinutes: calculatedDuration
+                    }
+                }));
+            }
+        }
+    }, [currentTest?.config?.enablePerQuestionTimer, currentTest?.config?.perQuestionDuration, currentTest?.questions?.length]);
 
     // Derived Lists for Deployment (Access Control)
     const { depts, years, courses } = useMemo(() => {
@@ -124,6 +143,15 @@ export default function OnlineTestPage() {
             title: 'Untitled Test',
             questions: [],
             status: 'draft',
+            config: {
+                shuffleQuestions: false,
+                enablePerQuestionTimer: false,
+                perQuestionDuration: 60,
+                allowBackNavigation: true,
+                showResults: true,
+                showResultsImmediately: true,
+                maxQuestionsToAttempt: null,
+            },
             createdAt: new Date()
         });
         setView('selection');
@@ -257,7 +285,12 @@ export default function OnlineTestPage() {
             return;
         }
 
-        if (!currentTest.deployment?.startTime || !currentTest.deployment?.endTime || !currentTest.deployment?.durationMinutes) {
+        let computedDuration = currentTest.deployment?.durationMinutes || 0;
+        if (currentTest.config?.enablePerQuestionTimer && currentTest.config?.perQuestionDuration) {
+            computedDuration = Math.ceil((currentTest.config.perQuestionDuration * currentTest.questions.length) / 60);
+        }
+
+        if (!currentTest.deployment?.startTime || !currentTest.deployment?.endTime || !computedDuration) {
             alert('Please set start time, end time, and duration.');
             return;
         }
@@ -267,7 +300,7 @@ export default function OnlineTestPage() {
             return;
         }
 
-        if (currentTest.config?.timerPerQuestion && !currentTest.config?.timePerQuestion) {
+        if (currentTest.config?.enablePerQuestionTimer && !currentTest.config?.perQuestionDuration) {
             alert('Please set time per question if timer is enabled.');
             return;
         }
@@ -282,8 +315,15 @@ export default function OnlineTestPage() {
 
             const payload = {
                 ...currentTest,
+                deployment: {
+                    ...currentTest.deployment,
+                    durationMinutes: computedDuration
+                },
                 questions: sanitizedQuestions
             };
+
+            // Ensure currentTest state matches the guaranteed computed duration for deploy API request
+            const deploymentPayload = payload.deployment;
 
             // First save/update the test
             const saveRes = await fetch('/api/admin/online-test/save', {
@@ -305,7 +345,7 @@ export default function OnlineTestPage() {
                 headers: getHeaders(),
                 body: JSON.stringify({
                     _id: saveData.test._id,
-                    deployment: currentTest.deployment,
+                    deployment: deploymentPayload,
                     config: currentTest.config
                 })
             });
@@ -395,8 +435,18 @@ export default function OnlineTestPage() {
                                         <div className="flex gap-2">
                                             <button
                                                 onClick={() => {
-                                                    setCurrentTest(test);
-                                                    setView('editor'); // Or selection, depending on flow
+                                                    const processedTest = {
+                                                        ...test,
+                                                        questions: test.questions.map((q: any) => {
+                                                            let correctIndices = q.correctIndices || [];
+                                                            if (correctIndices.length === 0 && q.correctAnswers && q.options) {
+                                                                correctIndices = q.correctAnswers.map((ans: string) => q.options.indexOf(ans)).filter((idx: number) => idx !== -1);
+                                                            }
+                                                            return { ...q, correctIndices };
+                                                        })
+                                                    };
+                                                    setCurrentTest(processedTest);
+                                                    setView('editor');
                                                 }}
                                                 className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2"
                                             >
@@ -405,8 +455,17 @@ export default function OnlineTestPage() {
                                             {test.status !== 'deployed' && (
                                                 <button
                                                     onClick={() => {
-                                                        setCurrentTest(test);
-                                                        handleDeploy(); // This might need adjustment to just open deployment view
+                                                        const processedTest = {
+                                                            ...test,
+                                                            questions: test.questions.map((q: any) => {
+                                                                let correctIndices = q.correctIndices || [];
+                                                                if (correctIndices.length === 0 && q.correctAnswers && q.options) {
+                                                                    correctIndices = q.correctAnswers.map((ans: string) => q.options.indexOf(ans)).filter((idx: number) => idx !== -1);
+                                                                }
+                                                                return { ...q, correctIndices };
+                                                            })
+                                                        };
+                                                        setCurrentTest(processedTest);
                                                         setView('deployment');
                                                     }}
                                                     className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2"
@@ -414,6 +473,32 @@ export default function OnlineTestPage() {
                                                     <Check className="h-3 w-3" /> Deploy
                                                 </button>
                                             )}
+                                            <button
+                                                type="button"
+                                                onClick={async (e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    if (window.confirm('WARNING: This will permanently delete the test and all associated student attempts. Continue?')) {
+                                                        try {
+                                                            const res = await fetch(`/api/admin/online-test/delete?id=${test._id}`, { 
+                                                                method: 'DELETE', 
+                                                                headers: getHeaders() 
+                                                            });
+                                                            if (res.ok) {
+                                                                fetchTests();
+                                                            } else {
+                                                                const err = await res.json();
+                                                                alert(`Failed: ${err.error || 'Unknown error'}`);
+                                                            }
+                                                        } catch (e) {
+                                                            alert('Network error while deleting test');
+                                                        }
+                                                    }
+                                                }}
+                                                className="flex-1 bg-red-900/40 hover:bg-red-600 text-red-200 hover:text-white py-2.5 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-2 pointer-events-auto border border-red-500/20"
+                                            >
+                                                <Trash2 className="h-3 w-3" /> Delete
+                                            </button>
                                         </div>
                                     </div>
                                 ))}
@@ -534,6 +619,29 @@ export default function OnlineTestPage() {
                                 >
                                     Next: Deployment <ArrowRight className="h-4 w-4" />
                                 </button>
+                            </div>
+                        </div>
+                        {/* Title and Description */}
+                        <div className="p-4 border-b border-white/5 bg-slate-900/50 flex gap-4">
+                            <div className="flex-1">
+                                <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Test Title</label>
+                                <input
+                                    type="text"
+                                    className="w-full bg-slate-950 border border-slate-700 text-white rounded px-3 py-2 outline-none focus:border-indigo-500"
+                                    value={currentTest?.title || ''}
+                                    placeholder="Enter test title..."
+                                    onChange={(e) => setCurrentTest({ ...currentTest, title: e.target.value })}
+                                />
+                            </div>
+                            <div className="flex-1">
+                                <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Description (Optional)</label>
+                                <input
+                                    type="text"
+                                    className="w-full bg-slate-950 border border-slate-700 text-white rounded px-3 py-2 outline-none focus:border-indigo-500"
+                                    value={currentTest?.description || ''}
+                                    placeholder="Enter instructions or description..."
+                                    onChange={(e) => setCurrentTest({ ...currentTest, description: e.target.value })}
+                                />
                             </div>
                         </div>
 
@@ -848,6 +956,66 @@ export default function OnlineTestPage() {
                                                     </div>
                                                 </div>
                                             )}
+
+                                            {/* NEW: Admin Solution */}
+                                            <div className="pt-3 border-t border-slate-700/50 mt-3 bg-slate-900 rounded-lg p-3">
+                                                <details className="text-xs" open>
+                                                    <summary className="cursor-pointer text-emerald-400 hover:text-emerald-300 font-bold mb-2 select-none flex items-center gap-2">
+                                                        <FileText className="h-4 w-4" /> Optional: Full Detailed Answer
+                                                    </summary>
+                                                    
+                                                    <div className="space-y-3 mt-2 pr-1">
+                                                        <div>
+                                                            <label className="block text-[10px] text-slate-400 uppercase mb-1">Detailed Explanation (LaTeX Supported)</label>
+                                                            <textarea
+                                                                className="w-full h-24 bg-slate-900 text-slate-300 text-xs p-2 rounded border border-slate-700 focus:border-indigo-500 outline-none custom-scrollbar"
+                                                                placeholder="Enter step-by-step solution..."
+                                                                value={q.solutionText || ''}
+                                                                onChange={(e) => {
+                                                                    const newQuestions = [...currentTest.questions];
+                                                                    newQuestions[idx].solutionText = e.target.value;
+                                                                    setCurrentTest({ ...currentTest, questions: newQuestions });
+                                                                }}
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-[10px] text-slate-400 uppercase mb-1">Solution Image (Optional)</label>
+                                                            <input
+                                                                type="file"
+                                                                accept="image/*"
+                                                                className="block w-full text-xs text-slate-400 file:mr-2 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-emerald-600 file:text-white hover:file:bg-emerald-500"
+                                                                onChange={(e) => {
+                                                                    const file = e.target.files?.[0];
+                                                                    if (file) {
+                                                                        const reader = new FileReader();
+                                                                        reader.onloadend = () => {
+                                                                            const newQuestions = [...currentTest.questions];
+                                                                            newQuestions[idx].solutionImage = reader.result as string;
+                                                                            setCurrentTest({ ...currentTest, questions: newQuestions });
+                                                                        };
+                                                                        reader.readAsDataURL(file);
+                                                                    }
+                                                                }}
+                                                            />
+                                                            {q.solutionImage && (
+                                                                <div className="mt-2 relative inline-block group border border-emerald-900/50 p-1 rounded bg-slate-900">
+                                                                    <img src={q.solutionImage} alt="Solution Preview" className="h-16 rounded object-contain" />
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            const newQuestions = [...currentTest.questions];
+                                                                            newQuestions[idx].solutionImage = null;
+                                                                            setCurrentTest({ ...currentTest, questions: newQuestions });
+                                                                        }}
+                                                                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                                    >
+                                                                        <X className="h-3 w-3" />
+                                                                    </button>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </details>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
@@ -1024,8 +1192,9 @@ export default function OnlineTestPage() {
                                             <input
                                                 type="number"
                                                 placeholder="e.g. 60"
-                                                className="w-full bg-slate-900 border border-slate-700 text-white rounded-lg px-4 py-2.5 outline-none focus:border-indigo-500"
+                                                className="w-full bg-slate-900 border border-slate-700 text-white rounded-lg px-4 py-2.5 outline-none focus:border-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
                                                 value={currentTest?.deployment?.durationMinutes || ''}
+                                                disabled={currentTest?.config?.enablePerQuestionTimer}
                                                 onChange={(e) => setCurrentTest({ ...currentTest, deployment: { ...currentTest.deployment, durationMinutes: parseInt(e.target.value) } })}
                                             />
                                         </div>
@@ -1055,8 +1224,8 @@ export default function OnlineTestPage() {
                                                 <input
                                                     type="checkbox"
                                                     className="sr-only peer"
-                                                    checked={currentTest?.config?.shuffle || false}
-                                                    onChange={(e) => setCurrentTest({ ...currentTest, config: { ...currentTest.config, shuffle: e.target.checked } })}
+                                                    checked={currentTest?.config?.shuffleQuestions || false}
+                                                    onChange={(e) => setCurrentTest({ ...currentTest, config: { ...currentTest.config, shuffleQuestions: e.target.checked } })}
                                                 />
                                                 <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
                                             </label>
@@ -1073,22 +1242,22 @@ export default function OnlineTestPage() {
                                                     <input
                                                         type="checkbox"
                                                         className="sr-only peer"
-                                                        checked={currentTest?.config?.timerPerQuestion || false}
-                                                        onChange={(e) => setCurrentTest({ ...currentTest, config: { ...currentTest.config, timerPerQuestion: e.target.checked } })}
+                                                        checked={currentTest?.config?.enablePerQuestionTimer || false}
+                                                        onChange={(e) => setCurrentTest({ ...currentTest, config: { ...currentTest.config, enablePerQuestionTimer: e.target.checked } })}
                                                     />
                                                     <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
                                                 </label>
                                             </div>
 
-                                            {currentTest?.config?.timerPerQuestion && (
+                                                {currentTest?.config?.enablePerQuestionTimer && (
                                                 <div className="pt-4 border-t border-slate-800 grid grid-cols-1 md:grid-cols-2 gap-4">
                                                     <div>
                                                         <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Time per Question (Seconds)</label>
                                                         <input
                                                             type="number"
                                                             className="w-full bg-slate-900 border border-slate-700 text-white rounded-lg px-4 py-2.5 outline-none focus:border-indigo-500"
-                                                            value={currentTest?.config?.timePerQuestion || ''}
-                                                            onChange={(e) => setCurrentTest({ ...currentTest, config: { ...currentTest.config, timePerQuestion: parseInt(e.target.value) } })}
+                                                            value={currentTest?.config?.perQuestionDuration || ''}
+                                                            onChange={(e) => setCurrentTest({ ...currentTest, config: { ...currentTest.config, perQuestionDuration: parseInt(e.target.value) } })}
                                                         />
                                                     </div>
                                                     <div className="flex items-center justify-between">
@@ -1100,8 +1269,8 @@ export default function OnlineTestPage() {
                                                             <input
                                                                 type="checkbox"
                                                                 className="sr-only peer"
-                                                                checked={currentTest?.config?.allowBackTracking || false}
-                                                                onChange={(e) => setCurrentTest({ ...currentTest, config: { ...currentTest.config, allowBackTracking: e.target.checked } })}
+                                                                checked={currentTest?.config?.allowBackNavigation || false}
+                                                                onChange={(e) => setCurrentTest({ ...currentTest, config: { ...currentTest.config, allowBackNavigation: e.target.checked } })}
                                                             />
                                                             <div className="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
                                                         </label>
@@ -1109,6 +1278,56 @@ export default function OnlineTestPage() {
                                                 </div>
                                             )}
                                         </div>
+                                    </div>
+
+                                    <div className="space-y-4 mt-4 pt-4 border-t border-slate-800">
+                                        {/* Max Questions Randomization */}
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Randomized Question Pool</label>
+                                            <p className="text-xs text-slate-500 mb-2">If set, each student will get this many random questions from the total pool.</p>
+                                            <input
+                                                type="number"
+                                                placeholder="Leave empty to output all questions"
+                                                className="w-full bg-slate-900 border border-slate-700 text-white rounded-lg px-4 py-2.5 outline-none focus:border-indigo-500"
+                                                value={currentTest?.config?.maxQuestionsToAttempt || ''}
+                                                onChange={(e) => setCurrentTest({ ...currentTest, config: { ...currentTest.config, maxQuestionsToAttempt: parseInt(e.target.value) || null } })}
+                                            />
+                                        </div>
+
+                                        {/* Result Disclosure Controls */}
+                                        <div className="flex items-center justify-between p-4 bg-slate-900/50 rounded-lg border border-slate-800">
+                                            <div>
+                                                <h4 className="text-sm font-bold text-white">Show Results to Students</h4>
+                                                <p className="text-xs text-slate-400">Can students see their marks and answers after submission?</p>
+                                            </div>
+                                            <label className="relative inline-flex items-center cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    className="sr-only peer"
+                                                    checked={currentTest?.config?.showResults ?? true}
+                                                    onChange={(e) => setCurrentTest({ ...currentTest, config: { ...currentTest.config, showResults: e.target.checked } })}
+                                                />
+                                                <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                            </label>
+                                        </div>
+
+                                        {currentTest?.config?.showResults !== false && (
+                                            <div className="flex items-center justify-between p-4 bg-slate-900/50 rounded-lg border border-slate-800">
+                                                <div>
+                                                    <h4 className="text-sm font-bold text-white">Show Results Immediately</h4>
+                                                    <p className="text-xs text-slate-400">If off, results are hidden until the exam end window closes.</p>
+                                                </div>
+                                                <label className="relative inline-flex items-center cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        className="sr-only peer"
+                                                        checked={currentTest?.config?.showResultsImmediately ?? true}
+                                                        onChange={(e) => setCurrentTest({ ...currentTest, config: { ...currentTest.config, showResultsImmediately: e.target.checked } })}
+                                                    />
+                                                    <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                                </label>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 

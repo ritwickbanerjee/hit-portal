@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
 import connectDB from '@/lib/db';
 import OnlineTest from '@/models/OnlineTest';
-import BatchStudent from '@/models/BatchStudent';
+import Student from '@/models/Student';
 import StudentTestAttempt from '@/models/StudentTestAttempt';
-
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-dev-secret-change-this-in-prod';
 const key = new TextEncoder().encode(JWT_SECRET);
@@ -14,8 +13,11 @@ async function getStudentFromToken(req: NextRequest) {
     if (!token) return null;
     try {
         const { payload } = await jwtVerify(token, key);
-        const phoneNumber = (payload.phoneNumber || payload.userId) as string;
-        return { phoneNumber, studentName: payload.studentName as string, courses: payload.courses as string[] || [] };
+        return {
+            userId: payload.userId as string,
+            roll: payload.roll as string,
+            courses: payload.courses as string[] || []
+        };
     } catch {
         return null;
     }
@@ -49,12 +51,16 @@ export async function GET(
             return NextResponse.json({ error: 'Test not found' }, { status: 404 });
         }
 
-        // Check student is in a deployed batch
-        const cleanPhone = student.phoneNumber.replace(/\D/g, '');
-        const dbStudent = await BatchStudent.findOne({ phoneNumber: cleanPhone }).lean();
-        const studentCourses = (dbStudent as any)?.courses || student.courses || [];
-        const deployedBatches = test.deployment?.batches || [];
-        const hasAccess = studentCourses.some((c: string) => deployedBatches.includes(c));
+        // Check student is in a deployed batch by checking if test deployment matches any active enrollment
+        const studentDocs = await Student.find({ roll: student.roll, loginDisabled: { $ne: true } }).lean();
+        
+        const hasAccess = studentDocs.some((doc: any) => {
+            const deptMatch = test.deployment?.department?.includes(doc.department);
+            const yearMatch = test.deployment?.year === doc.year;
+            const courseMatch = test.deployment?.course === doc.course_code;
+            return deptMatch && yearMatch && courseMatch;
+        });
+
         if (!hasAccess) {
             return NextResponse.json({ error: 'You do not have access to this test' }, { status: 403 });
         }
@@ -65,7 +71,7 @@ export async function GET(
         const endTime = test.deployment?.endTime ? new Date(test.deployment.endTime) : null;
 
         // Check for existing attempt
-        let attempt = await StudentTestAttempt.findOne({ testId, studentPhone: student.phoneNumber });
+        let attempt = await StudentTestAttempt.findOne({ testId, studentPhone: student.roll });
 
         if (attempt && attempt.status === 'in_progress') {
             attempt.resumeCount = (attempt.resumeCount || 0) + 1;
@@ -292,18 +298,23 @@ export async function POST(
             return NextResponse.json({ error: 'Test not found' }, { status: 404 });
         }
 
-        // Check access
-        const cleanPhone = student.phoneNumber.replace(/\D/g, '');
-        const dbStudent = await BatchStudent.findOne({ phoneNumber: cleanPhone }).lean();
-        const studentCourses = (dbStudent as any)?.courses || student.courses || [];
-        const deployedBatches = test.deployment?.batches || [];
-        const hasAccess = studentCourses.some((c: string) => deployedBatches.includes(c));
+        // Check access by matching any active profile against test deployment
+        const studentDocs = await Student.find({ roll: student.roll, loginDisabled: { $ne: true } }).lean();
+        const dbStudent = studentDocs[0] as any;
+        
+        const hasAccess = studentDocs.some((doc: any) => {
+            const deptMatch = test.deployment?.department?.includes(doc.department);
+            const yearMatch = test.deployment?.year === doc.year;
+            const courseMatch = test.deployment?.course === doc.course_code;
+            return deptMatch && yearMatch && courseMatch;
+        });
+
         if (!hasAccess) {
             return NextResponse.json({ error: 'Access denied' }, { status: 403 });
         }
 
         // Check if already attempted
-        let attempt = await StudentTestAttempt.findOne({ testId, studentPhone: student.phoneNumber });
+        let attempt = await StudentTestAttempt.findOne({ testId, studentPhone: student.roll });
         if (attempt) {
             if (attempt.status === 'completed') {
                 return NextResponse.json({ error: 'You have already completed this test' }, { status: 400 });
@@ -327,12 +338,12 @@ export async function POST(
         }
 
         // Create new attempt
-        const batchName = studentCourses[0] || '';
+        const batchName = dbStudent?.course_code || '';
         attempt = new StudentTestAttempt({
             testId,
-            studentEmail: student.phoneNumber, // Using phone as identifier
-            studentPhone: student.phoneNumber,
-            studentName: student.studentName || (dbStudent as any)?.name || 'Unknown',
+            studentEmail: student.roll, // Legacy field mapping
+            studentPhone: student.roll,
+            studentName: dbStudent?.name || 'Unknown',
             batchName,
             status: 'in_progress',
             startedAt: new Date(),
@@ -424,7 +435,7 @@ export async function PUT(
         // Find the attempt
         const attempt = await StudentTestAttempt.findOne({
             testId,
-            studentPhone: student.phoneNumber,
+            studentPhone: student.roll,
             status: 'in_progress'
         });
 
@@ -588,7 +599,7 @@ export async function PATCH(
         // Find the active attempt
         const attempt = await StudentTestAttempt.findOne({
             testId,
-            studentPhone: student.phoneNumber,
+            studentPhone: student.roll,
             status: 'in_progress'
         });
 

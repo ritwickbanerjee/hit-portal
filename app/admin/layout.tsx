@@ -129,9 +129,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         { name: 'My Routine', href: '/admin/routine', icon: CalendarDays },
         { name: 'Question Bank', href: '/admin/questions', icon: FileText },
         { name: 'Assignments', href: '/admin/assignments', icon: Upload },
-        { name: 'Submissions', href: '/admin/submissions', icon: FileText },
+        { name: 'Assignment Submissions', href: '/admin/submissions', icon: FileText },
         { name: 'Online Test', href: '/admin/online-test', icon: Laptop },
-        { name: 'Student Marks', href: '/admin/marks', icon: BarChart },
         { name: 'Study Materials', href: '/admin/resources', icon: BookOpen },
     ];
 
@@ -285,8 +284,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                 {pathname === '/admin/attendance' && 'Mark daily attendance for students'}
                                 {pathname === '/admin/questions' && 'Manage question bank'}
                                 {pathname === '/admin/assignments' && 'Manage assignments'}
-                                {pathname === '/admin/submissions' && 'View and grade submissions'}
-                                {pathname === '/admin/marks' && 'View student marks'}
+                                {pathname === '/admin/submissions' && 'View submissions and student marks'}
                                 {pathname === '/admin/resources' && 'Manage study materials'}
                             </p>
                         </div>

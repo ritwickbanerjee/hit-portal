@@ -7,7 +7,7 @@ export async function POST(req: Request) {
         await connectDB();
         const body = await req.json();
         console.log('Save Test Payload:', JSON.stringify(body, null, 2)); // DEBUG
-        const { _id, title, description, questions, deployment, randomization, status, createdBy } = body;
+        const { _id, title, description, questions, deployment, config, randomization, status, createdBy } = body;
 
         // Basic Validation
         if (!title || !questions || questions.length === 0) {
@@ -23,6 +23,7 @@ export async function POST(req: Request) {
                 description,
                 questions,
                 deployment,
+                config,
                 randomization,
                 status,
                 updatedAt: new Date()
@@ -34,6 +35,7 @@ export async function POST(req: Request) {
                 description,
                 questions,
                 deployment,
+                config,
                 randomization,
                 status: status || 'draft',
                 createdBy: createdBy || 'admin', // TODO: Get actual user from session

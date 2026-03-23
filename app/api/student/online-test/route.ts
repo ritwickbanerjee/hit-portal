@@ -3,7 +3,7 @@ import { jwtVerify } from 'jose';
 import connectDB from '@/lib/db';
 import OnlineTest from '@/models/OnlineTest';
 import StudentTestAttempt from '@/models/StudentTestAttempt';
-import BatchStudent from '@/models/BatchStudent';
+import Student from '@/models/Student';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-dev-secret-change-this-in-prod';
 const key = new TextEncoder().encode(JWT_SECRET);
@@ -13,8 +13,11 @@ async function getStudentFromToken(req: NextRequest) {
     if (!token) return null;
     try {
         const { payload } = await jwtVerify(token, key);
-        const phoneNumber = (payload.phoneNumber || payload.userId) as string;
-        return { phoneNumber, studentName: payload.studentName as string, courses: payload.courses as string[] || [] };
+        return {
+            userId: payload.userId as string,
+            roll: payload.roll as string,
+            courses: payload.courses as string[] || []
+        };
     } catch {
         return null;
     }
@@ -23,32 +26,36 @@ async function getStudentFromToken(req: NextRequest) {
 // GET - List all tests available to this student
 export async function GET(req: NextRequest) {
     try {
-        const student = await getStudentFromToken(req);
-        if (!student) {
+        const studentToken = await getStudentFromToken(req);
+        if (!studentToken || !studentToken.roll) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
         await connectDB();
 
-        // Get student's batches from MongoDB for most up-to-date data
-        const cleanPhone = student.phoneNumber.replace(/\D/g, '');
-        const dbStudent = await BatchStudent.findOne({ phoneNumber: cleanPhone }).lean();
-        const studentCourses = (dbStudent as any)?.courses || student.courses || [];
+        // 1b. Determine selected batch (default to ALL active enrollments if not specified)
+        const requestedBatch = req.nextUrl.searchParams.get('batch');
+        
+        // Build precise target conditions based on enrollments
+        let targetDocs = studentDocs;
+        if (requestedBatch) {
+            targetDocs = studentDocs.filter((doc: any) => doc.course_code === requestedBatch);
+        }
 
-        if (studentCourses.length === 0) {
+        if (targetDocs.length === 0) {
             return NextResponse.json({ available: [], upcoming: [], completed: [], expired: [] });
         }
 
-        // Determine selected batch (default to ALL available batches if not specified)
-        const requestedBatch = req.nextUrl.searchParams.get('batch');
-        const batchFilter = requestedBatch && studentCourses.includes(requestedBatch)
-            ? [requestedBatch]
-            : studentCourses;
+        const orConditions = targetDocs.map((doc: any) => ({
+             'deployment.department': doc.department,
+             'deployment.year': doc.year,
+             'deployment.course': doc.course_code
+        }));
 
-        // Find all deployed tests where at least one batch matches the student's courses (or selected batch)
+        // Find all deployed tests matching any of their enrollments
         const tests = await OnlineTest.find({
             status: 'deployed',
-            'deployment.batches': { $in: batchFilter }
+            $or: orConditions
         }).select('-questions.correctIndices -questions.fillBlankAnswer -questions.numberRangeMin -questions.numberRangeMax')
             .sort({ 'deployment.startTime': -1 });
 
@@ -56,7 +63,7 @@ export async function GET(req: NextRequest) {
         const testIds = tests.map(t => t._id.toString());
         const attempts = await StudentTestAttempt.find({
             testId: { $in: testIds },
-            studentPhone: student.phoneNumber
+            studentPhone: studentToken.roll
         });
         const attemptMap = new Map<string, any>();
         attempts.forEach(a => attemptMap.set(a.testId.toString(), a));

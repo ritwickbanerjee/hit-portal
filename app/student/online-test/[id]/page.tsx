@@ -62,6 +62,8 @@ export default function TakeTestPage() {
     const questionVisitTimeRef = useRef<number>(Date.now()); // timestamp when they visited the current question
     const currentQuestionIdRef = useRef<string | undefined>(undefined); // To prevent stale closure in doAutoSave
     const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
+    const [showResultsPendingModal, setShowResultsPendingModal] = useState(false);
+    const [submissionResult, setSubmissionResult] = useState<any>(null);
     const [submitting, setSubmitting] = useState(false);
     const [showPalette, setShowPalette] = useState(false);
     const [started, setStarted] = useState(false);
@@ -646,8 +648,13 @@ export default function TakeTestPage() {
 
             if (res.ok) {
                 const data = await res.json();
-                toast.success(autoSubmit ? 'Time up! Test auto-submitted.' : 'Test submitted successfully!');
-                router.push(`/student/online-test/${testId}/result`);
+                setSubmissionResult(data);
+                if (data.resultsPending) {
+                    setShowResultsPendingModal(true);
+                } else {
+                    toast.success(autoSubmit ? 'Time up! Test auto-submitted.' : 'Test submitted successfully!');
+                    router.push(`/student/online-test/${testId}/result`);
+                }
             } else {
                 const data = await res.json();
                 toast.error(data.error || 'Failed to submit');
@@ -932,7 +939,7 @@ export default function TakeTestPage() {
                                                 Passage
                                             </div>
                                             <div className="text-xs sm:text-sm text-slate-300 prose prose-invert prose-p:leading-relaxed prose-img:rounded-xl max-w-none">
-                                                {currentQuestion.latexContent ? <Latex>{currentQuestion.comprehensionText || ''}</Latex> : (currentQuestion.comprehensionText || '')}
+                                                <Latex>{currentQuestion.comprehensionText || ''}</Latex>
                                             </div>
                                             {currentQuestion.comprehensionImage && (
                                                 <div className="mt-4 rounded-xl overflow-hidden border border-slate-700 bg-black/20">
@@ -945,7 +952,7 @@ export default function TakeTestPage() {
                                     {currentQuestion.type !== 'comprehension' ? (
                                         <>
                                             <div className="text-sm sm:text-base font-medium text-white leading-relaxed mb-6 prose prose-invert prose-p:text-white prose-headings:text-white max-w-none">
-                                                {currentQuestion.latexContent ? <Latex>{currentQuestion.text}</Latex> : currentQuestion.text}
+                                                <Latex>{currentQuestion.text || ''}</Latex>
                                             </div>
                                             {currentQuestion.image && (
                                                 <div className="mb-6 rounded-xl overflow-hidden border border-slate-700 bg-black/20">
@@ -966,7 +973,7 @@ export default function TakeTestPage() {
                                                         <span className="text-xs text-slate-500 font-medium">({sq.marks} marks)</span>
                                                     </div>
                                                     <div className="text-xs sm:text-sm text-white mb-4 prose prose-invert prose-p:leading-relaxed max-w-none">
-                                                        {sq.latexContent ? <Latex>{sq.text}</Latex> : sq.text}
+                                                        <Latex>{sq.text || ''}</Latex>
                                                     </div>
                                                     {sq.image && (
                                                         <div className="mb-4 rounded-lg overflow-hidden border border-slate-700 bg-black/20">
@@ -1086,9 +1093,6 @@ export default function TakeTestPage() {
 
                                 <button
                                     onClick={() => setShowSubmitConfirm(true)}
-                                    // Submit is always enabled if on last question OR explicit submit allowed? 
-                                    // Usually submit is visible always or only on last. 
-                                    // Existing logic was disabled={currentIndex !== allQuestions.length - 1}
                                     disabled={currentIndex !== allQuestions.length - 1}
                                     className="w-24 px-3 py-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 rounded-lg text-[10px] font-extrabold transition-all flex items-center justify-center gap-1 disabled:opacity-30 disabled:cursor-not-allowed"
                                 >
@@ -1126,8 +1130,31 @@ export default function TakeTestPage() {
                     </div>
                 </div>
 
-                {/* Submit Confirmation Modal */}
-                {showSubmitConfirm && (
+            {/* Results Pending Modal */}
+            {showResultsPendingModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-sm" onClick={() => router.push('/student/online-test')}></div>
+                    <div className="relative bg-slate-900 border border-amber-500/30 rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl overflow-hidden group">
+                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-500/0 via-amber-500 to-amber-500/0"></div>
+                        <div className="w-20 h-20 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-amber-500/20 group-hover:scale-110 transition-transform duration-500">
+                            <Clock className="h-10 w-10 text-amber-500" />
+                        </div>
+                        <h3 className="text-2xl font-black text-white mb-3">Submission Received</h3>
+                        <p className="text-slate-400 text-sm leading-relaxed mb-8">
+                            Your answers have been securely recorded. Results for this test are scheduled to be disclosed at a later time.
+                        </p>
+                        <button
+                            onClick={() => router.push('/student/online-test')}
+                            className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white rounded-2xl font-black text-sm shadow-xl shadow-amber-500/20 transition-all active:scale-95"
+                        >
+                             Return to Dashboard
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Submit Confirmation Modal */}
+            {showSubmitConfirm && (
                     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                         <div className="bg-slate-900 border border-white/10 rounded-2xl p-8 max-w-md w-full shadow-2xl">
                             <div className="flex items-center gap-3 mb-4">

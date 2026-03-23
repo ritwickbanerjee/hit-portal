@@ -24,6 +24,10 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Incomplete deployment details.' }, { status: 400 });
         }
 
+        // Compute batches format for Student API matching
+        const depts = Array.isArray(deployment.department) ? deployment.department : [deployment.department];
+        deployment.batches = depts.map((d: string) => `${d}_${deployment.year}_${deployment.course}`);
+
         // Update Test Status and Deployment Details
         const test = await OnlineTest.findByIdAndUpdate(_id, {
             deployment,
