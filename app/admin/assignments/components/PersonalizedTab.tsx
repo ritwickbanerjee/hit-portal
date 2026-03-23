@@ -34,6 +34,7 @@ export default function PersonalizedTab({ onSuccess, user, context, isGlobalAdmi
         title: '',
         questionCount: 5,
         targetCourse: '',
+        targetYear: '',
         startTime: '',
         deadline: '',
         selectedTopics: [] as string[],
@@ -136,6 +137,7 @@ export default function PersonalizedTab({ onSuccess, user, context, isGlobalAdmi
         e.preventDefault();
         if (!user?.name) return toast.error('User not identified');
         if (!formData.targetCourse) return toast.error('Select Course');
+        if (!formData.targetYear) return toast.error('Select Year');
         if (formData.selectedStudentIds.length === 0) return toast.error('Select at least one student');
 
         const finalPool = allowedQuestionIds.filter(id => filteredQuestions.some(q => q._id === id));
@@ -158,6 +160,7 @@ export default function PersonalizedTab({ onSuccess, user, context, isGlobalAdmi
                     startTime: formData.startTime,
                     deadline: formData.deadline,
                     targetCourse: formData.targetCourse,
+                    targetYear: formData.targetYear,
                     facultyName: user.name,
                     targetStudentIds: formData.selectedStudentIds, // Backend expects targetStudentIds for personalized
                     questionPool: finalPool
@@ -170,6 +173,7 @@ export default function PersonalizedTab({ onSuccess, user, context, isGlobalAdmi
                     title: '',
                     questionCount: 5,
                     targetCourse: '',
+                    targetYear: '',
                     startTime: '',
                     deadline: '',
                     selectedTopics: [],
@@ -233,6 +237,19 @@ export default function PersonalizedTab({ onSuccess, user, context, isGlobalAdmi
                                 {context.courses.map(c => <option key={c} value={c}>{c}</option>)}
                             </select>
                         </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300">Target Year *</label>
+                        <select
+                            required
+                            value={formData.targetYear}
+                            onChange={e => setFormData({ ...formData, targetYear: e.target.value })}
+                            className="mt-2 block w-full rounded-md border-0 bg-gray-900/50 py-2 px-3 text-white ring-1 ring-inset ring-gray-600 focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option value="">Select Year</option>
+                            {context.years.map(y => <option key={y} value={y}>{y}</option>)}
+                        </select>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">

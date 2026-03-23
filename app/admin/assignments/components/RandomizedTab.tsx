@@ -27,6 +27,7 @@ export default function RandomizedTab({ onSuccess, user, context, isGlobalAdmin 
         title: '',
         questionCount: 5,
         targetDepartments: [] as string[],
+        targetYear: '',
         targetCourse: '',
         startTime: '',
         deadline: '',
@@ -101,6 +102,7 @@ export default function RandomizedTab({ onSuccess, user, context, isGlobalAdmin 
         e.preventDefault();
         if (!user?.name) return toast.error('User not identified');
         if (!formData.targetCourse) return toast.error('Select Course');
+        if (!formData.targetYear) return toast.error('Select Year');
 
         // Final pool is intersection of (Topic Filter) AND (User Selection)
         // Since allowedQuestionIds is derived from filteredQuestions and user interaction,
@@ -127,6 +129,7 @@ export default function RandomizedTab({ onSuccess, user, context, isGlobalAdmin 
                     startTime: formData.startTime,
                     deadline: formData.deadline,
                     targetDepartments: formData.targetDepartments,
+                    targetYear: formData.targetYear,
                     targetCourse: formData.targetCourse,
                     facultyName: user.name,
                     questionPool: finalPool // Send only the allowed IDs
@@ -139,6 +142,7 @@ export default function RandomizedTab({ onSuccess, user, context, isGlobalAdmin 
                     title: '',
                     questionCount: 5,
                     targetDepartments: [],
+                    targetYear: '',
                     targetCourse: '',
                     startTime: '',
                     deadline: '',
@@ -215,6 +219,19 @@ export default function RandomizedTab({ onSuccess, user, context, isGlobalAdmin 
                                 placeholder="Select departments..."
                             />
                         </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300">Target Year *</label>
+                        <select
+                            required
+                            value={formData.targetYear}
+                            onChange={e => setFormData({ ...formData, targetYear: e.target.value })}
+                            className="mt-2 block w-full rounded-md border-0 bg-gray-900/50 py-2 px-3 text-white ring-1 ring-inset ring-gray-600 focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option value="">Select Year</option>
+                            {context.years.map(y => <option key={y} value={y}>{y}</option>)}
+                        </select>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">

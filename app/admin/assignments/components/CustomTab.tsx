@@ -19,6 +19,7 @@ export default function CustomTab({ onSuccess, user, context, isGlobalAdmin }: P
     const [formData, setFormData] = useState({
         title: '',
         targetDepartments: [] as string[],
+        targetYear: '',
         targetCourse: '',
         startTime: '',
         deadline: '',
@@ -29,6 +30,7 @@ export default function CustomTab({ onSuccess, user, context, isGlobalAdmin }: P
         e.preventDefault();
         if (!user?.name) return toast.error('User not identified');
         if (!formData.targetCourse) return toast.error('Select Course');
+        if (!formData.targetYear) return toast.error('Select Year');
 
         setLoading(true);
         const toastId = toast.loading('Publishing assignment...');
@@ -47,6 +49,7 @@ export default function CustomTab({ onSuccess, user, context, isGlobalAdmin }: P
                     startTime: formData.startTime,
                     deadline: formData.deadline,
                     targetDepartments: formData.targetDepartments,
+                    targetYear: formData.targetYear,
                     targetCourse: formData.targetCourse,
                     facultyName: user.name
                 })
@@ -57,6 +60,7 @@ export default function CustomTab({ onSuccess, user, context, isGlobalAdmin }: P
                 setFormData({
                     title: '',
                     targetDepartments: [],
+                    targetYear: '',
                     targetCourse: '',
                     startTime: '',
                     deadline: '',
@@ -120,6 +124,19 @@ export default function CustomTab({ onSuccess, user, context, isGlobalAdmin }: P
                                 placeholder="Select departments..."
                             />
                         </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300">Target Year *</label>
+                        <select
+                            required
+                            value={formData.targetYear}
+                            onChange={e => setFormData({ ...formData, targetYear: e.target.value })}
+                            className="mt-2 block w-full rounded-md border-0 bg-gray-900/50 py-2 px-3 text-white ring-1 ring-inset ring-gray-600 focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option value="">Select Year</option>
+                            {context.years.map(y => <option key={y} value={y}>{y}</option>)}
+                        </select>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">

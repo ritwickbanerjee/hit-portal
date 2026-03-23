@@ -132,7 +132,9 @@ export default function SubmissionsPage() {
         const filteredStudents = students.filter(s =>
             (filters.dept === 'all' || s.department === filters.dept) &&
             (filters.year === 'all' || s.year === filters.year) &&
-            (filters.course === 'all' || s.course_code === filters.course)
+            (filters.course === 'all' || s.course_code === filters.course) &&
+            // Also filter by the assignment's target year if set
+            (!assignment.targetYear || assignment.targetYear === 'all' || s.year === assignment.targetYear)
         );
 
         const data = filteredStudents.map(student => {
@@ -153,9 +155,9 @@ export default function SubmissionsPage() {
                 name: student.name,
                 roll: student.roll,
                 status: sub ? 'Submitted' : 'Not Submitted',
-                generatedAt: assignment.createdAt ? new Date(assignment.createdAt).toLocaleString() : 'N/A',
-                deadlineAt: deadlineDate.toLocaleString(),
-                submittedAt: sub ? new Date(sub.submittedAt).toLocaleString() : 'N/A',
+                generatedAt: assignment.createdAt ? new Date(assignment.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'N/A',
+                deadlineAt: deadlineDate.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+                submittedAt: sub ? new Date(sub.submittedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'N/A',
                 attendanceAtDeadline: attendance.percentage.toFixed(1),
                 isEligible: attendance.isEligible,
                 driveLink: sub?.driveLink || '',

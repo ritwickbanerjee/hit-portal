@@ -180,9 +180,15 @@ export default function MarksPage() {
 
                 // Check Department Targeting
                 if (asn.targetDepartments && Array.isArray(asn.targetDepartments) && asn.targetDepartments.length > 0) {
-                    return asn.targetDepartments.includes(student.department);
+                    if (!asn.targetDepartments.includes(student.department)) return false;
                 }
-                return true; // Default to all if no specific target
+
+                // Check Year Targeting - this is the key fix
+                if (asn.targetYear && asn.targetYear !== 'all') {
+                    if (asn.targetYear !== student.year) return false;
+                }
+
+                return true;
             });
 
             const totalTagged = taggedAssignments.length;

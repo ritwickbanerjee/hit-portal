@@ -84,6 +84,8 @@ export default function AssignmentDetailClient({ assignmentId }: AssignmentDetai
         setSelectedFile(file);
     };
 
+    const [uploadProgress, setUploadProgress] = useState('');
+
     const handleSubmit = async () => {
         if (!selectedFile || !data?.scriptUrl) {
             toast.error('Please select a file first');
@@ -91,103 +93,128 @@ export default function AssignmentDetailClient({ assignmentId }: AssignmentDetai
         }
 
         setUploading(true);
-        const toastId = toast.loading('Uploading to Google Drive...');
+        setUploadProgress('');
+        const toastId = toast.loading('Preparing upload...');
 
-        // Retry configuration
-        const MAX_RETRIES = 3;
-        const INITIAL_DELAY = 2000; // 2 seconds
+        const CHUNK_SIZE = 512 * 1024; // 512KB per chunk
+        const MAX_CHUNK_RETRIES = 3;
+        const RETRY_DELAY = 2000;
 
         const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-        const attemptUpload = async (attemptNumber: number): Promise<any> => {
-            try {
-                const { assignment, student: studentData } = data;
-                const folderPath = [
-                    studentData.course_code,
-                    studentData.year,
-                    studentData.department,
-                    assignment.title.replace(/[^a-z0-9]/gi, '_'),
-                ].join('/');
+        try {
+            const { assignment, student: studentData } = data;
+            const folderPath = [
+                studentData.course_code,
+                studentData.year,
+                studentData.department,
+                assignment.title.replace(/[^a-z0-9]/gi, '_'),
+            ].join('/');
 
-                const fileName = [
-                    studentData.roll,
-                    studentData.name.replace(/ /g, '_'),
-                    studentData.department,
-                    studentData.course_code,
-                    studentData.year,
-                ].join('_') + '.pdf';
+            const fileName = [
+                studentData.roll,
+                studentData.name.replace(/ /g, '_'),
+                studentData.department,
+                studentData.course_code,
+                studentData.year,
+            ].join('_') + '.pdf';
 
-                const fileData = await fileToBase64(selectedFile);
+            // Convert file to base64
+            toast.loading('Reading file...', { id: toastId });
+            const fileData = await fileToBase64(selectedFile);
 
-                // Debug logging
-                console.log('Upload Attempt:', attemptNumber, {
+            // Split into chunks
+            const chunks: string[] = [];
+            for (let i = 0; i < fileData.length; i += CHUNK_SIZE) {
+                chunks.push(fileData.slice(i, i + CHUNK_SIZE));
+            }
+
+            const uploadId = `${studentData._id}_${assignment._id}_${Date.now()}`;
+            const totalChunks = chunks.length;
+            const token = localStorage.getItem('auth_token');
+
+            console.log(`Starting chunked upload: ${totalChunks} chunks, uploadId: ${uploadId}`);
+
+            // Upload each chunk with retry
+            for (let i = 0; i < totalChunks; i++) {
+                let success = false;
+                for (let attempt = 1; attempt <= MAX_CHUNK_RETRIES; attempt++) {
+                    try {
+                        const progressMsg = `Uploading chunk ${i + 1}/${totalChunks}...`;
+                        setUploadProgress(progressMsg);
+                        toast.loading(progressMsg, { id: toastId });
+
+                        const res = await fetch('/api/student/upload-to-drive/chunk', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                            },
+                            body: JSON.stringify({
+                                uploadId,
+                                chunkIndex: i,
+                                totalChunks,
+                                data: chunks[i],
+                                studentId: studentData._id,
+                                assignmentId: assignment._id
+                            })
+                        });
+
+                        if (!res.ok) {
+                            const err = await res.json();
+                            throw new Error(err.error || 'Chunk upload failed');
+                        }
+
+                        success = true;
+                        break;
+                    } catch (error: any) {
+                        console.log(`Chunk ${i} attempt ${attempt} failed:`, error.message);
+                        if (attempt < MAX_CHUNK_RETRIES) {
+                            const delay = RETRY_DELAY * Math.pow(2, attempt - 1);
+                            toast.loading(`Chunk ${i + 1} failed, retrying in ${delay / 1000}s...`, { id: toastId });
+                            await sleep(delay);
+                        } else {
+                            throw new Error(`Failed to upload chunk ${i + 1} after ${MAX_CHUNK_RETRIES} attempts`);
+                        }
+                    }
+                }
+                if (!success) throw new Error(`Chunk ${i + 1} upload failed`);
+            }
+
+            // Finalize: stitch chunks and upload to Drive
+            setUploadProgress('Finalizing upload to Google Drive...');
+            toast.loading('Finalizing upload to Google Drive...', { id: toastId });
+
+            const finalizeRes = await fetch('/api/student/upload-to-drive/finalize', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    uploadId,
                     scriptUrl: data.scriptUrl,
                     fileName,
-                    folderPath,
-                    fileDataLength: fileData.length
-                });
+                    folderPath
+                })
+            });
 
-                // Update toast for retries
-                if (attemptNumber > 1) {
-                    toast.loading(`Retrying upload (${attemptNumber}/${MAX_RETRIES})...`, { id: toastId });
-                }
-
-                // Use server-side proxy to avoid CORS issues
-                const token = localStorage.getItem('auth_token');
-                const response = await fetch('/api/student/upload-to-drive', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({ scriptUrl: data.scriptUrl, fileData, fileName, folderPath }),
-                });
-
-                const text = await response.text();
-                let result;
-                try {
-                    result = JSON.parse(text);
-                } catch {
-                    throw new Error('Invalid response from server');
-                }
-
-                if (result.status !== 'success' || !result.driveLink) {
-                    // Show the detailed message from server if available
-                    const errorMsg = result.message || result.error || 'Upload failed';
-                    throw new Error(errorMsg);
-                }
-
-                return result; // Success!
-
-            } catch (error: any) {
-                // Check if we should retry
-                const isRetryableError =
-                    error.message.includes('Failed to fetch') ||
-                    error.message.includes('Network Error') ||
-                    error.message.includes('timeout') ||
-                    error.message.includes('Service invoked too many times') ||
-                    error.message.includes('rate limit') ||
-                    error.message.includes('quota');
-
-                if (isRetryableError && attemptNumber < MAX_RETRIES) {
-                    // Exponential backoff: 2s, 4s, 8s
-                    const delay = INITIAL_DELAY * Math.pow(2, attemptNumber - 1);
-                    console.log(`Upload failed, retrying in ${delay / 1000}s...`, error.message);
-                    toast.loading(`Upload failed, retrying in ${delay / 1000}s...`, { id: toastId });
-                    await sleep(delay);
-                    return attemptUpload(attemptNumber + 1); // Recursive retry
-                } else {
-                    throw error; // Give up after max retries or non-retryable error
-                }
+            const finalText = await finalizeRes.text();
+            let result;
+            try {
+                result = JSON.parse(finalText);
+            } catch {
+                throw new Error('Invalid response from server during finalize');
             }
-        };
 
-        try {
-            // Start upload with retry logic
-            const result = await attemptUpload(1);
+            if (result.status !== 'success' || !result.driveLink) {
+                throw new Error(result.error || 'Upload finalization failed');
+            }
 
             // Save submission to database
-            const token = localStorage.getItem('auth_token');
+            setUploadProgress('Saving submission...');
+            toast.loading('Saving submission...', { id: toastId });
+
             const saveRes = await fetch('/api/student/submissions', {
                 method: 'POST',
                 headers: {
@@ -207,6 +234,7 @@ export default function AssignmentDetailClient({ assignmentId }: AssignmentDetai
 
             toast.success('Submitted successfully!', { id: toastId });
             setSelectedFile(null);
+            setUploadProgress('');
             if (fileInputRef.current) fileInputRef.current.value = '';
             fetchAssignmentDetail(data.student._id);
         } catch (error: any) {
@@ -217,6 +245,7 @@ export default function AssignmentDetailClient({ assignmentId }: AssignmentDetai
                 msg = "Google Drive is busy. Please wait a few minutes and try again.";
             }
             toast.error(msg, { id: toastId });
+            setUploadProgress('');
         } finally {
             setUploading(false);
         }
@@ -258,24 +287,10 @@ export default function AssignmentDetailClient({ assignmentId }: AssignmentDetai
     const { assignment, questions, attendance, access, submission, scriptUrl } = data;
     const now = new Date();
 
-    // TIMEZONE FIX: Retrieve raw string and treat as local time (effectively subtracting 5.5h if it was auto-converted)
-    // We do this by creating a date, getting its time, and subtracting the offset
-    // OR simply by assuming the time string provided by server is what the user intended in IST
-    const adjustTime = (dateStr: string) => {
-        if (!dateStr) return null;
-        const date = new Date(dateStr);
-        // If the server returns UTC but meant IST, we need to subtract 5.5 hours to match "visual" time
-        // However, standard new Date() converts UTC to Local (+5.5h).
-        // If 11:47 became 17:17, we need to subtract 5.5h.
-        return new Date(date.getTime() - (5.5 * 60 * 60 * 1000));
-    }
-
-    const startTime = assignment.startTime ? adjustTime(assignment.startTime) : null;
+    const startTime = assignment.startTime ? new Date(assignment.startTime) : null;
     const hasStarted = !startTime || startTime <= now;
 
-    // Check if the deadline also needs adjustment or if it relies on 'isPastDeadline' flag from server
-    // We trust the server flag 'isPastDeadline' for logic, but for display we might need adjustment
-    const deadline = assignment.deadline ? adjustTime(assignment.deadline) : null;
+    const deadline = assignment.deadline ? new Date(assignment.deadline) : null;
     const isPastDeadline = access.isPastDeadline; // Keep server logic for safety
     const hasSubmitted = submission?.status === 'submitted' || submission?.driveLink;
 
@@ -561,6 +576,7 @@ export default function AssignmentDetailClient({ assignmentId }: AssignmentDetai
 
                                 {/* Submit Button */}
                                 {scriptUrl ? (
+                                    <>
                                     <button
                                         onClick={handleSubmit}
                                         disabled={!selectedFile || uploading}
@@ -578,6 +594,12 @@ export default function AssignmentDetailClient({ assignmentId }: AssignmentDetai
                                             </>
                                         )}
                                     </button>
+                                    {uploading && uploadProgress && (
+                                        <p className="text-[10px] sm:text-xs text-center text-emerald-400 mt-2 animate-pulse">
+                                            {uploadProgress}
+                                        </p>
+                                    )}
+                                    </>
                                 ) : (
                                     <div className="p-3 sm:p-4 rounded-xl bg-amber-900/20 border border-amber-500/30 text-center">
                                         <p className="text-amber-300 text-xs sm:text-sm flex items-center justify-center gap-2">
