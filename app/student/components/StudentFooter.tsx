@@ -46,7 +46,7 @@ export default function StudentFooter() {
             >
                 Math Faculty Email id's
             </button>
-            <p className="text-[10px]">&copy; {new Date().getFullYear()} Dept. of Mathematics, HIT (Developed by Dr. Ritwick Banerjee)</p>
+            <p className="text-[10px]">&copy; {new Date().getFullYear()} Dept. of Mathematics, HIT</p>
 
             {isModalOpen && mounted && createPortal(
                 <div 
