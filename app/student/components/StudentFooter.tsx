@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { usePathname } from "next/navigation";
 
 const facultyEmails = [
     { name: "Ashesh Paul", email: "ashesh.paul@heritageit.edu" },
@@ -22,6 +23,10 @@ const facultyEmails = [
 export default function StudentFooter() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [mounted, setMounted] = useState(false);
+    const pathname = usePathname();
+
+    const hideDeveloperRoutes = ['/student/login', '/student/register'];
+    const shouldHideDeveloperText = hideDeveloperRoutes.includes(pathname);
 
     useEffect(() => {
         setMounted(true);
@@ -46,7 +51,10 @@ export default function StudentFooter() {
             >
                 Math Faculty Email id's
             </button>
-            <p className="text-[10px]">&copy; {new Date().getFullYear()} Dept. of Mathematics, HIT</p>
+            <p className="text-[10px]">
+                &copy; {new Date().getFullYear()} Dept. of Mathematics, HIT 
+                {!shouldHideDeveloperText && " (Developed by Dr. Ritwick Banerjee)"}
+            </p>
 
             {isModalOpen && mounted && createPortal(
                 <div 

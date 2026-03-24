@@ -36,6 +36,9 @@ export async function GET(req: NextRequest) {
         // 1b. Determine selected batch (default to ALL active enrollments if not specified)
         const requestedBatch = req.nextUrl.searchParams.get('batch');
         
+        // Fetch student enrollments
+        const studentDocs = await Student.find({ roll: studentToken.roll, loginDisabled: { $ne: true } }).lean();
+
         // Build precise target conditions based on enrollments
         let targetDocs = studentDocs;
         if (requestedBatch) {
