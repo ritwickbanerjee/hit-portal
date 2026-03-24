@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
     Plus, Check, X, FileText, ArrowRight, Save, Clock, Users,
-    BrainCircuit, MousePointerClick, AlignLeft, RefreshCw, Layers, Edit, Filter, Search, BookOpen, User, BookMarked, ExternalLink, Hash, ArrowLeft, GripVertical, PlusCircle, Trash2
+    BrainCircuit, MousePointerClick, AlignLeft, RefreshCw, Layers, Edit, Filter, Search, BookOpen, User, BookMarked, ExternalLink, Hash, ArrowLeft, GripVertical, PlusCircle, Trash2, Eye
 } from 'lucide-react';
 import 'katex/dist/katex.min.css';
 import Latex from 'react-latex-next';
@@ -452,7 +452,7 @@ export default function OnlineTestPage() {
                                             >
                                                 <Edit className="h-3 w-3" /> Edit
                                             </button>
-                                            {test.status !== 'deployed' && (
+                                            {test.status !== 'deployed' ? (
                                                 <button
                                                     onClick={() => {
                                                         const processedTest = {
@@ -471,6 +471,13 @@ export default function OnlineTestPage() {
                                                     className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2"
                                                 >
                                                     <Check className="h-3 w-3" /> Deploy
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    onClick={() => window.location.href = `/admin/online-test/monitor/${test._id}`}
+                                                    className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2"
+                                                >
+                                                    <Eye className="h-3 w-3" /> Monitor
                                                 </button>
                                             )}
                                             <button
