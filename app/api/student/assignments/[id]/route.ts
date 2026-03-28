@@ -242,6 +242,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
             student: { $in: allStudentIds }
         });
 
+        // Smart caching:
+        // - Past deadline assignments are fully static (questions, score, submission won't change) → cache 6h
+        // - Active assignments must stay fresh (live submission status, access checks) → no-store
+        const cacheHeader = isPastDeadline
+            ? 'public, s-maxage=21600, stale-while-revalidate=86400'
+            : 'no-store, no-cache, must-revalidate';
+
         return NextResponse.json({
             assignment: {
                 _id: assignment._id,
@@ -293,9 +300,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
             }
         }, {
             headers: {
-                'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-                'Pragma': 'no-cache',
-                'Expires': '0',
+                'Cache-Control': cacheHeader,
             }
         });
 

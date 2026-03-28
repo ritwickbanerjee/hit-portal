@@ -217,7 +217,11 @@ export default function OnlineTestPage() {
             // Calculate initial indices from values (best effort for existing data)
             let correctIndices: number[] = [];
             if (q.correctAnswers) {
-                correctIndices = q.correctAnswers.map((ans: string) => options.indexOf(ans)).filter((idx: number) => idx !== -1);
+                const trimmedOptions = options.map((opt: string) => opt.trim());
+                correctIndices = q.correctAnswers.map((ans: string) => {
+                    if (ans === null || ans === undefined) return -1;
+                    return trimmedOptions.indexOf(ans.trim());
+                }).filter((idx: number) => idx !== -1);
             }
 
             return {
@@ -244,11 +248,6 @@ export default function OnlineTestPage() {
                     alert(`Question ${i + 1} (${q.type.toUpperCase()}) must have at least one correct answer selected.`);
                     return false;
                 }
-            } else if (q.type === 'number') {
-                if (!q.numberRange || (q.numberRange.min === undefined && q.numberRange.max === undefined)) {
-                    alert(`Question ${i + 1} (Number) must have a valid range.`);
-                    return false;
-                }
             }
         }
         return true;
@@ -268,7 +267,27 @@ export default function OnlineTestPage() {
                     return {
                         ...q,
                         options: finalOptions,
-                        correctAnswers: finalCorrectAnswers
+                        correctAnswers: finalCorrectAnswers,
+                        correctIndices: q.correctIndices // Explicitly ensure it's not stripped
+                    };
+                }
+                // Map fillblank correctAnswers to fillBlankAnswer field for Mongoose model
+                if (q.type === 'fillblank' && q.correctAnswers && q.correctAnswers.length > 0) {
+                    const answer = q.correctAnswers[0];
+                    // Check if answer is a range format [min, max]
+                    const rangeMatch = answer.match(/^\[\s*([-\d.]+)\s*,\s*([-\d.]+)\s*\]$/);
+                    if (rangeMatch) {
+                        return {
+                            ...q,
+                            fillBlankAnswer: answer,
+                            isNumberRange: true,
+                            numberRangeMin: parseFloat(rangeMatch[1]),
+                            numberRangeMax: parseFloat(rangeMatch[2])
+                        };
+                    }
+                    return {
+                        ...q,
+                        fillBlankAnswer: answer
                     };
                 }
                 return q;
@@ -307,18 +326,24 @@ export default function OnlineTestPage() {
 
         setLoading(true);
         try {
-            // Sanitize payload: Remove internal fields like correctIndices
-            const sanitizedQuestions = currentTest.questions.map((q: any) => {
-                const { correctIndices, ...rest } = q;
-                return rest;
-            });
+            // Keep question data intact (do not strip correctIndices!)
+            const sanitizedQuestions = currentTest.questions;
+
+            // Fix timezone: append IST offset to datetime-local values
+            const fixedDeployment = {
+                ...currentTest.deployment,
+                durationMinutes: computedDuration
+            };
+            if (fixedDeployment.startTime && !fixedDeployment.startTime.includes('+') && !fixedDeployment.startTime.includes('Z')) {
+                fixedDeployment.startTime = fixedDeployment.startTime + ':00+05:30';
+            }
+            if (fixedDeployment.endTime && !fixedDeployment.endTime.includes('+') && !fixedDeployment.endTime.includes('Z')) {
+                fixedDeployment.endTime = fixedDeployment.endTime + ':00+05:30';
+            }
 
             const payload = {
                 ...currentTest,
-                deployment: {
-                    ...currentTest.deployment,
-                    durationMinutes: computedDuration
-                },
+                deployment: fixedDeployment,
                 questions: sanitizedQuestions
             };
 
@@ -411,11 +436,13 @@ export default function OnlineTestPage() {
                                             <div className="h-10 w-10 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-400 group-hover:bg-indigo-500 group-hover:text-white transition-colors">
                                                 <FileText className="h-5 w-5" />
                                             </div>
-                                            <span className={`text-[10px] px-2 py-1 rounded-full font-bold uppercase ${test.status === 'deployed' ? 'bg-green-500/20 text-green-400' :
+                                            <span className={`text-[10px] px-2 py-1 rounded-full font-bold uppercase ${
+                                                (test.status === 'deployed' && test.deployment?.endTime && new Date(test.deployment.endTime) < new Date()) ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
+                                                test.status === 'deployed' ? 'bg-green-500/20 text-green-400' :
                                                 test.status === 'completed' ? 'bg-slate-700 text-slate-400' :
                                                     'bg-yellow-500/20 text-yellow-400'
                                                 }`}>
-                                                {test.status}
+                                                {test.status === 'deployed' && test.deployment?.endTime && new Date(test.deployment.endTime) < new Date() ? 'expired' : test.status}
                                             </span>
                                         </div>
                                         <h3 className="text-white font-bold mb-1 truncate">{test.title}</h3>
@@ -439,10 +466,22 @@ export default function OnlineTestPage() {
                                                         ...test,
                                                         questions: test.questions.map((q: any) => {
                                                             let correctIndices = q.correctIndices || [];
-                                                            if (correctIndices.length === 0 && q.correctAnswers && q.options) {
-                                                                correctIndices = q.correctAnswers.map((ans: string) => q.options.indexOf(ans)).filter((idx: number) => idx !== -1);
+                                                            let correctAnswers = q.correctAnswers || [];
+                                                            
+                                                            // Handle Fill in the Blank: map fillBlankAnswer back to correctAnswers for editor
+                                                            if (q.type === 'fillblank' && q.fillBlankAnswer && (!correctAnswers || correctAnswers.length === 0)) {
+                                                                correctAnswers = [q.fillBlankAnswer];
                                                             }
-                                                            return { ...q, correctIndices };
+
+                                                            // Reconstruct indices for MCQ/MSQ if missing using correctAnswers (trimmed comparison)
+                                                            if ((q.type === 'mcq' || q.type === 'msq') && (!correctIndices || correctIndices.length === 0) && correctAnswers.length > 0 && q.options) {
+                                                                const trimmedOptions = q.options.map((opt: string) => (opt || '').toString().trim());
+                                                                correctIndices = correctAnswers.map((ans: string) => {
+                                                                    if (ans === null || ans === undefined) return -1;
+                                                                    return trimmedOptions.indexOf(ans.toString().trim());
+                                                                }).filter((idx: number) => idx !== -1);
+                                                            }
+                                                            return { ...q, correctIndices, correctAnswers };
                                                         })
                                                     };
                                                     setCurrentTest(processedTest);
@@ -452,7 +491,7 @@ export default function OnlineTestPage() {
                                             >
                                                 <Edit className="h-3 w-3" /> Edit
                                             </button>
-                                            {test.status !== 'deployed' ? (
+                                            {test.status === 'draft' ? (
                                                 <button
                                                     onClick={() => {
                                                         const processedTest = {
@@ -571,8 +610,7 @@ export default function OnlineTestPage() {
                                 <option value="mcq">MCQ</option>
                                 <option value="msq">MSQ</option>
                                 <option value="broad">Broad</option>
-                                <option value="number">Number</option>
-                                <option value="blanks">Fill in Blanks</option>
+                                <option value="fillblank">Fill in Blanks</option>
                             </select>
                         </div>
 
@@ -592,7 +630,7 @@ export default function OnlineTestPage() {
                                         <div className="flex justify-between items-start mb-2">
                                             <div className="flex gap-2">
                                                 <span className="text-[10px] bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded uppercase font-bold">{q.topic}</span>
-                                                <span className={`text-[10px] px-1.5 py-0.5 rounded uppercase font-bold ${q.type === 'mcq' ? 'bg-purple-900 text-purple-200' : q.type === 'blanks' ? 'bg-yellow-900 text-yellow-200' : 'bg-blue-900 text-blue-200'}`}>
+                                                <span className={`text-[10px] px-1.5 py-0.5 rounded uppercase font-bold ${q.type === 'mcq' ? 'bg-purple-900 text-purple-200' : q.type === 'fillblank' ? 'bg-yellow-900 text-yellow-200' : 'bg-blue-900 text-blue-200'}`}>
                                                     {q.type}
                                                 </span>
                                             </div>
@@ -781,8 +819,7 @@ export default function OnlineTestPage() {
                                                         <option value="broad">Broad</option>
                                                         <option value="mcq">MCQ</option>
                                                         <option value="msq">MSQ</option>
-                                                        <option value="number">Number</option>
-                                                        <option value="blanks">Fill in Blanks</option>
+                                                        <option value="fillblank">Fill in Blanks</option>
                                                     </select>
                                                 </div>
                                                 <div className="flex gap-2">
@@ -887,7 +924,7 @@ export default function OnlineTestPage() {
                                                 </div>
                                             )}
 
-                                            {q.type === 'blanks' && (
+                                            {q.type === 'fillblank' && (
                                                 <div className="space-y-2 pt-2 border-t border-slate-700/50">
                                                     <label className="block text-[10px] text-slate-400 uppercase">Accepted Answers</label>
                                                     <p className="text-[10px] text-slate-500">Enter exact text or a range <code>[min, max]</code></p>
@@ -931,38 +968,7 @@ export default function OnlineTestPage() {
                                                 </div>
                                             )}
 
-                                            {q.type === 'number' && (
-                                                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-700/50">
-                                                    <div>
-                                                        <label className="block text-[10px] text-slate-400 uppercase mb-1">Min Value</label>
-                                                        <input
-                                                            type="number"
-                                                            className="w-full bg-slate-900 border border-slate-700 text-white text-xs rounded px-2 py-1.5 outline-none focus:border-indigo-500"
-                                                            value={q.numberRange?.min || ''}
-                                                            onChange={(e) => {
-                                                                const newQuestions = [...currentTest.questions];
-                                                                if (!newQuestions[idx].numberRange) newQuestions[idx].numberRange = {};
-                                                                newQuestions[idx].numberRange.min = parseFloat(e.target.value);
-                                                                setCurrentTest({ ...currentTest, questions: newQuestions });
-                                                            }}
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <label className="block text-[10px] text-slate-400 uppercase mb-1">Max Value</label>
-                                                        <input
-                                                            type="number"
-                                                            className="w-full bg-slate-900 border border-slate-700 text-white text-xs rounded px-2 py-1.5 outline-none focus:border-indigo-500"
-                                                            value={q.numberRange?.max || ''}
-                                                            onChange={(e) => {
-                                                                const newQuestions = [...currentTest.questions];
-                                                                if (!newQuestions[idx].numberRange) newQuestions[idx].numberRange = {};
-                                                                newQuestions[idx].numberRange.max = parseFloat(e.target.value);
-                                                                setCurrentTest({ ...currentTest, questions: newQuestions });
-                                                            }}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            )}
+
 
                                             {/* NEW: Admin Solution */}
                                             <div className="pt-3 border-t border-slate-700/50 mt-3 bg-slate-900 rounded-lg p-3">

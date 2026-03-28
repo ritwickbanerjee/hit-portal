@@ -1,9 +1,11 @@
+import mongoose from 'mongoose';
 import { NextRequest, NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
 import connectDB from '@/lib/db';
 import OnlineTest from '@/models/OnlineTest';
 import StudentTestAttempt from '@/models/StudentTestAttempt';
 import BatchStudent from '@/models/BatchStudent';
+import Student from '@/models/Student';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-dev-secret-change-this-in-prod';
 const key = new TextEncoder().encode(JWT_SECRET);
@@ -13,9 +15,13 @@ async function getStudentFromToken(req: NextRequest) {
     if (!token) return null;
     try {
         const { payload } = await jwtVerify(token, key);
-        const phoneNumber = (payload.phoneNumber || payload.userId) as string;
-        return { phoneNumber, studentName: payload.studentName as string };
-    } catch {
+        // The token contains userId and roll
+        return { 
+            userId: payload.userId as string,
+            roll: payload.roll as string
+        };
+    } catch (e) {
+        console.error('Token verification failed:', e);
         return null;
     }
 }
@@ -34,10 +40,19 @@ export async function GET(
         await connectDB();
         const { id: testId } = await props.params;
 
-        // Get student's attempt
+        // 1. Fetch student info from DB using the authenticated ID
+        const studentInfo = await Student.findById(student.userId);
+        if (!studentInfo) {
+            return NextResponse.json({ error: 'Student record not found' }, { status: 404 });
+        }
+
+        // 2. Get student's attempt using roll (which is stored in studentPhone/Email fields)
         const attempt = await StudentTestAttempt.findOne({
-            testId,
-            studentPhone: student.phoneNumber,
+            testId: new mongoose.Types.ObjectId(testId),
+            $or: [
+                { studentPhone: student.roll },
+                { studentEmail: student.roll }
+            ],
             status: 'completed'
         });
 
@@ -235,7 +250,7 @@ export async function GET(
             percentage: Math.round(att.percentage || 0),
             timeSpent: att.timeSpent,
             submittedAt: att.submittedAt,
-            isCurrentUser: att.studentPhone === student.phoneNumber
+            isCurrentUser: att.studentPhone === student.roll
         }));
 
         return NextResponse.json({

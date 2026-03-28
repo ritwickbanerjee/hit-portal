@@ -20,17 +20,20 @@ const facultyEmails = [
     { name: "Venu Bihani", email: "venu.bihani@heritageit.edu" }
 ];
 
-export default function StudentFooter() {
+export default function ClientFooter() {
+    const [isClient, setIsClient] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [mounted, setMounted] = useState(false);
     const pathname = usePathname();
 
-    const hideDeveloperRoutes = ['/student/login', '/student/register'];
-    const shouldHideDeveloperText = hideDeveloperRoutes.includes(pathname);
-
     useEffect(() => {
-        setMounted(true);
+        setIsClient(true);
     }, []);
+
+    const hideFooterRoutes = ['/student/login', '/student/register'];
+    const isTestPage = pathname?.startsWith('/student/online-test/');
+    const shouldHideEntireFooter = hideFooterRoutes.includes(pathname) || isTestPage;
+    
+    const shouldHideDeveloperText = hideFooterRoutes.includes(pathname);
 
     useEffect(() => {
         if (isModalOpen) {
@@ -43,8 +46,10 @@ export default function StudentFooter() {
         };
     }, [isModalOpen]);
 
+    if (!isClient || shouldHideEntireFooter) return null;
+
     return (
-        <footer className="py-4 text-center text-gray-500 border-t border-white/5 mt-auto z-10 relative flex flex-col items-center gap-2 w-full">
+        <footer className="sticky bottom-0 z-40 w-full bg-[#0a0f1a]/95 backdrop-blur-sm py-4 text-center text-gray-500 border-t border-white/5 mt-auto flex flex-col items-center gap-2">
             <button
                 onClick={() => setIsModalOpen(true)}
                 className="text-xs transition-colors bg-white/5 px-4 py-2 rounded-md border-2 border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.6)] text-blue-400 font-bold hover:bg-blue-500/10 hover:text-blue-300"
@@ -56,7 +61,7 @@ export default function StudentFooter() {
                 {!shouldHideDeveloperText && " (Developed by Dr. Ritwick Banerjee)"}
             </p>
 
-            {isModalOpen && mounted && createPortal(
+            {isModalOpen && createPortal(
                 <div 
                     className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overscroll-none" 
                     onClick={() => setIsModalOpen(false)}

@@ -85,6 +85,9 @@ export default function TakeTestPage() {
     const [isResuming, setIsResuming] = useState(false);
     const [resumeCount, setResumeCount] = useState(0);
 
+    // Screenshot protection overlay
+    const [screenshotOverlay, setScreenshotOverlay] = useState(false);
+
     // Flatten questions for navigation (comprehension sub-questions are inline)
     const allQuestions = test?.questions || [];
     const currentQuestion = allQuestions[currentIndex];
@@ -145,6 +148,10 @@ export default function TakeTestPage() {
 
             if (remaining <= 0) {
                 // Time is up
+                // Immediate auto-save before moving
+                // We pass current question ID to ensure its answer is definitely captured
+                doAutoSave(false);
+                
                 if (currentIndex < allQuestions.length - 1) {
                     toast.success('Time up for this question! Moving to next.');
                     setCurrentIndex(prevIndex => prevIndex + 1);
@@ -197,24 +204,43 @@ export default function TakeTestPage() {
 
         // --- Visibility change & blur handler ---
         const handleProctoringViolation = (e: Event) => {
-            // If visibilitychange and document is hidden, it's a definite tab/app switch
+            if (submitting) return;
+
+            // Simple common handler for any unexpected window switch or blur
+            const triggerAlert = (details: string) => {
+                const newCount = warningCountRef.current + 1;
+                warningCountRef.current = newCount;
+                setWarningCount(newCount);
+                setShowWarningModal(true);
+
+                // Log violation
+                fetch(`/api/student/online-test/${testId}/violation`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        type: 'window_switch', 
+                        details: details 
+                    })
+                }).catch(err => console.error('Violation logging failed:', err));
+
+                if (newCount >= 3) {
+                    toast.error('Maximum warnings reached. Test is being auto-submitted.');
+                    handleSubmit(true, 'proctoring_violation');
+                }
+            };
+
             if (e.type === 'visibilitychange' && document.hidden) {
-                handleViolation();
+                triggerAlert('User switched tabs or minimized the window.');
             }
-            // If window blur, it means they clicked outside or switched windows
             else if (e.type === 'blur') {
-                // Ignore blur if an input/textarea is currently focused (to prevent mobile keyboard false positives)
                 const activeEl = document.activeElement;
                 const isInputFocused = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA');
 
-                // Some mobile browsers fire blur on the window when keyboard opens, 
-                // but the input remains the active element. Recheck focus after a tiny delay
-                // to see if the document still has focus.
                 setTimeout(() => {
                     if (!document.hasFocus() && !isInputFocused && !document.hidden) {
-                        handleViolation();
+                        triggerAlert('User moved focus away from the test window.');
                     }
-                }, 200);
+                }, 300);
             }
         };
 
@@ -225,34 +251,8 @@ export default function TakeTestPage() {
             document.removeEventListener('visibilitychange', handleProctoringViolation);
             window.removeEventListener('blur', handleProctoringViolation);
         };
-    }, [started]);
+    }, [started, testId, submitting]);
 
-    const handleViolation = async () => {
-        if (submitting) return; // Prevent loop if already submitting
-
-        const newCount = warningCountRef.current + 1;
-        warningCountRef.current = newCount; // Update ref immediately
-        setWarningCount(newCount); // Update state for UI
-
-        // Show modal for all warnings (1st, 2nd, and 3rd/Termination)
-        setShowWarningModal(true);
-
-        // Auto-submit on 3rd warning
-        if (newCount >= 3) {
-            toast.error('Maximum warnings reached. Test is being auto-submitted.');
-
-            // FIX: Do NOT set submitting(true) here because handleSubmit checks it and will return early.
-            // handleSubmit sets it to true internally.
-            handleSubmit(true, 'proctoring_violation');
-        }
-
-        // Persist warning count
-        try {
-            await fetch(`/api/student/online-test/${testId}/warning`, { method: 'POST' });
-        } catch (error) {
-            console.error('Failed to update warning count', error);
-        }
-    };
 
 
 
@@ -262,6 +262,95 @@ export default function TakeTestPage() {
             if (timerRef.current) clearInterval(timerRef.current);
         };
     }, [testId]);
+
+    // --- Screenshot & Copy Protection ---
+    useEffect(() => {
+        if (!started) return;
+
+        // Block copy/cut/contextmenu
+        const blockEvent = (e: Event) => { e.preventDefault(); e.stopPropagation(); };
+        document.addEventListener('copy', blockEvent, true);
+        document.addEventListener('cut', blockEvent, true);
+        document.addEventListener('contextmenu', blockEvent, true);
+
+        const triggerScreenshotAction = (details: string) => {
+            setScreenshotOverlay(true);
+            setTimeout(() => setScreenshotOverlay(false), 3000);
+            
+            // Log violation specifically as screenshot
+            fetch(`/api/student/online-test/${testId}/violation`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    type: 'screenshot', 
+                    details: details 
+                })
+            }).catch(err => console.error('Screenshot logging failed:', err));
+            
+            const newCount = warningCountRef.current + 1;
+            warningCountRef.current = newCount;
+            setWarningCount(newCount);
+            
+            if (newCount >= 3) {
+                handleSubmit(true, 'proctoring_violation');
+            }
+        };
+
+        // Block keyboard shortcuts for screenshots and copying
+        const blockKeys = (e: KeyboardEvent) => {
+            // PrintScreen
+            if (e.key === 'PrintScreen') { 
+                e.preventDefault(); 
+                triggerScreenshotAction('PrintScreen key detected');
+                return; 
+            }
+            // Ctrl+C, Ctrl+A, Ctrl+Shift+S, Ctrl+P
+            if (e.ctrlKey && ['c', 'a', 'p', 's'].includes(e.key.toLowerCase())) { 
+                e.preventDefault(); 
+                if (e.key.toLowerCase() === 's' || e.key.toLowerCase() === 'p') {
+                    triggerScreenshotAction(`Ctrl+${e.key.toUpperCase()} detected`);
+                }
+                return; 
+            }
+            // Cmd+Shift+3/4/5 (Mac screenshots)
+            if (e.metaKey && e.shiftKey && ['3', '4', '5'].includes(e.key)) { 
+                e.preventDefault(); 
+                triggerScreenshotAction(`Cmd+Shift+${e.key} detected`);
+                return; 
+            }
+        };
+        document.addEventListener('keydown', blockKeys, true);
+
+        // On mobile: screenshot triggers visibilitychange (hidden then visible)
+        // Note: We use window switch alert as per user request to avoid confusion unless definite
+        const handleScreenshotDetect = () => {
+            // This is already handled by the consolidated listener above
+        };
+
+        // Prevent drag-select on mobile
+        const blockDrag = (e: Event) => e.preventDefault();
+        document.addEventListener('dragstart', blockDrag, true);
+        document.addEventListener('selectstart', blockDrag, true);
+
+        return () => {
+            document.removeEventListener('copy', blockEvent, true);
+            document.removeEventListener('cut', blockEvent, true);
+            document.removeEventListener('contextmenu', blockEvent, true);
+            document.removeEventListener('keydown', blockKeys, true);
+            document.removeEventListener('dragstart', blockDrag, true);
+            document.removeEventListener('selectstart', blockDrag, true);
+        };
+    }, [started]);
+
+    // Auto-submit on violation
+    useEffect(() => {
+        if (warningCount >= 3 && started && !submitting) {
+            const timer = setTimeout(() => {
+                handleSubmit(true, 'proctoring_violation');
+            }, 3000); // 3 second delay for the student to read the message
+            return () => clearTimeout(timer);
+        }
+    }, [warningCount, started, submitting]);
 
     const fetchTest = async () => {
         try {
@@ -515,8 +604,8 @@ export default function TakeTestPage() {
     useEffect(() => {
         if (!started) return;
 
-        // Periodic auto-save every 30 seconds
-        autoSaveTimerRef.current = setInterval(() => doAutoSave(false), 30000);
+        // Periodic auto-save every 90 seconds (reduced from 30s to cut Netlify function invocations)
+        autoSaveTimerRef.current = setInterval(() => doAutoSave(false), 90000);
 
         // Save on page hide (tab close, app switch, browser killed)
         // pagehide is more reliable than beforeunload on mobile
@@ -845,7 +934,21 @@ export default function TakeTestPage() {
 
 
     return (
-        <div className="min-h-screen bg-[#050b14] font-sans text-slate-200 flex flex-col relative">
+        <div className="min-h-screen bg-[#050b14] font-sans text-slate-200 flex flex-col relative"
+             style={{ userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none' } as React.CSSProperties}>
+
+            {/* Screenshot protection overlay */}
+            {screenshotOverlay && (
+                <div style={{
+                    position: 'fixed', inset: 0, zIndex: 99999,
+                    backgroundColor: '#000', display: 'flex',
+                    alignItems: 'center', justifyContent: 'center'
+                }}>
+                    <p style={{ color: '#ef4444', fontWeight: 'bold', fontSize: '1.1rem', textAlign: 'center', padding: '2rem' }}>
+                        ⚠️ Screenshot Blocked — This action has been recorded.
+                    </p>
+                </div>
+            )}
 
             <div className="test-content flex flex-col min-h-screen">
                 {/* Top Bar - Timer & Progress */}
@@ -905,7 +1008,7 @@ export default function TakeTestPage() {
                 {/* Main Content */}
                 <div className="flex-1 flex relative">
                     {/* Question Area */}
-                    <main className="flex-1 max-w-4xl mx-auto w-full px-4 sm:px-6 py-6 pb-24 sm:pb-6">
+                    <main className="flex-1 max-w-5xl mx-auto w-full p-4 pb-32">
                         {currentQuestion && (
                             <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
                                 {/* Question Header */}
@@ -1078,66 +1181,46 @@ export default function TakeTestPage() {
                 </div>
 
                 {/* Bottom Navigation Bar */}
-                {/* Bottom Navigation Bar */}
-                <div className="fixed bottom-0 left-0 right-0 bg-[#0a0f1a]/95 backdrop-blur-xl border-t border-white/5 px-4 py-3 z-40 safe-area-bottom shadow-[0_-5px_20px_rgba(0,0,0,0.3)]">
-                    <div className="max-w-4xl mx-auto">
-                        {/* Mobile Layout (Stacked) */}
-                        <div className="flex sm:hidden flex-col gap-2 items-start">
-                            {/* Top Row: Back */}
-                            <button
-                                onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))}
-                                disabled={currentIndex === 0 || test.config?.allowBackNavigation === false || test.config?.enablePerQuestionTimer === true}
-                                className="w-24 flex items-center justify-center gap-1 px-3 py-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-[10px] font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed border border-white/5"
-                            >
-                                <ChevronLeft className="h-3 w-3" /> Back
-                            </button>
+                <div className="fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-white/10 px-4 py-4 z-[9999] safe-area-bottom shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
+                    <div className="max-w-4xl mx-auto flex items-center justify-between gap-3 sm:gap-6">
+                        {/* Always visible Back button */}
+                        <button
+                            onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))}
+                            disabled={currentIndex === 0 || test.config?.allowBackNavigation === false || test.config?.enablePerQuestionTimer === true}
+                            className={`flex-1 sm:flex-none sm:w-28 flex items-center justify-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 sm:py-3.5 rounded-lg sm:rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-[10px] sm:text-xs font-bold transition-all border border-white/5 ${
+                                (currentIndex === 0 || test.config?.allowBackNavigation === false || test.config?.enablePerQuestionTimer === true) 
+                                ? 'opacity-30 cursor-not-allowed grayscale' 
+                                : 'active:scale-95'
+                            }`}
+                        >
+                            <ChevronLeft className="h-3 w-3 sm:h-5 sm:w-5" /> Back
+                        </button>
 
-                            {/* Bottom Row: Next | Submit */}
-                            <div className="flex items-center gap-2">
-                                <button
-                                    onClick={() => setCurrentIndex(Math.min(allQuestions.length - 1, currentIndex + 1))}
-                                    disabled={currentIndex === allQuestions.length - 1}
-                                    className="w-24 flex items-center justify-center gap-1 px-3 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-[10px] font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/20"
-                                >
-                                    Next <ChevronRight className="h-3 w-3" />
-                                </button>
+                        {/* Always visible Next button */}
+                        <button
+                            onClick={() => setCurrentIndex(Math.min(allQuestions.length - 1, currentIndex + 1))}
+                            disabled={currentIndex === allQuestions.length - 1}
+                            className={`flex-1 sm:flex-none sm:w-28 flex items-center justify-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 sm:py-3.5 rounded-lg sm:rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-[10px] sm:text-xs font-bold transition-all shadow-lg shadow-emerald-500/20 ${
+                                currentIndex === allQuestions.length - 1 
+                                ? 'opacity-30 cursor-not-allowed grayscale bg-none bg-slate-800' 
+                                : 'active:scale-95'
+                            }`}
+                        >
+                            Next <ChevronRight className="h-3 w-3 sm:h-5 sm:w-5" />
+                        </button>
 
-                                <button
-                                    onClick={() => setShowSubmitConfirm(true)}
-                                    disabled={currentIndex !== allQuestions.length - 1}
-                                    className="w-24 px-3 py-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 rounded-lg text-[10px] font-extrabold transition-all flex items-center justify-center gap-1 disabled:opacity-30 disabled:cursor-not-allowed"
-                                >
-                                    <Send className="h-3 w-3" /> Submit
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Desktop Layout (Original) */}
-                        <div className="hidden sm:flex items-center justify-start gap-4">
-                            <button
-                                onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))}
-                                disabled={currentIndex === 0 || test.config?.allowBackNavigation === false || test.config?.enablePerQuestionTimer === true}
-                                className="flex-none w-28 flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed active:scale-95 border border-white/5"
-                            >
-                                <ChevronLeft className="h-5 w-5" /> Back
-                            </button>
-
-                            <button
-                                onClick={() => setCurrentIndex(Math.min(allQuestions.length - 1, currentIndex + 1))}
-                                disabled={currentIndex === allQuestions.length - 1}
-                                className="flex-none w-28 flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-xs font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed disabled:bg-none disabled:bg-slate-800 active:scale-95 shadow-lg shadow-emerald-500/20"
-                            >
-                                Next <ChevronRight className="h-5 w-5" />
-                            </button>
-
-                            <button
-                                onClick={() => setShowSubmitConfirm(true)}
-                                disabled={currentIndex !== allQuestions.length - 1}
-                                className="flex-none w-28 px-4 py-3.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed active:scale-95"
-                            >
-                                <Send className="h-4 w-4" /> Submit
-                            </button>
-                        </div>
+                        {/* Always visible Submit button */}
+                        <button
+                            onClick={() => setShowSubmitConfirm(true)}
+                            disabled={currentIndex !== allQuestions.length - 1}
+                            className={`flex-1 sm:flex-none sm:w-28 flex items-center justify-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 sm:py-3.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-extrabold transition-all ${
+                                currentIndex !== allQuestions.length - 1 
+                                ? 'opacity-30 cursor-not-allowed grayscale' 
+                                : 'active:scale-95'
+                            }`}
+                        >
+                            <Send className="h-3 w-3 sm:h-4 sm:w-4" /> Submit
+                        </button>
                     </div>
                 </div>
 
@@ -1234,24 +1317,25 @@ export default function TakeTestPage() {
                                         {warningCount >= 3
                                             ? "You have exceeded the maximum limit of moving away from the test screen. Your test is being auto-submitted."
                                             : warningCount === 2
-                                                ? "You have moved away from the test screen again. This is your FINAL WARNING. The next violation will strictly result in the test being submitted."
-                                                : "You moved away from the test screen. This has been recorded. Please stay on the test screen."
+                                                ? "You have moved away from the test screen again (Window Switch Detected). This is your FINAL WARNING. The next violation will strictly result in the test being submitted."
+                                                : "You moved away from the test screen (Window Switch Detected). This has been recorded. Please stay on the test screen."
                                         }
                                     </p>
                                 </div>
 
-                                <button
-                                    onClick={() => {
-                                        if (warningCount < 3) {
-                                            setShowWarningModal(false);
-                                            // Removed requestFullscreen to prevent rotation issues
-                                        }
-                                    }}
-                                    disabled={warningCount >= 3}
-                                    className="w-full py-3.5 bg-red-600 hover:bg-red-500 text-white rounded-xl font-bold transition-all shadow-lg shadow-red-600/20 disabled:opacity-50 disabled:cursor-not-allowed mt-4"
-                                >
-                                    {warningCount >= 3 ? 'Submitting Test...' : 'I Understand'}
-                                </button>
+                                {warningCount < 3 ? (
+                                    <button
+                                        onClick={() => setShowWarningModal(false)}
+                                        className="w-full py-3.5 bg-red-600 hover:bg-red-500 text-white rounded-xl font-bold transition-all shadow-lg shadow-red-600/20 mt-4"
+                                    >
+                                        I Understand
+                                    </button>
+                                ) : (
+                                    <div className="flex flex-col items-center gap-3 mt-4">
+                                        <div className="w-8 h-8 border-3 border-white/20 border-t-white rounded-full animate-spin"></div>
+                                        <p className="text-red-400 font-bold animate-pulse">Auto-submitting your test...</p>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>

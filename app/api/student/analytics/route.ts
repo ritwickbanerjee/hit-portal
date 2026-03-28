@@ -231,7 +231,7 @@ export async function GET(req: NextRequest) {
             }));
         }
 
-        return NextResponse.json({
+        const responseData = {
             totalTests,
             averageScore,
             recentScore,
@@ -247,6 +247,14 @@ export async function GET(req: NextRequest) {
             leaderboard,
             batches: studentCourses, // All batches for tab rendering
             selectedBatch: selectedBatch || '', // Currently selected batch
+        };
+
+        return NextResponse.json(responseData, {
+            headers: {
+                // Cache at CDN for 5 minutes, serve stale for up to 1 hour while revalidating
+                // This massively cuts Netlify function invocations for this heavy query
+                'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=3600',
+            },
         });
 
     } catch (error) {

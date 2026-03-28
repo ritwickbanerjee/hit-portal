@@ -28,7 +28,14 @@ const StudentTestAttemptSchema = new mongoose.Schema({
     graceMarks: { type: Number, default: 0 },
     graceReason: { type: String, default: '' },
     warningCount: { type: Number, default: 0 },
+    windowSwitchCount: { type: Number, default: 0 },
+    screenshotCount: { type: Number, default: 0 },
     resumeCount: { type: Number, default: 0 },
+    violations: [{
+        type: { type: String },
+        timestamp: { type: Date, default: Date.now },
+        details: { type: String }
+    }],
     terminationReason: { type: String, default: null }
 }, { timestamps: true });
 

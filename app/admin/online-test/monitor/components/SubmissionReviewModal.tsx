@@ -235,6 +235,33 @@ export default function SubmissionReviewModal({
                         </div>
                     </div>
 
+                    {/* Proctoring Violations Log */}
+                    {attempt.violations && attempt.violations.length > 0 && (
+                        <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-6 mb-8">
+                            <h3 className="text-sm font-bold text-red-400 flex items-center gap-2 mb-4 uppercase tracking-wider">
+                                <AlertCircle className="w-4 h-4" /> Proctoring Violations Log
+                            </h3>
+                            <div className="space-y-3">
+                                {attempt.violations.map((v: any, idx: number) => (
+                                    <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-red-950/20 rounded-lg border border-red-500/10">
+                                        <div className="flex items-start gap-3">
+                                            <div className="p-1.5 rounded-md bg-red-500/20 text-red-500 shrink-0 mt-0.5">
+                                                <Clock className="w-4 h-4" />
+                                            </div>
+                                            <div>
+                                                <div className="text-sm font-bold text-red-200 capitalize">{v.type?.replace('_', ' ')}</div>
+                                                <div className="text-xs text-red-400/80 mt-0.5">{v.details}</div>
+                                            </div>
+                                        </div>
+                                        <div className="text-xs font-mono text-red-500/60 whitespace-nowrap bg-black/30 px-2 py-1 rounded border border-red-500/5">
+                                            {new Date(v.timestamp).toLocaleString('en-IN', { timeStyle: 'short', dateStyle: 'short' })}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     {/* Rendering all questions */}
                     {attempt.questions.map((q: any, i: number) => {
                         if (q.type === 'comprehension' && q.subQuestions) {

@@ -28,7 +28,12 @@ export async function GET(req: Request) {
 
         const unreadCount = await Notification.countDocuments({ studentId: { $in: allStudentIds }, isRead: false });
 
-        return NextResponse.json({ notifications, unreadCount });
+        return NextResponse.json({ notifications, unreadCount }, {
+            headers: {
+                // Cache for 2 minutes — notifications don't change that fast
+                'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=600',
+            },
+        });
     } catch (error) {
         console.error('Fetch Notifications Error:', error);
         return NextResponse.json({ error: 'Server error' }, { status: 500 });

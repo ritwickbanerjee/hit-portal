@@ -482,15 +482,18 @@ export async function PUT(
             if (question.type === 'mcq') {
                 // MCQ: single correct answer (index)
                 if (question.correctIndices && question.correctIndices.length > 0) {
-                    isCorrect = question.correctIndices[0] === ans.answer;
+                    const studentIdx = (ans.answer !== null && ans.answer !== undefined) ? parseInt(ans.answer) : -1;
+                    isCorrect = question.correctIndices.includes(studentIdx);
                 }
                 marksAwarded = isCorrect ? (question.marks || 1) : -(question.negativeMarks || 0);
             } else if (question.type === 'msq') {
                 // MSQ: multiple correct answers (array of indices)
                 if (question.correctIndices && Array.isArray(ans.answer)) {
-                    const correct = new Set(question.correctIndices);
-                    const selected = new Set(ans.answer);
-                    isCorrect = correct.size === selected.size && [...correct].every(i => selected.has(i));
+                    const correctIndices = question.correctIndices.map((i: any) => parseInt(i));
+                    const studentIndices = ans.answer.map((i: any) => parseInt(i));
+                    const correctSet = new Set(correctIndices);
+                    const studentSet = new Set(studentIndices);
+                    isCorrect = correctSet.size === studentSet.size && [...correctSet].every(i => studentSet.has(i));
                 }
                 marksAwarded = isCorrect ? (question.marks || 1) : -(question.negativeMarks || 0);
             } else if (question.type === 'fillblank') {

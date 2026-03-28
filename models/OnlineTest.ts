@@ -22,6 +22,7 @@ const OnlineTestSchema = new mongoose.Schema({
 
         // MCQ/MSQ specific
         options: [{ type: String }], // Options for MCQ/MSQ
+        correctAnswers: [{ type: String }], // String representation (for readability/backup)
         correctIndices: [{ type: Number }], // Indices of correct options (0-based)
         shuffleOptions: { type: Boolean, default: false }, // Per-question option shuffle
 
@@ -41,6 +42,7 @@ const OnlineTestSchema = new mongoose.Schema({
             latexContent: { type: Boolean, default: false },
             type: { type: String, enum: ['mcq', 'msq', 'fillblank'] },
             options: [{ type: String }],
+            correctAnswers: [{ type: String }],
             correctIndices: [{ type: Number }],
             shuffleOptions: { type: Boolean, default: false },
             marks: { type: Number, default: 1 },

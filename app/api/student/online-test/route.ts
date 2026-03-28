@@ -127,7 +127,12 @@ export async function GET(req: NextRequest) {
             }
         }
 
-        return NextResponse.json({ available, upcoming, completed, expired });
+        return NextResponse.json({ available, upcoming, completed, expired }, {
+            headers: {
+                // Cache for 3 minutes — test availability doesn't change every second
+                'Cache-Control': 'public, s-maxage=180, stale-while-revalidate=900',
+            },
+        });
     } catch (error: any) {
         console.error('Error fetching student tests:', error);
         return NextResponse.json({ error: 'Failed to fetch tests' }, { status: 500 });

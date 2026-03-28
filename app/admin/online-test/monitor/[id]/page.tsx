@@ -36,6 +36,9 @@ interface StudentResult {
     timeSpent: number;
     graceMarks: number;
     terminationReason?: string;
+    windowSwitchCount?: number;
+    screenshotCount?: number;
+    violations?: { type: string; timestamp: string; details: string }[];
 }
 
 export default function MonitorTestPage() {
@@ -83,8 +86,14 @@ export default function MonitorTestPage() {
     const fetchResults = async () => {
         try {
             setLoading(true);
+            const headers: Record<string, string> = {};
+            if (userEmail) headers['X-User-Email'] = userEmail;
+            // Send global admin key if active
+            if (typeof window !== 'undefined' && localStorage.getItem('globalAdminActive') === 'true') {
+                headers['X-Global-Admin-Key'] = 'globaladmin_25';
+            }
             const res = await fetch(`/api/admin/online-test/${testId}/results`, {
-                headers: { 'X-User-Email': userEmail! }
+                headers
             });
             if (res.ok) {
                 const data = await res.json();
@@ -95,10 +104,13 @@ export default function MonitorTestPage() {
                 setNotStarted(data.notStarted);
                 setSelectedPhones(new Set()); // Clear selection on refresh
             } else {
-                toast.error('Failed to load test results');
+                const data = await res.json().catch(() => ({ error: 'Unknown API error' }));
+                console.error(`[MonitorAPI] Error ${res.status}:`, data);
+                toast.error(`Error ${res.status}: ${data.error || 'Failed to load test results'}`);
             }
-        } catch {
-            toast.error('Error loading results');
+        } catch (err: any) {
+            console.error('[MonitorPage] Network/Runtime error:', err);
+            toast.error('Error loading results: ' + (err.message || 'Network error'));
         } finally {
             setLoading(false);
         }
@@ -574,6 +586,8 @@ export default function MonitorTestPage() {
                                                 <th className="px-4 py-3 font-semibold">Student</th>
                                                 <th className="px-4 py-3 font-semibold">Batch</th>
                                                 <th className="px-4 py-3 font-semibold">Status</th>
+                                                <th className="px-4 py-3 font-semibold text-red-400">Switches</th>
+                                                <th className="px-4 py-3 font-semibold text-orange-400">Screenshots</th>
                                                 <th className="px-4 py-3 font-semibold">Time Taken</th>
                                                 <th className="px-4 py-3 font-semibold">Score</th>
                                             </tr>
@@ -610,8 +624,21 @@ export default function MonitorTestPage() {
                                                             ) : s._status === 'inProgress' ? 'In Progress' : 'Not Started'}
                                                         </span>
                                                     </td>
-                                                    <td className="px-4 py-3 text-sm text-slate-400">
-                                                        {s._status === 'completed' ? formatTime(s.timeSpent) : s._status === 'inProgress' ? formatTime(s.timeElapsed) : '-'}
+                                                    <td className={`px-4 py-3 text-sm font-bold ${s.windowSwitchCount > 0 ? 'text-red-400' : 'text-slate-500'}`}>
+                                                        {s.windowSwitchCount || 0}
+                                                    </td>
+                                                    <td className={`px-4 py-3 text-sm font-bold ${s.screenshotCount > 0 ? 'text-orange-400' : 'text-slate-500'}`}>
+                                                        {s.screenshotCount || 0}
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        {s.violations && s.violations.length > 0 ? (
+                                                            <div className="flex flex-col gap-1">
+                                                                <span className="text-red-400 text-xs font-bold font-mono">⚠️ {s.violations.length} Violation(s)</span>
+                                                                <span className="text-[9px] text-slate-500 truncate max-w-[150px]">{s.violations[s.violations.length-1].details}</span>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-emerald-500/40 text-xs">—</span>
+                                                        )}
                                                     </td>
                                                     <td className="px-4 py-3 text-sm">
                                                         {s._status === 'completed' ? (
@@ -674,6 +701,8 @@ export default function MonitorTestPage() {
                                                         <th className="px-4 py-3 font-semibold">Batch</th>
                                                         <th className="px-4 py-3 font-semibold">Score</th>
                                                         <th className="px-4 py-3 font-semibold">%</th>
+                                                        <th className="px-4 py-3 font-semibold text-red-400">Switches</th>
+                                                        <th className="px-4 py-3 font-semibold text-orange-400">Screenshots</th>
                                                         <th className="px-4 py-3 font-semibold">Time</th>
                                                         <th className="px-4 py-3 font-semibold">Submitted</th>
                                                         <th className="px-4 py-3 font-semibold text-right">Action</th>
@@ -724,6 +753,12 @@ export default function MonitorTestPage() {
                                                                         {['time_limit', 'server_auto_expired'].includes(student.terminationReason) ? 'Time Up' : 'Terminated'}
                                                                     </span>
                                                                 )}
+                                                            </td>
+                                                            <td className={`px-4 py-3 text-sm font-bold ${student.windowSwitchCount > 0 ? 'text-red-400' : 'text-slate-500'}`}>
+                                                                {student.windowSwitchCount || 0}
+                                                            </td>
+                                                            <td className={`px-4 py-3 text-sm font-bold ${student.screenshotCount > 0 ? 'text-orange-400' : 'text-slate-500'}`}>
+                                                                {student.screenshotCount || 0}
                                                             </td>
                                                             <td className="px-4 py-3 text-slate-300 text-sm">{formatTime(student.timeSpent)}</td>
                                                             <td className="px-4 py-3 text-slate-400 text-xs">
@@ -792,6 +827,8 @@ export default function MonitorTestPage() {
                                                         <th className="px-4 py-3 font-semibold">Student</th>
                                                         <th className="px-4 py-3 font-semibold">Batch</th>
                                                         <th className="px-4 py-3 font-semibold">Started</th>
+                                                        <th className="px-4 py-3 font-semibold text-red-400">Switches</th>
+                                                        <th className="px-4 py-3 font-semibold text-orange-400">Screenshots</th>
                                                         <th className="px-4 py-3 font-semibold">Elapsed</th>
                                                     </tr>
                                                 </thead>
@@ -807,6 +844,12 @@ export default function MonitorTestPage() {
                                                                 <td className="px-4 py-3 text-slate-300 text-sm">{s.batch}</td>
                                                                 <td className="px-4 py-3 text-slate-400 text-xs">
                                                                     {new Date(s.startedAt).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Asia/Kolkata' })}
+                                                                </td>
+                                                                <td className={`px-4 py-3 text-sm font-bold ${s.windowSwitchCount > 0 ? 'text-red-400' : 'text-slate-500'}`}>
+                                                                    {s.windowSwitchCount || 0}
+                                                                </td>
+                                                                <td className={`px-4 py-3 text-sm font-bold ${s.screenshotCount > 0 ? 'text-orange-400' : 'text-slate-500'}`}>
+                                                                    {s.screenshotCount || 0}
                                                                 </td>
                                                                 <td className={`px-4 py-3 font-medium text-sm ${isOvertime ? 'text-red-400' : 'text-blue-400'}`}>
                                                                     {formatTime(s.timeElapsed)}
