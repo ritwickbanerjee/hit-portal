@@ -148,16 +148,9 @@ export async function GET(req: Request) {
             });
         }
 
-        return NextResponse.json(assignmentsWithSubmissions, {
-            headers: {
-                // Assignments list (titles, deadlines, questions) rarely changes — cache 6 hours at CDN
-                // stale-while-revalidate means CDN silently refreshes in background after 6h
-                'Cache-Control': 'public, s-maxage=21600, stale-while-revalidate=86400',
-            },
-        });
+        return NextResponse.json(assignmentsWithSubmissions);
     } catch (error) {
         console.error('Fetch Assignments Error:', error);
         return NextResponse.json({ error: 'Server error' }, { status: 500 });
     }
 }
-

@@ -391,32 +391,35 @@ export default function TestResultPage() {
                                             'bg-slate-900/40 border-slate-700/30'
                                         }`}>
                                         {/* Question header */}
-                                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-4 border-b border-white/5">
-                                             <div className="flex items-center justify-between sm:justify-start gap-4">
-                                                 <span className="text-xs px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 font-bold border border-white/5 whitespace-nowrap">Q{i + 1}</span>
-                                                 <span className={`sm:hidden text-base font-bold ${q.marksAwarded > 0 ? 'text-emerald-400' : q.marksAwarded < 0 ? 'text-red-400' : 'text-slate-500'}`}>
-                                                     {q.marksAwarded > 0 ? '+' : ''}{q.marksAwarded} <span className="text-slate-600 font-normal">/ {q.marks}</span>
-                                                 </span>
-                                             </div>
-                                             {/* Desktop marks (hidden on <sm) */}
-                                             <span className={`hidden sm:block text-sm font-bold ${q.marksAwarded > 0 ? 'text-emerald-400' : q.marksAwarded < 0 ? 'text-red-400' : 'text-slate-500'}`}>
-                                                 {q.marksAwarded > 0 ? '+' : ''}{q.marksAwarded} <span className="text-slate-600 font-normal">/ {q.marks}</span>
-                                             </span>
-                                         </div>
-
-                                         <div className="flex items-center gap-2 mb-4">
-                                             <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
-                                                 q.isCorrect ? 'bg-emerald-500/20 text-emerald-400' : 
-                                                 (q.studentAnswer !== null && q.studentAnswer !== undefined && q.studentAnswer !== '') ? 'bg-red-500/20 text-red-400' : 
-                                                 'bg-slate-700 text-slate-400'
-                                             }`}>
-                                                 {q.isCorrect ? 'Correct' : (q.studentAnswer !== null && q.studentAnswer !== undefined && q.studentAnswer !== '') ? 'Incorrect' : 'Skipped'}
-                                             </span>
-                                         </div>
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-4 border-b border-white/5">
+                                            <div className="flex items-center justify-between sm:justify-start gap-4">
+                                                <div className="flex items-center gap-4">
+                                                    <span className="text-xs px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 font-bold border border-white/5">Q{i + 1}</span>
+                                                    <div className="flex items-center gap-2">
+                                                        {q.isCorrect ? <CheckCircle className="h-5 w-5 text-emerald-500" /> :
+                                                            q.marksAwarded < 0 ? <XCircle className="h-5 w-5 text-red-500" /> :
+                                                                <Minus className="h-5 w-5 text-slate-500" />}
+                                                        <span className={`text-xs font-bold uppercase tracking-wide ${q.isCorrect ? 'text-emerald-500' :
+                                                            q.marksAwarded < 0 ? 'text-red-500' : 'text-slate-500'
+                                                            }`}>
+                                                            {q.isCorrect ? 'Correct' : q.marksAwarded < 0 ? 'Incorrect' : 'Skipped'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                {/* Mobile marks (hidden on sm+) */}
+                                                <span className={`sm:hidden text-base font-bold ${q.marksAwarded > 0 ? 'text-emerald-400' : q.marksAwarded < 0 ? 'text-red-400' : 'text-slate-500'}`}>
+                                                    {q.marksAwarded > 0 ? '+' : ''}{q.marksAwarded} <span className="text-slate-600 font-normal">/ {q.marks}</span>
+                                                </span>
+                                            </div>
+                                            {/* Desktop marks (hidden on <sm) */}
+                                            <span className={`hidden sm:block text-sm font-bold ${q.marksAwarded > 0 ? 'text-emerald-400' : q.marksAwarded < 0 ? 'text-red-400' : 'text-slate-500'}`}>
+                                                {q.marksAwarded > 0 ? '+' : ''}{q.marksAwarded} <span className="text-slate-600 font-normal">/ {q.marks}</span>
+                                            </span>
+                                        </div>
 
                                         {/* Question text */}
                                         <div className="text-xs sm:text-sm text-slate-200 mb-5 prose prose-invert max-w-none leading-relaxed">
-                                            <Latex>{q.text}</Latex>
+                                            {q.latexContent ? <Latex>{q.text}</Latex> : q.text}
                                         </div>
                                         {q.image && (
                                             <div className="mb-6 bg-black/40 rounded-xl p-3 inline-block border border-white/10">
@@ -441,9 +444,7 @@ export default function TestResultPage() {
                                                                     isStudentChoice ? <XCircle className="h-5 w-5 text-red-400" /> :
                                                                         <div className="w-5 h-5 rounded-full border border-slate-600/50" />}
                                                             </div>
-                                                            <span className={`text-xs sm:text-sm leading-relaxed ${isCorrectOption ? 'text-white font-medium' : isStudentChoice ? 'text-red-200' : 'text-slate-400'}`}>
-                                                                <Latex>{opt}</Latex>
-                                                            </span>
+                                                            <span className={`text-xs sm:text-sm leading-relaxed ${isCorrectOption ? 'text-white font-medium' : isStudentChoice ? 'text-red-200' : 'text-slate-400'}`}>{opt}</span>
                                                         </div>
                                                     );
                                                 })}
@@ -456,20 +457,14 @@ export default function TestResultPage() {
                                                 <div className="grid grid-cols-[120px,1fr] gap-4 items-center">
                                                     <span className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Your Answer</span>
                                                     <span className={`text-sm sm:text-base font-bold font-mono ${q.isCorrect ? 'text-emerald-400' : 'text-red-400'}`}>
-                                                        {(q.studentAnswer !== null && q.studentAnswer !== undefined && q.studentAnswer !== '') ? (
-                                                            <Latex>{q.studentAnswer.toString()}</Latex>
-                                                        ) : '(skipped)'}
+                                                        {q.studentAnswer || '(empty)'}
                                                     </span>
                                                 </div>
                                                 {!q.isCorrect && (
                                                     <div className="grid grid-cols-[120px,1fr] gap-4 items-center pt-4 border-t border-white/5">
                                                         <span className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Correct</span>
                                                         <span className="text-sm sm:text-base font-bold font-mono text-emerald-400">
-                                                            {q.isNumberRange ? (
-                                                                `${q.numberRangeMin} - ${q.numberRangeMax}`
-                                                            ) : (
-                                                                <Latex>{(q.correctAnswer || '').toString()}</Latex>
-                                                            )}
+                                                            {q.isNumberRange ? `${q.numberRangeMin} - ${q.numberRangeMax}` : q.correctAnswer}
                                                         </span>
                                                     </div>
                                                 )}

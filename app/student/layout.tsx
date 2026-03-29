@@ -1,4 +1,4 @@
-import ClientFooter from "./components/StudentFooter";
+import StudentFooter from "./components/StudentFooter";
 
 export default function StudentLayout({
     children,
@@ -10,7 +10,9 @@ export default function StudentLayout({
             <div className="flex-1 w-full pb-8">
                 {children}
             </div>
-            <ClientFooter />
+            <div className="sticky bottom-0 z-40 w-full bg-[#0a0f1a]/95 backdrop-blur-sm">
+                <StudentFooter />
+            </div>
         </div>
     );
 }
