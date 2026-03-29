@@ -2,31 +2,20 @@
 
 import { useEffect, useState } from 'react';
 
-// Maintenance ends: March 31, 2026 at 12:01 AM IST (which is March 30, 2026 at 18:31 UTC)
-const MAINTENANCE_END_UTC = new Date('2026-03-30T18:31:00Z').getTime();
+// Maintenance ends: April 1, 2026 at 12:01 AM IST (which is March 31, 2026 at 18:31 UTC)
+const MAINTENANCE_END_UTC = new Date('2026-03-31T18:31:00Z').getTime();
 
 export default function MaintenanceGate({ children }: { children: React.ReactNode }) {
   const [isMaintenanceOver, setIsMaintenanceOver] = useState<boolean | null>(null);
-  const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0, seconds: 0 });
 
   useEffect(() => {
     function checkTime() {
       const now = Date.now();
-      if (now >= MAINTENANCE_END_UTC) {
-        setIsMaintenanceOver(true);
-      } else {
-        setIsMaintenanceOver(false);
-        const diff = MAINTENANCE_END_UTC - now;
-        setTimeLeft({
-          hours: Math.floor(diff / (1000 * 60 * 60)),
-          minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
-          seconds: Math.floor((diff % (1000 * 60)) / 1000),
-        });
-      }
+      setIsMaintenanceOver(now >= MAINTENANCE_END_UTC);
     }
 
     checkTime();
-    const interval = setInterval(checkTime, 1000);
+    const interval = setInterval(checkTime, 60000);
     return () => clearInterval(interval);
   }, []);
 
@@ -118,52 +107,11 @@ export default function MaintenanceGate({ children }: { children: React.ReactNod
           marginBottom: '32px',
           lineHeight: 1.6,
         }}>
-          MAAP is currently undergoing scheduled maintenance due to exceeding monthly server resource limits.
+          MAAP is currently undergoing scheduled maintenance.
           We&apos;ll be back shortly!
         </p>
 
-        {/* Countdown Timer */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'center',
-          gap: '16px',
-          marginBottom: '32px',
-          flexWrap: 'wrap',
-        }}>
-          {[
-            { label: 'Hours', value: timeLeft.hours },
-            { label: 'Minutes', value: timeLeft.minutes },
-            { label: 'Seconds', value: timeLeft.seconds },
-          ].map((item) => (
-            <div key={item.label} style={{
-              background: 'rgba(255,255,255,0.05)',
-              border: '1px solid rgba(255,255,255,0.1)',
-              borderRadius: '16px',
-              padding: '16px 24px',
-              minWidth: '90px',
-              backdropFilter: 'blur(12px)',
-            }}>
-              <div style={{
-                fontSize: 'clamp(1.8rem, 4vw, 2.5rem)',
-                fontWeight: 800,
-                color: '#fbbf24',
-                fontVariantNumeric: 'tabular-nums',
-              }}>
-                {String(item.value).padStart(2, '0')}
-              </div>
-              <div style={{
-                fontSize: '0.7rem',
-                color: '#64748b',
-                textTransform: 'uppercase',
-                letterSpacing: '0.1em',
-                fontWeight: 600,
-                marginTop: '4px',
-              }}>
-                {item.label}
-              </div>
-            </div>
-          ))}
-        </div>
+
 
         {/* Expected downtime info */}
         <div style={{
@@ -181,7 +129,7 @@ export default function MaintenanceGate({ children }: { children: React.ReactNod
           }}>
             <span style={{ color: '#fbbf24', fontWeight: 700 }}>Expected Restoration:</span>{' '}
             <span style={{ fontWeight: 600, color: '#e2e8f0' }}>
-              31st March 2026, 12:01 AM IST
+              1st April 2026, 12:01 AM IST
             </span>
           </p>
         </div>
