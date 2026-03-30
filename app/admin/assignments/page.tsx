@@ -186,8 +186,8 @@ export default function AssignmentsPage() {
                 headers: { 'Content-Type': 'application/json', ...getHeaders() },
                 body: JSON.stringify({
                     id: editModal.assignment._id,
-                    deadline: editDeadline,
-                    startTime: editStartTime || undefined,
+                    deadline: editDeadline ? editDeadline + ':00+05:30' : undefined,
+                    startTime: editStartTime ? editStartTime + ':00+05:30' : undefined,
                     targetDepartments: editDepartments,
                     targetYear: editYear
                 })

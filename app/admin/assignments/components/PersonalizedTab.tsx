@@ -157,8 +157,8 @@ export default function PersonalizedTab({ onSuccess, user, context, isGlobalAdmi
                     type: 'personalized',
                     title: `${formData.title} (${formData.targetCourse}) (Faculty: ${user.name})`,
                     questionCount: formData.questionCount,
-                    startTime: formData.startTime,
-                    deadline: formData.deadline,
+                    startTime: formData.startTime + ':00+05:30', // Enforce Exact Time
+                    deadline: formData.deadline + ':00+05:30', // Enforce Exact Time
                     targetCourse: formData.targetCourse,
                     targetYear: formData.targetYear,
                     facultyName: user.name,

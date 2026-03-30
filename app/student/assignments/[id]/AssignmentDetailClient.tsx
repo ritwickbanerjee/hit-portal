@@ -123,92 +123,34 @@ export default function AssignmentDetailClient({ assignmentId }: AssignmentDetai
             toast.loading('Reading file...', { id: toastId });
             const fileData = await fileToBase64(selectedFile);
 
-            // Split into chunks
-            const chunks: string[] = [];
-            for (let i = 0; i < fileData.length; i += CHUNK_SIZE) {
-                chunks.push(fileData.slice(i, i + CHUNK_SIZE));
-            }
+            setUploadProgress('Uploading to Google Drive (Do not close this window)...');
+            toast.loading('Uploading to Google Drive... This may take a moment.', { id: toastId });
 
-            const uploadId = `${studentData._id}_${assignment._id}_${Date.now()}`;
-            const totalChunks = chunks.length;
             const token = localStorage.getItem('auth_token');
 
-            console.log(`Starting chunked upload: ${totalChunks} chunks, uploadId: ${uploadId}`);
-
-            // Upload each chunk with retry
-            for (let i = 0; i < totalChunks; i++) {
-                let success = false;
-                for (let attempt = 1; attempt <= MAX_CHUNK_RETRIES; attempt++) {
-                    try {
-                        const progressMsg = `Uploading chunk ${i + 1}/${totalChunks}...`;
-                        setUploadProgress(progressMsg);
-                        toast.loading(progressMsg, { id: toastId });
-
-                        const res = await fetch('/api/student/upload-to-drive/chunk', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${token}`
-                            },
-                            body: JSON.stringify({
-                                uploadId,
-                                chunkIndex: i,
-                                totalChunks,
-                                data: chunks[i],
-                                studentId: studentData._id,
-                                assignmentId: assignment._id
-                            })
-                        });
-
-                        if (!res.ok) {
-                            const err = await res.json();
-                            throw new Error(err.error || 'Chunk upload failed');
-                        }
-
-                        success = true;
-                        break;
-                    } catch (error: any) {
-                        console.log(`Chunk ${i} attempt ${attempt} failed:`, error.message);
-                        if (attempt < MAX_CHUNK_RETRIES) {
-                            const delay = RETRY_DELAY * Math.pow(2, attempt - 1);
-                            toast.loading(`Chunk ${i + 1} failed, retrying in ${delay / 1000}s...`, { id: toastId });
-                            await sleep(delay);
-                        } else {
-                            throw new Error(`Failed to upload chunk ${i + 1} after ${MAX_CHUNK_RETRIES} attempts`);
-                        }
-                    }
-                }
-                if (!success) throw new Error(`Chunk ${i + 1} upload failed`);
-            }
-
-            // Finalize: stitch chunks and upload to Drive
-            setUploadProgress('Finalizing upload to Google Drive...');
-            toast.loading('Finalizing upload to Google Drive...', { id: toastId });
-
-            const finalizeRes = await fetch('/api/student/upload-to-drive/finalize', {
+            const uploadRes = await fetch('/api/student/upload-to-drive/direct', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
-                    uploadId,
                     scriptUrl: data.scriptUrl,
                     fileName,
-                    folderPath
+                    folderPath,
+                    fileData
                 })
             });
 
-            const finalText = await finalizeRes.text();
-            let result;
-            try {
-                result = JSON.parse(finalText);
-            } catch {
-                throw new Error('Invalid response from server during finalize');
+            if (!uploadRes.ok) {
+                const err = await uploadRes.json();
+                throw new Error(err.error || 'Failed to upload to Google Drive');
             }
 
+            const result = await uploadRes.json();
+
             if (result.status !== 'success' || !result.driveLink) {
-                throw new Error(result.error || 'Upload finalization failed');
+                throw new Error(result.error || 'Upload failed');
             }
 
             // Save submission to database

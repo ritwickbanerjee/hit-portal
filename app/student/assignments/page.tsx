@@ -65,12 +65,23 @@ export default function StudentAssignments() {
         }
     };
 
-    // Format date as DD/MM/YYYY
+    // Format date as DD/MM/YYYY in Asia/Kolkata
     const formatDate = (date: Date) => {
-        const day = String(date.getDate()).padStart(2, '0');
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const year = date.getFullYear();
-        return `${day}/${month}/${year}`;
+        return new Intl.DateTimeFormat('en-IN', {
+            timeZone: 'Asia/Kolkata',
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        }).format(date);
+    };
+
+    const formatTime = (date: Date) => {
+        return new Intl.DateTimeFormat('en-IN', {
+            timeZone: 'Asia/Kolkata',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+        }).format(date);
     };
 
     // Calculate precise time remaining
@@ -270,7 +281,7 @@ export default function StudentAssignments() {
                                                     <h3 className="text-sm sm:text-base font-bold text-white truncate">{assignment.title}</h3>
                                                     <div className="flex flex-wrap items-center gap-2 mt-1">
                                                         <span className={`text-[10px] sm:text-xs ${isUrgent ? 'text-orange-400' : 'text-gray-500'}`}>
-                                                            {formatDate(deadline)} • {deadline.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                            {formatDate(deadline)} • {formatTime(deadline)}
                                                         </span>
                                                         {assignment.facultyName && (
                                                             <span className="text-[10px] text-gray-600 hidden sm:inline">• {assignment.facultyName}</span>

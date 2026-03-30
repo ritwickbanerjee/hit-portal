@@ -162,8 +162,8 @@ export default function BatchTab({ onSuccess, user, context, isGlobalAdmin }: Pr
                 body: JSON.stringify({
                     type: 'batch_attendance',
                     title: `${formData.title} (${formData.targetCourse}) (Faculty: ${user.name})`,
-                    startTime: formData.startTime,
-                    deadline: formData.deadline,
+                    startTime: formData.startTime + ':00+05:30', // Enforce Exact Time
+                    deadline: formData.deadline + ':00+05:30', // Enforce Exact Time
                     targetDepartments: formData.targetDepartments,
                     targetYear: formData.targetYear,
                     targetCourse: formData.targetCourse,

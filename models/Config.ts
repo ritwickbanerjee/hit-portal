@@ -27,6 +27,11 @@ const ConfigSchema = new mongoose.Schema({
     aiEnabledTopics: {
         type: [String],
         default: []
+    },
+    activePlatform: {
+        type: String,
+        enum: ['vercel', 'netlify'],
+        default: 'vercel'
     }
 }, { timestamps: true });
 

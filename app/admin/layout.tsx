@@ -8,6 +8,7 @@ import {
     Upload, BarChart, BookOpen, LogOut, Menu, X, GraduationCap, Laptop, CalendarDays
 } from 'lucide-react';
 import InstallPWA from '@/components/InstallPWA';
+import ActiveDeploymentToggle from '@/components/ActiveDeploymentToggle';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -305,6 +306,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                     <p className="text-sm font-medium text-white truncate">{user.name}</p>
                                     <p className="text-xs text-slate-500 truncate">{user.email}</p>
                                 </div>
+                                {user.email === 'ritwick92@gmail.com' && (
+                                    <div className="p-1 border-b border-white/5">
+                                        <ActiveDeploymentToggle userEmail={user.email} />
+                                    </div>
+                                )}
                                 <div className="p-1">
                                     <button
                                         onClick={() => setShowPasswordModal(true)}
