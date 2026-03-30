@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from 'react-hot-toast';
-import MaintenanceGate from '@/components/MaintenanceGate';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -40,13 +39,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: `window.location.href = "https://hit-portal.vercel.app/";` }} />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         suppressHydrationWarning
       >
-        <MaintenanceGate>
-          {children}
-        </MaintenanceGate>
+        {children}
         <Toaster position="top-right" />
       </body>
     </html>
