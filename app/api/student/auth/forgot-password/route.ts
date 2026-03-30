@@ -30,9 +30,9 @@ export async function POST(req: Request) {
         await OTP.deleteMany({ email: student.email });
         await OTP.create({ email: student.email, otp });
 
-        // Send via Brevo
-        const apiKey = process.env.BREVO_API_KEY;
-        const senderEmail = process.env.SENDER_EMAIL;
+        // Send Email via Brevo
+        const apiKey = process.env.BREVO_API_KEY?.trim();
+        const senderEmail = process.env.SENDER_EMAIL?.trim();
 
         if (!apiKey || !senderEmail) {
             console.log('DEV MODE STUDENT FORGOT PASSWORD OTP:', otp);
