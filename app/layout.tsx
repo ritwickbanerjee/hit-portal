@@ -40,7 +40,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <script dangerouslySetInnerHTML={{ __html: `window.location.href = "https://hit-portal.vercel.app/";` }} />
+        <script dangerouslySetInnerHTML={{ __html: `
+          if (window.location.hostname.includes("netlify.app")) {
+            window.location.href = "https://hit-portal.vercel.app/";
+          }
+        ` }} />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
