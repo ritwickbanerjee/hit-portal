@@ -33,8 +33,8 @@ export async function POST(req: Request) {
         await OTP.create({ email, otp });
 
         // Send via Brevo
-        const apiKey = process.env.BREVO_API_KEY;
-        const senderEmail = process.env.SENDER_EMAIL;
+        const apiKey = process.env.BREVO_API_KEY?.trim();
+        const senderEmail = process.env.SENDER_EMAIL?.trim();
 
         if (!apiKey || !senderEmail) {
             console.log('DEV MODE OTP:', otp);
