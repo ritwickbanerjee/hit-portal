@@ -49,6 +49,7 @@ export async function GET(req: Request) {
 
         const query: any = {
             targetDepartments: department,
+            type: { $ne: 'personalized' },
             $or: [
                 { targetYear: year },
                 ...(validCourseCodes.length > 0 ? [{ targetCourse: { $in: validCourseCodes } }] : [])

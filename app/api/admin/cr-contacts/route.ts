@@ -2,37 +2,34 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import CRContact from '@/models/CRContact';
 
-// GET: Fetch all CR contacts for a faculty
+// GET: Fetch all CR contacts (Global)
 export async function GET(req: NextRequest) {
     try {
         await connectDB();
-        const { searchParams } = new URL(req.url);
-        const facultyName = searchParams.get('facultyName');
-
-        if (!facultyName) {
-            return NextResponse.json({ error: 'Faculty name is required' }, { status: 400 });
-        }
-
-        const contacts = await CRContact.find({ facultyName });
+        
+        // Fetch all CR Contacts for global visibility, regardless of faculty
+        const contacts = await CRContact.find().sort({ updatedAt: -1 });
         return NextResponse.json({ contacts });
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
 
-// POST: Upsert a CR contact
+// POST: Upsert a CR contact (Global based on Dept/Year/Course)
 export async function POST(req: NextRequest) {
     try {
         await connectDB();
-        const { facultyName, department, year, courseCode, crPhone, crName } = await req.json();
+        const { department, year, courseCode, crPhone, crName } = await req.json();
 
-        if (!facultyName || !department || !year || !courseCode || !crPhone) {
+        if (!department || !year || !courseCode || !crPhone) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
+        const facultyEmail = req.headers.get('X-User-Email');
+
         const contact = await CRContact.findOneAndUpdate(
-            { facultyName, department, year, courseCode },
-            { crPhone, crName: crName || '', updatedAt: new Date() },
+            { department, year, courseCode },
+            { crPhone, crName: crName || '', facultyName: facultyEmail, updatedAt: new Date() },
             { upsert: true, new: true }
         );
 

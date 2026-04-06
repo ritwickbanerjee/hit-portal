@@ -150,12 +150,28 @@ export default function AssignmentSubmissionsPage() {
             const taggedAssignments = assignments.filter(asn => {
                 const createdDate = asn.createdAt ? new Date(asn.createdAt) : new Date(0);
                 if (createdDate > now) return false; 
+                
+                // 1. Faculty Scope (Unless GA)
+                if (!isGA) {
+                    const isCreator = asn.createdBy === user?.email || asn.facultyName === user?.name;
+                    if (!isCreator) return false;
+                }
+
+                // 2. Department Match
                 if (asn.targetDepartments && Array.isArray(asn.targetDepartments) && asn.targetDepartments.length > 0) {
                     if (!asn.targetDepartments.includes(student.department)) return false;
                 }
+
+                // 3. Year Match
                 if (asn.targetYear && asn.targetYear !== 'all') {
                     if (asn.targetYear !== student.year) return false;
                 }
+
+                // 4. Course Match (CRITICAL FIX FOR ISSUE 3)
+                const targetCourse = (asn.targetCourse || asn.course_code || "").trim().toUpperCase();
+                const studentCourse = (student.course_code || "").trim().toUpperCase();
+                if (targetCourse && targetCourse !== studentCourse) return false;
+
                 return true;
             });
 

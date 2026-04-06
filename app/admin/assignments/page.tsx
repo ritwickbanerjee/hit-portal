@@ -167,10 +167,16 @@ export default function AssignmentsPage() {
 
     const openEditModal = (assignment: any) => {
         setEditModal({ open: true, assignment });
-        const deadlineDate = new Date(assignment.deadline);
-        const startDate = assignment.startTime ? new Date(assignment.startTime) : null;
-        setEditDeadline(deadlineDate.toISOString().slice(0, 16));
-        setEditStartTime(startDate ? startDate.toISOString().slice(0, 16) : '');
+        
+        // Helper to format date to IST YYYY-MM-DDTHH:mm
+        const toISTString = (dateObj: Date | null) => {
+            if (!dateObj) return '';
+            // sv-SE locale gives YYYY-MM-DD HH:mm:ss format
+            return new Date(dateObj).toLocaleString('sv-SE', { timeZone: 'Asia/Kolkata' }).replace(' ', 'T').slice(0, 16);
+        };
+
+        setEditDeadline(toISTString(new Date(assignment.deadline)));
+        setEditStartTime(toISTString(assignment.startTime ? new Date(assignment.startTime) : null));
         setEditDepartments(assignment.targetDepartments || []);
         setEditYear(assignment.targetYear || '');
     };
@@ -186,8 +192,8 @@ export default function AssignmentsPage() {
                 headers: { 'Content-Type': 'application/json', ...getHeaders() },
                 body: JSON.stringify({
                     id: editModal.assignment._id,
-                    deadline: editDeadline ? editDeadline + ':00+05:30' : undefined,
-                    startTime: editStartTime ? editStartTime + ':00+05:30' : undefined,
+                    deadline: editDeadline ? editDeadline.slice(0, 16) + ':00+05:30' : undefined,
+                    startTime: editStartTime ? editStartTime.slice(0, 16) + ':00+05:30' : undefined,
                     targetDepartments: editDepartments,
                     targetYear: editYear
                 })
@@ -285,9 +291,11 @@ export default function AssignmentsPage() {
                                         <td className="px-6 py-4">{a.facultyName}</td>
                                         <td className="px-6 py-4">{a.targetCourse}</td>
                                         <td className="px-6 py-4">
-                                            {a.targetDepartments && a.targetDepartments.length > 0
-                                                ? `${a.targetDepartments.join(', ')} - ${a.targetYear || 'N/A'}`
-                                                : 'N/A'}
+                                            {a.type === 'personalized'
+                                                ? `Personalized (${a.targetStudentIds?.length || 0} students)`
+                                                : a.targetDepartments && a.targetDepartments.length > 0
+                                                    ? `${a.targetDepartments.join(', ')} - ${a.targetYear || 'N/A'}`
+                                                    : 'N/A'}
                                         </td>
                                         <td className="px-6 py-4">{new Date(a.deadline).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}</td>
                                         <td className="px-6 py-4 text-right">
@@ -394,56 +402,66 @@ export default function AssignmentsPage() {
                                 />
                             </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-2">Departments</label>
-                                <div className="relative">
-                                    <button
-                                        type="button"
-                                        className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white text-left flex justify-between items-center"
-                                        onClick={() => {
-                                            const dropdown = document.getElementById('edit-dept-dropdown');
-                                            dropdown?.classList.toggle('hidden');
-                                        }}
-                                    >
-                                        <span className="truncate">
-                                            {editDepartments.length > 0 ? editDepartments.join(', ') : 'Select Departments'}
-                                        </span>
-                                        <span className="text-xs">▼</span>
-                                    </button>
-                                    <div id="edit-dept-dropdown" className="hidden absolute top-full left-0 w-full bg-gray-900 border border-gray-600 rounded mt-1 z-10 max-h-40 overflow-y-auto">
-                                        {allowedContext.depts.map(d => (
-                                            <label key={d} className="flex items-center gap-2 p-2 hover:bg-gray-700 cursor-pointer">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={editDepartments.includes(d)}
-                                                    onChange={(e) => {
-                                                        if (e.target.checked) {
-                                                            setEditDepartments([...editDepartments, d]);
-                                                        } else {
-                                                            setEditDepartments(editDepartments.filter(x => x !== d));
-                                                        }
-                                                    }}
-                                                />
-                                                <span className="text-sm text-white">{d}</span>
-                                            </label>
-                                        ))}
+                            {editModal.assignment?.type !== 'personalized' ? (
+                                <>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-300 mb-2">Departments</label>
+                                        <div className="relative">
+                                            <button
+                                                type="button"
+                                                className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white text-left flex justify-between items-center"
+                                                onClick={() => {
+                                                    const dropdown = document.getElementById('edit-dept-dropdown');
+                                                    dropdown?.classList.toggle('hidden');
+                                                }}
+                                            >
+                                                <span className="truncate">
+                                                    {editDepartments.length > 0 ? editDepartments.join(', ') : 'Select Departments'}
+                                                </span>
+                                                <span className="text-xs">▼</span>
+                                            </button>
+                                            <div id="edit-dept-dropdown" className="hidden absolute top-full left-0 w-full bg-gray-900 border border-gray-600 rounded mt-1 z-10 max-h-40 overflow-y-auto">
+                                                {allowedContext.depts.map(d => (
+                                                    <label key={d} className="flex items-center gap-2 p-2 hover:bg-gray-700 cursor-pointer">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={editDepartments.includes(d)}
+                                                            onChange={(e) => {
+                                                                if (e.target.checked) {
+                                                                    setEditDepartments([...editDepartments, d]);
+                                                                } else {
+                                                                    setEditDepartments(editDepartments.filter(x => x !== d));
+                                                                }
+                                                            }}
+                                                        />
+                                                        <span className="text-sm text-white">{d}</span>
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
-                            </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-2">Year</label>
-                                <select
-                                    className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    value={editYear}
-                                    onChange={(e) => setEditYear(e.target.value)}
-                                >
-                                    <option value="">Select Year</option>
-                                    {allowedContext.years.map(y => (
-                                        <option key={y} value={y}>{y}</option>
-                                    ))}
-                                </select>
-                            </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-300 mb-2">Year</label>
+                                        <select
+                                            className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            value={editYear}
+                                            onChange={(e) => setEditYear(e.target.value)}
+                                        >
+                                            <option value="">Select Year</option>
+                                            {allowedContext.years.map(y => (
+                                                <option key={y} value={y}>{y}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="bg-blue-900/20 border border-blue-800/50 p-4 rounded-lg">
+                                    <p className="text-sm text-blue-300">
+                                        This is a <strong>personalized assignment</strong>. Targeted students are fixed and cannot be changed via department/year filters.
+                                    </p>
+                                </div>
+                            )}
 
                             <div className="flex gap-3 pt-4">
                                 <button

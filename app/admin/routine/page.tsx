@@ -26,6 +26,7 @@ export default function MyRoutinePage() {
     const [error, setError] = useState<string | null>(null);
     const [activeDay, setActiveDay] = useState("");
     const [facultyCode, setFacultyCode] = useState("");
+    const [facultyEmail, setFacultyEmail] = useState("");
     const [crContacts, setCrContacts] = useState<CRContact[]>([]);
     const [showCRModal, setShowCRModal] = useState(false);
     const [selectedClass, setSelectedClass] = useState<{ dept: string; year: string; course: string; content: string } | null>(null);
@@ -45,6 +46,7 @@ export default function MyRoutinePage() {
             try {
                 const user = JSON.parse(storedUser);
                 setFacultyCode(user.name);
+                setFacultyEmail(user.email);
             } catch (e) {
                 setError("Failed to identify user faculty code.");
             }
@@ -76,7 +78,8 @@ export default function MyRoutinePage() {
 
         async function fetchCRContacts() {
             try {
-                const res = await fetch(`/api/admin/cr-contacts?facultyName=${encodeURIComponent(facultyCode)}`);
+                // Fetch all CR contacts for global mapping
+                const res = await fetch('/api/admin/cr-contacts');
                 const data = await res.json();
                 if (res.ok) setCrContacts(data.contacts || []);
             } catch (err) {
@@ -137,9 +140,9 @@ export default function MyRoutinePage() {
 
     const getCRForClass = (dept: string, year: string, courseCode: string) => {
         return crContacts.find(c =>
-            c.department.toLowerCase() === dept.toLowerCase() &&
-            c.year.toLowerCase() === year.toLowerCase() &&
-            c.courseCode.toLowerCase() === courseCode.toLowerCase()
+            (c.department || "").trim().toLowerCase() === (dept || "").trim().toLowerCase() &&
+            (c.year || "").trim().toLowerCase() === (year || "").trim().toLowerCase() &&
+            (c.courseCode || "").trim().toLowerCase() === (courseCode || "").trim().toLowerCase()
         );
     };
 
@@ -167,9 +170,8 @@ export default function MyRoutinePage() {
         try {
             const res = await fetch('/api/admin/cr-contacts', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'X-User-Email': facultyEmail || '' },
                 body: JSON.stringify({
-                    facultyName: facultyCode,
                     department: selectedClass.dept,
                     year: selectedClass.year,
                     courseCode: selectedClass.course,
@@ -180,8 +182,8 @@ export default function MyRoutinePage() {
 
             if (!res.ok) throw new Error('Failed to save');
 
-            // Refresh contacts
-            const refreshRes = await fetch(`/api/admin/cr-contacts?facultyName=${encodeURIComponent(facultyCode)}`);
+            // Refresh all contacts
+            const refreshRes = await fetch('/api/admin/cr-contacts');
             const refreshData = await refreshRes.json();
             if (refreshRes.ok) setCrContacts(refreshData.contacts || []);
 
@@ -368,35 +370,33 @@ export default function MyRoutinePage() {
                             </div>
                         </div>
 
+                        {/* Dept/Year inputs (Always visible for verification/correction) */}
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="text-[10px] text-slate-500 font-bold block mb-1">Department</label>
+                                <input
+                                    type="text"
+                                    placeholder="e.g. CSE"
+                                    value={selectedClass.dept}
+                                    onChange={e => setSelectedClass({ ...selectedClass, dept: e.target.value.toUpperCase() })}
+                                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-xs focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] text-slate-500 font-bold block mb-1">Year</label>
+                                <input
+                                    type="text"
+                                    placeholder="e.g. 3rd"
+                                    value={selectedClass.year}
+                                    onChange={e => setSelectedClass({ ...selectedClass, year: e.target.value })}
+                                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-xs focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                />
+                            </div>
+                        </div>
+
                         {(!selectedClass.dept || !selectedClass.year) && (
                             <div className="text-[10px] text-amber-400 bg-amber-500/10 border border-amber-500/20 p-2 rounded-lg">
-                                ⚠️ Dept/Year could not be auto-detected. Please type them in the fields below:
-                            </div>
-                        )}
-
-                        {/* Manual dept/year if not auto-detected */}
-                        {(!selectedClass.dept || !selectedClass.year) && (
-                            <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label className="text-[10px] text-slate-500 font-bold block mb-1">Department</label>
-                                    <input
-                                        type="text"
-                                        placeholder="e.g. CSE"
-                                        value={selectedClass.dept}
-                                        onChange={e => setSelectedClass({ ...selectedClass, dept: e.target.value.toUpperCase() })}
-                                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-xs focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] text-slate-500 font-bold block mb-1">Year</label>
-                                    <input
-                                        type="text"
-                                        placeholder="e.g. 3rd"
-                                        value={selectedClass.year}
-                                        onChange={e => setSelectedClass({ ...selectedClass, year: e.target.value })}
-                                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-xs focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                                    />
-                                </div>
+                                ⚠️ Dept/Year could not be auto-detected. Please ensure they are correct.
                             </div>
                         )}
 

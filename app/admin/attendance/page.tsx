@@ -498,7 +498,7 @@ export default function AdminAttendance() {
                 <div className="animate-in slide-in-from-bottom-4 duration-500 space-y-6">
                     {editingRecordId && (
                         <div className="bg-indigo-500/10 border border-indigo-500/20 p-4 rounded-xl mb-6 flex justify-between items-center backdrop-blur-sm">
-                            <span className="text-indigo-300 font-medium">Editing Record: {date} - {filters.dept} {filters.year} {filters.course}</span>
+                            <span className="text-indigo-300 font-medium italic">Editing Existing Attendance Record</span>
                             <button onClick={handleCancelEdit} className="text-sm text-slate-400 hover:text-white underline decoration-slate-500/30 underline-offset-4">Cancel Edit</button>
                         </div>
                     )}
@@ -513,7 +513,6 @@ export default function AdminAttendance() {
                                 value={date}
                                 onChange={e => setDate(e.target.value)}
                                 onClick={(e: any) => e.target.showPicker && e.target.showPicker()}
-                                disabled={!!editingRecordId}
                             />
                         </div>
 
@@ -524,7 +523,6 @@ export default function AdminAttendance() {
                                 <select
                                     className="block w-full rounded-lg border border-white/10 bg-slate-950 text-slate-200 py-3 px-4 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 outline-none transition-all"
                                     value={filters.dept} onChange={e => setFilters({ ...filters, dept: e.target.value })}
-                                    disabled={!!editingRecordId}
                                 >
                                     <option value="">Select Dept</option>
                                     {departments.map(d => <option key={d} value={d}>{d}</option>)}
@@ -532,7 +530,6 @@ export default function AdminAttendance() {
                                 <select
                                     className="block w-full rounded-lg border border-white/10 bg-slate-950 text-slate-200 py-3 px-4 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 outline-none transition-all"
                                     value={filters.year} onChange={e => setFilters({ ...filters, year: e.target.value })}
-                                    disabled={!!editingRecordId}
                                 >
                                     <option value="">Select Year</option>
                                     {years.map(y => <option key={y} value={y}>{y}</option>)}
@@ -540,7 +537,6 @@ export default function AdminAttendance() {
                                 <select
                                     className="block w-full rounded-lg border border-white/10 bg-slate-950 text-slate-200 py-3 px-4 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 outline-none transition-all"
                                     value={filters.course} onChange={e => setFilters({ ...filters, course: e.target.value })}
-                                    disabled={!!editingRecordId}
                                 >
                                     <option value="">Select Course</option>
                                     {courses.map(c => <option key={c} value={c}>{c}</option>)}
@@ -579,16 +575,14 @@ export default function AdminAttendance() {
                                     <button
                                         key={slot}
                                         onClick={() => {
-                                            if (editingRecordId) return;
                                             setSelectedTimeSlots(prev =>
                                                 prev.includes(slot) ? prev.filter(s => s !== slot) : [...prev, slot]
                                             );
                                         }}
-                                        disabled={!!editingRecordId}
                                         className={`px-4 py-2 rounded-lg text-xs font-semibold border transition-all duration-200 ${selectedTimeSlots.includes(slot)
                                             ? 'bg-indigo-600 text-white border-indigo-500 shadow-lg shadow-indigo-500/25 scale-105'
                                             : 'bg-slate-950 text-slate-400 border-white/10 hover:border-white/20 hover:text-slate-200 hover:bg-slate-900'
-                                            } ${editingRecordId ? 'opacity-50 cursor-not-allowed' : ''} `}
+                                            } `}
                                     >
                                         {slot}
                                     </button>

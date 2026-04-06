@@ -126,8 +126,8 @@ export default function RandomizedTab({ onSuccess, user, context, isGlobalAdmin 
                     type: 'randomized',
                     title: `${formData.title} (${formData.targetCourse}) (Faculty: ${user.name})`,
                     questionCount: formData.questionCount,
-                    startTime: formData.startTime + ':00+05:30', // Enforce Exact Time
-                    deadline: formData.deadline + ':00+05:30', // Enforce Exact Time
+                    startTime: formData.startTime ? formData.startTime.slice(0, 16) + ':00+05:30' : undefined,
+                    deadline: formData.deadline ? formData.deadline.slice(0, 16) + ':00+05:30' : undefined,
                     targetDepartments: formData.targetDepartments,
                     targetYear: formData.targetYear,
                     targetCourse: formData.targetCourse,
