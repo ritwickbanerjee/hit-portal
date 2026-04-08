@@ -559,15 +559,10 @@ export default function AssignmentDetailClient({ assignmentId }: AssignmentDetai
                                         <CheckCircle className="h-4 w-4" />
                                         Submitted on {new Date(submission.submittedAt).toLocaleString()}
                                     </p>
-                                    <a
-                                        href={submission.driveLink}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-blue-400 hover:text-blue-300 text-xs sm:text-sm flex items-center gap-2 font-medium"
-                                    >
-                                        <ExternalLink className="h-3 w-3 sm:h-4 w-4" />
-                                        View submitted file
-                                    </a>
+                                    <div className="flex items-center gap-2 text-emerald-400/80 text-xs sm:text-sm italic">
+                                        <FileText className="h-4 w-4" />
+                                        File uploaded successfully to Secure Drive
+                                    </div>
                                 </div>
                             )}
                         </div>
