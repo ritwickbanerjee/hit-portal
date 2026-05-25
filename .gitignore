@@ -44,3 +44,9 @@ serviceAccountKey.json
 
 # scripts
 scripts/
+admin_check.js
+check_*.js
+final_check.js
+note_check.js
+scan_activity.js
+out.html
