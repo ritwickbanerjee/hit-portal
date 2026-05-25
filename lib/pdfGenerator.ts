@@ -7,6 +7,7 @@ interface StudentInfo {
     year: string;
     department: string;
     course_code: string;
+    attendancePercent?: number;
 }
 
 interface AssignmentEntry {
