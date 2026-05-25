@@ -236,13 +236,13 @@ export default function AssignmentDetailClient({ assignmentId }: AssignmentDetai
     const isPastDeadline = access.isPastDeadline; // Keep server logic for safety
     const hasSubmitted = submission?.status === 'submitted' || submission?.driveLink;
 
-    const getAttendanceColor = (percent: number) => {
-        if (percent >= 75) return { text: 'text-emerald-400', bg: 'from-emerald-500 to-teal-500', bgLight: 'bg-emerald-500/20' };
-        if (percent >= 60) return { text: 'text-amber-400', bg: 'from-amber-500 to-orange-500', bgLight: 'bg-amber-500/20' };
+    const getAttendanceColor = (percent: number, required: number) => {
+        if (percent >= required) return { text: 'text-emerald-400', bg: 'from-emerald-500 to-teal-500', bgLight: 'bg-emerald-500/20' };
+        if (percent >= required - 10) return { text: 'text-amber-400', bg: 'from-amber-500 to-orange-500', bgLight: 'bg-amber-500/20' };
         return { text: 'text-rose-400', bg: 'from-rose-500 to-red-500', bgLight: 'bg-rose-500/20' };
     };
 
-    const attendanceColor = getAttendanceColor(attendance.percent);
+    const attendanceColor = getAttendanceColor(attendance.percent, access.requiredAttendance);
 
     return (
         <div className="min-h-screen bg-[#0a0f1a] text-gray-200 font-sans">

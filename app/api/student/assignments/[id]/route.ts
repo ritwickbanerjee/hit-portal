@@ -135,14 +135,24 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         const configKey = `${student.department}_${student.year}_${courseCode}`;
         let requiredAttendance = config.attendanceRules?.[configKey] || config.attendanceRequirement || 70;
 
+        let isZeroCountBatch = false;
+
         if (assignment.type === 'batch_attendance' && assignment.rules && assignment.rules.length > 0) {
             const sortedRules = [...assignment.rules].sort((a: any, b: any) => b.min - a.min);
             const lowestRule = sortedRules[sortedRules.length - 1];
             requiredAttendance = lowestRule.min;
+
+            // Check if current attendance maps to a rule with count 0
+            const matchingRule = assignment.rules.find((r: any) =>
+                attendancePercent >= (r.min || 0) && attendancePercent <= (r.max || 100)
+            );
+            if (matchingRule && matchingRule.count === 0) {
+                isZeroCountBatch = true;
+            }
         }
 
-        // Personalized and batch_attendance are always accessible
-        const isSpecialType = assignment.type === 'personalized' || assignment.type === 'batch_attendance';
+        // Personalized and batch_attendance are always accessible EXCEPT if batch_attendance rule says count=0
+        const isSpecialType = (assignment.type === 'personalized' || assignment.type === 'batch_attendance') && !isZeroCountBatch;
         const canAccess = isSpecialType || attendancePercent >= requiredAttendance;
 
         // 7. Get student's assigned questions

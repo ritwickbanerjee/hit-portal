@@ -273,10 +273,11 @@ export default function AssignmentSubmissionsPage() {
 
         const finalPresent = present + adj;
         const pct = total > 0 ? (finalPresent / total) * 100 : 0;
+        const reqAtt = config.attendanceRules?.[`${student.department}_${student.year}_${student.course_code}`] || config.attendanceRequirement || 70;
 
         return {
             percentage: pct,
-            isEligible: pct >= (config.attendanceRequirement || 70)
+            isEligible: pct >= reqAtt
         };
     };
 

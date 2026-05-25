@@ -707,7 +707,7 @@ Treat this matter with extreme urgency.`;
 
                                             <td className="px-3 py-3 text-center text-emerald-300 font-bold bg-emerald-500/5 group-hover:bg-emerald-500/10 transition-colors">{stats.finalAttended}</td>
                                             <td className="px-3 py-3 text-center text-emerald-300 font-bold bg-emerald-500/5 group-hover:bg-emerald-500/10 transition-colors">{stats.finalTotal}</td>
-                                            <td className={`px-3 py-3 text-center font-bold ${Number(stats.percent) >= config.attendanceRequirement ? 'text-emerald-400' : 'text-red-400'}`}>
+                                            <td className={`px-3 py-3 text-center font-bold ${Number(stats.percent) >= (config.attendanceRules?.[`${student.department}_${student.year}_${student.course_code}`] || config.attendanceRequirement || 70) ? 'text-emerald-400' : 'text-red-400'}`}>
                                                 {stats.percent}%
                                             </td>
                                             <td className="px-4 py-3 text-center flex justify-center gap-3">
@@ -887,7 +887,9 @@ Treat this matter with extreme urgency.`;
                                                 const attended = baseAttended + (student.attended_adjustment || 0);
                                                 const percent = total > 0 ? ((attended / total) * 100).toFixed(0) : "0";
 
-                                                const isLowAttendance = Number(percent) < config.attendanceRequirement;
+                                                const configKey = `${student.department}_${student.year}_${student.course_code}`;
+                                                const reqAttendance = config.attendanceRules?.[configKey] || config.attendanceRequirement || 70;
+                                                const isLowAttendance = Number(percent) < reqAttendance;
 
                                                 return (
                                                     <tr key={student._id} className="hover:bg-white/5 group transition-colors">

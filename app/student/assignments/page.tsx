@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, FileText, Calendar, Clock, CheckCircle, AlertCircle, User, Loader2, XCircle, ChevronRight } from 'lucide-react';
+import { ArrowLeft, FileText, Calendar, Clock, CheckCircle, AlertCircle, User, Loader2, XCircle, ChevronRight, Download, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 export default function StudentAssignments() {
@@ -11,6 +11,11 @@ export default function StudentAssignments() {
     const [assignments, setAssignments] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeCourse, setActiveCourse] = useState<string | null>(null);
+    const [downloadingTopSheet, setDownloadingTopSheet] = useState(false);
+    // Faculty selection modal state
+    const [showFacultyModal, setShowFacultyModal] = useState(false);
+    const [facultyList, setFacultyList] = useState<string[]>([]);
+    const [pendingCourse, setPendingCourse] = useState<string | null>(null);
     const router = useRouter();
 
     useEffect(() => {
@@ -62,6 +67,72 @@ export default function StudentAssignments() {
             toast.error('Something went wrong');
         } finally {
             setLoading(false);
+        }
+    };
+
+    // Step 1: When download is clicked, fetch faculty list for that course
+    const handleDownloadClick = async (course: string) => {
+        if (!student || downloadingTopSheet) return;
+        setDownloadingTopSheet(true);
+        try {
+            const token = localStorage.getItem('auth_token');
+            const res = await fetch(`/api/student/topsheet?course=${encodeURIComponent(course)}`, {
+                headers: { 'Authorization': `Bearer ${token}` },
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                toast.error(err.error || 'Failed to load data');
+                return;
+            }
+            const data = await res.json();
+            const faculties: string[] = data.facultyNames || [];
+
+            if (faculties.length === 0) {
+                toast.error('No assignments found for this course');
+                return;
+            }
+
+            if (faculties.length === 1) {
+                // Only one faculty – download directly
+                await doDownload(course, faculties[0]);
+            } else {
+                // Multiple faculties – show selection modal
+                setFacultyList(faculties);
+                setPendingCourse(course);
+                setShowFacultyModal(true);
+            }
+        } catch (e: any) {
+            toast.error(e.message || 'Download failed');
+        } finally {
+            setDownloadingTopSheet(false);
+        }
+    };
+
+    // Step 2: After faculty is selected, fetch data filtered by that faculty and generate PDF
+    const doDownload = async (course: string, faculty: string) => {
+        setShowFacultyModal(false);
+        setDownloadingTopSheet(true);
+        const toastId = toast.loading('Generating top sheet…');
+        try {
+            const token = localStorage.getItem('auth_token');
+            const res = await fetch(
+                `/api/student/topsheet?course=${encodeURIComponent(course)}&faculty=${encodeURIComponent(faculty)}`,
+                { headers: { 'Authorization': `Bearer ${token}` } }
+            );
+            if (!res.ok) {
+                const err = await res.json();
+                toast.error(err.error || 'Failed to generate top sheet', { id: toastId });
+                return;
+            }
+            const data = await res.json();
+            data.facultyName = faculty; // inject for PDF header
+            const { generateTopSheet } = await import('@/lib/pdfGenerator');
+            await generateTopSheet(data);
+            toast.success('Top sheet downloaded!', { id: toastId });
+        } catch (e: any) {
+            toast.error(e.message || 'Download failed', { id: toastId });
+        } finally {
+            setDownloadingTopSheet(false);
         }
     };
 
@@ -174,7 +245,7 @@ export default function StudentAssignments() {
                 ) : (
                     <div className="space-y-4">
                         {/* Course Tabs - Compact */}
-                        <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                             {courses.map(course => (
                                 <button
                                     key={course}
@@ -187,6 +258,21 @@ export default function StudentAssignments() {
                                     {course}
                                 </button>
                             ))}
+
+                            {/* Download Top Sheet button - aligned right */}
+                            {activeCourse && (
+                                <button
+                                    onClick={() => handleDownloadClick(activeCourse)}
+                                    disabled={downloadingTopSheet}
+                                    className="ml-auto flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-bold bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:from-gray-600 disabled:to-gray-700 text-white transition-all shadow-lg shadow-indigo-500/20 disabled:shadow-none disabled:cursor-not-allowed"
+                                >
+                                    {downloadingTopSheet ? (
+                                        <><Loader2 className="h-3.5 w-3.5 animate-spin" /><span>Generating…</span></>
+                                    ) : (
+                                        <><Download className="h-3.5 w-3.5" /><span>Download Top Sheet</span></>
+                                    )}
+                                </button>
+                            )}
                         </div>
 
                         {/* Stats - Compact Row */}
@@ -309,6 +395,43 @@ export default function StudentAssignments() {
                     </div>
                 )}
             </div>
+
+            {/* Faculty Selection Modal */}
+            {showFacultyModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                    <div className="w-full max-w-sm rounded-2xl bg-[#0f1729] border border-white/10 shadow-2xl overflow-hidden">
+                        <div className="flex items-center justify-between p-4 border-b border-white/10">
+                            <h3 className="text-base font-bold text-white">Select Faculty</h3>
+                            <button
+                                onClick={() => setShowFacultyModal(false)}
+                                className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all"
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
+                        </div>
+                        <div className="p-4">
+                            <p className="text-xs text-gray-400 mb-3">
+                                Multiple faculties have assigned work in <span className="font-bold text-white">{pendingCourse}</span>. Choose whose assignments to include:
+                            </p>
+                            <div className="space-y-2">
+                                {facultyList.map(fac => (
+                                    <button
+                                        key={fac}
+                                        onClick={() => pendingCourse && doDownload(pendingCourse, fac)}
+                                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 border border-white/10 hover:bg-indigo-600/20 hover:border-indigo-500/40 text-left transition-all group"
+                                    >
+                                        <div className="p-2 rounded-lg bg-indigo-500/20 group-hover:bg-indigo-500/30 transition-colors">
+                                            <User className="h-4 w-4 text-indigo-400" />
+                                        </div>
+                                        <span className="text-sm font-semibold text-white">{fac}</span>
+                                        <Download className="h-4 w-4 text-gray-600 ml-auto group-hover:text-indigo-400 transition-colors" />
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <style jsx>{`
                 .bg-gradient-radial {

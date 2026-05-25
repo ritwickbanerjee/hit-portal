@@ -21,6 +21,18 @@ export async function POST(req: Request) {
         });
 
         const gasText = await gasResponse.text();
+
+        // Check if we got HTML instead of JSON (permission error)
+        if (gasText.includes('<!DOCTYPE html>') || gasText.includes('<html') || gasResponse.status === 401 || gasResponse.status === 403) {
+            console.error('Received HTML/Permission error instead of JSON from Google Script');
+            console.error('Script URL:', scriptUrl);
+            return NextResponse.json({
+                error: 'Google Script Permission Error',
+                message: 'The faculty\'s Google Drive upload script is not properly configured. Please deploy the Google Apps Script with "Execute as: Me" and "Who has access: Anyone" settings.',
+                details: 'Received permission error or HTML page instead of JSON response'
+            }, { status: 502 });
+        }
+
         let gasResult;
         try {
             gasResult = JSON.parse(gasText);
