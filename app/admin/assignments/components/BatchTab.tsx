@@ -309,7 +309,7 @@ export default function BatchTab({ onSuccess, user, context, isGlobalAdmin }: Pr
                                         </div>
                                         <div>
                                             <label className="text-xs text-gray-400">Questions</label>
-                                            <input type="number" min="1" value={rule.count} onChange={e => updateRule(idx, 'count', parseInt(e.target.value) || 1)} className="w-full bg-gray-800 border-gray-600 rounded text-white text-xs p-1" />
+                                            <input type="number" min="0" value={rule.count} onChange={e => updateRule(idx, 'count', parseInt(e.target.value) || 0)} className="w-full bg-gray-800 border-gray-600 rounded text-white text-xs p-1" />
                                         </div>
                                     </div>
                                     <button type="button" onClick={() => removeRule(idx)} className="text-red-400 hover:text-red-300 p-1"><Trash2 className="h-4 w-4" /></button>

@@ -144,23 +144,44 @@ export async function POST(req: Request) {
             const sortedRules = (body.rules || []).sort((a: any, b: any) => b.min - a.min);
 
             for (const student of targetStudents) {
-                // Calculate Attendance %
+                // Calculate Attendance % (use toString for ObjectId comparison)
+                const studentIdStr = student._id.toString();
                 const participatedRecords = courseRecords.filter((r: any) =>
-                    (r.presentStudentIds && r.presentStudentIds.includes(student._id)) ||
-                    (r.absentStudentIds && r.absentStudentIds.includes(student._id))
+                    (r.presentStudentIds && r.presentStudentIds.some((pid: any) => pid.toString() === studentIdStr)) ||
+                    (r.absentStudentIds && r.absentStudentIds.some((pid: any) => pid.toString() === studentIdStr))
                 );
 
-                const totalClasses = participatedRecords.length;
+                let totalClasses = participatedRecords.length;
                 let percent = 100;
 
                 if (totalClasses > 0) {
-                    const presentCount = participatedRecords.filter((r: any) => r.presentStudentIds && r.presentStudentIds.includes(student._id)).length;
-                    const adj = student.attended_adjustment || 0;
-                    percent = ((presentCount + adj) / totalClasses) * 100;
+                    let presentCount = participatedRecords.filter((r: any) => r.presentStudentIds && r.presentStudentIds.some((pid: any) => pid.toString() === studentIdStr)).length;
+                    const attendedAdj = student.attended_adjustment || 0;
+                    const totalClassesAdj = student.total_classes_adjustment || 0;
+
+                    presentCount += attendedAdj;
+                    totalClasses += totalClassesAdj;
+
+                    percent = (presentCount / totalClasses) * 100;
+                } else {
+                    // Even if no calculated classes, adjustments might exist
+                    const attendedAdj = student.attended_adjustment || 0;
+                    const totalClassesAdj = student.total_classes_adjustment || 0;
+                    if (totalClassesAdj > 0) {
+                        totalClasses = totalClassesAdj;
+                        percent = (attendedAdj / totalClasses) * 100;
+                    }
                 }
 
-                // Match Rule
-                const rule = sortedRules.find((r: any) => percent >= r.min && percent <= r.max);
+                // Match Rule: use exclusive upper bound to avoid boundary overlap
+                // For boundaries (e.g. 50%), the rule with min=50 wins (upper interval)
+                // sortedRules is descending by min, so the first match with higher min takes priority
+                const rule = sortedRules.find((r: any) => {
+                    const minMatch = percent >= r.min;
+                    // Use exclusive upper bound unless max is 100 (to capture 100% attendance)
+                    const maxMatch = r.max >= 100 ? percent <= r.max : percent < r.max;
+                    return minMatch && maxMatch;
+                });
 
                 if (rule) {
                     const totalQ = rule.count;

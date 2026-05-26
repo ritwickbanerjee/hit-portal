@@ -333,8 +333,8 @@ export default function AssignmentDetailClient({ assignmentId }: AssignmentDetai
                     </div>
                 </div>
 
-                {/* Access Restricted Warning */}
-                {!access.canAccess && !isPastDeadline && (
+                {/* Access Restricted Warning - shown when attendance too low OR zero-count batch rule */}
+                {(!access.canAccess || access.isZeroCountBatch) && !isPastDeadline && (
                     <div className="p-4 sm:p-6 rounded-xl sm:rounded-2xl bg-rose-900/20 border border-rose-500/30 mb-6 sm:mb-8">
                         <div className="flex items-start gap-3 sm:gap-4">
                             <div className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-rose-500/20">
@@ -385,7 +385,7 @@ export default function AssignmentDetailClient({ assignmentId }: AssignmentDetai
                 )}
 
                 {/* Main Content */}
-                {access.canAccess && hasStarted && !isPastDeadline && (
+                {access.canAccess && !access.isZeroCountBatch && hasStarted && !isPastDeadline && (
                     <>
                         {/* Instructions */}
                         {assignment.type === 'manual' && assignment.description && (

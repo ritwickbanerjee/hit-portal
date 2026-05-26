@@ -143,9 +143,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
             requiredAttendance = lowestRule.min;
 
             // Check if current attendance maps to a rule with count 0
-            const matchingRule = assignment.rules.find((r: any) =>
-                attendancePercent >= (r.min || 0) && attendancePercent <= (r.max || 100)
-            );
+            // Use sorted rules with exclusive upper bound for consistent boundary handling
+            const matchingRule = sortedRules.find((r: any) => {
+                const minMatch = attendancePercent >= (r.min || 0);
+                const maxVal = r.max || 100;
+                const maxMatch = maxVal >= 100 ? attendancePercent <= maxVal : attendancePercent < maxVal;
+                return minMatch && maxMatch;
+            });
             if (matchingRule && matchingRule.count === 0) {
                 isZeroCountBatch = true;
             }
@@ -171,9 +175,14 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
             if (assignment.type === 'randomized') {
                 countToSelect = assignment.questionCount || 0;
             } else if (assignment.type === 'batch_attendance' && assignment.rules) {
-                const matchingRule = assignment.rules.find((r: any) =>
-                    attendancePercent >= (r.min || 0) && attendancePercent <= (r.max || 100)
-                );
+                // Use sorted rules with exclusive upper bound for consistent boundary handling
+                const sortedLazyRules = [...assignment.rules].sort((a: any, b: any) => b.min - a.min);
+                const matchingRule = sortedLazyRules.find((r: any) => {
+                    const minMatch = attendancePercent >= (r.min || 0);
+                    const maxVal = r.max || 100;
+                    const maxMatch = maxVal >= 100 ? attendancePercent <= maxVal : attendancePercent < maxVal;
+                    return minMatch && maxMatch;
+                });
                 if (matchingRule) countToSelect = matchingRule.count || 0;
             }
 
@@ -283,6 +292,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
                 canAccess,
                 requiredAttendance,
                 isPastDeadline,
+                isZeroCountBatch,
             },
             submission: existingSubmission ? {
                 status: 'submitted',
