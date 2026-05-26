@@ -61,8 +61,8 @@ export default function BatchTab({ onSuccess, user, context, isGlobalAdmin }: Pr
         // Filter questions based on topic weights AND subtopics
         const weightedTopics = formData.topicWeights.map(t => t.topic);
 
-        const filtered = allQuestions.filter(q => {
-            const topicMatch = weightedTopics.length === 0 || weightedTopics.includes(q.topic);
+        const filtered = weightedTopics.length === 0 ? [] : allQuestions.filter(q => {
+            const topicMatch = weightedTopics.includes(q.topic);
             const subTopicMatch = formData.selectedSubTopics.length === 0 || formData.selectedSubTopics.includes(q.subtopic);
             return topicMatch && subTopicMatch;
         });
@@ -416,7 +416,10 @@ export default function BatchTab({ onSuccess, user, context, isGlobalAdmin }: Pr
                         onChange={setAllowedQuestionIds}
                     />
                     <p className="text-xs text-gray-400 text-right">
-                        {allowedQuestionIds.filter(id => filteredQuestions.some(q => q._id === id)).length} questions available
+                        {(() => {
+                            const validSet = new Set(filteredQuestions.map(q => q._id));
+                            return allowedQuestionIds.filter(id => validSet.has(id)).length;
+                        })()} questions available
                     </p>
                 </div>
             </div>

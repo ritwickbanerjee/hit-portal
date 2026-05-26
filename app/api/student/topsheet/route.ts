@@ -169,10 +169,16 @@ export async function GET(req: Request) {
         
         let attendancePercent = 0;
         if (Attendance) {
-            const allAttendance = await Attendance.find({
-                course_code: course,
-                ...(faculty ? { facultyName: faculty } : {})
+            let allAttendance = await Attendance.find({
+                course_code: course
             });
+
+            if (faculty) {
+                const normalizedFaculty = faculty.toLowerCase().trim();
+                allAttendance = allAttendance.filter((r: any) => 
+                    (r.teacherName || "").toLowerCase().trim() === normalizedFaculty
+                );
+            }
             
             const participatedRecords = allAttendance.filter((r: any) =>
                 (r.presentStudentIds && r.presentStudentIds.some((pid: any) =>

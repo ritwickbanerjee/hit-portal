@@ -248,11 +248,17 @@ export default function AssignmentSubmissionsPage() {
         }
     };
 
-    const calculateAttendance = (student: any, targetCourse: string, deadlineDate: Date) => {
+    const calculateAttendance = (student: any, targetCourse: string, deadlineDate: Date, facultyName: string) => {
         const now = new Date();
         let records = attendanceRecords.filter(r =>
             (r.course_code || "").trim().toUpperCase() === (targetCourse || "").trim().toUpperCase()
         );
+
+        if (facultyName) {
+            records = records.filter(r => 
+                (r.teacherName || "").trim().toLowerCase() === facultyName.trim().toLowerCase()
+            );
+        }
 
         const cutoffDate = now >= deadlineDate ? deadlineDate : now;
         records = records.filter(r => {
@@ -304,7 +310,7 @@ export default function AssignmentSubmissionsPage() {
                 (s.assignment._id === assignment._id || s.assignment === assignment._id)
             );
 
-            const attendance = calculateAttendance(student, targetCourse, deadlineDate);
+            const attendance = calculateAttendance(student, targetCourse, deadlineDate, assignment.facultyName);
             const adjustments = student.submission_adjustments || {};
             const manualAdj = adjustments[targetCourse] || 0;
 

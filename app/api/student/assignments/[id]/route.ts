@@ -13,6 +13,87 @@ import { jwtVerify } from 'jose';
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-dev-secret-change-this-in-prod';
 const key = new TextEncoder().encode(JWT_SECRET);
 
+async function selectQuestionsByWeight(assignment: any, countToSelect: number) {
+    let selectedIds: any[] = [];
+    
+    if (assignment.topicWeights && assignment.topicWeights.length > 0) {
+        const poolQuestions = await Question.find({ _id: { $in: assignment.questionPool } });
+        
+        const topicMap: { [topic: string]: any[] } = {};
+        assignment.topicWeights.forEach((tw: any) => {
+            topicMap[tw.topic] = [];
+        });
+        
+        poolQuestions.forEach((q: any) => {
+            if (topicMap[q.topic] !== undefined) {
+                topicMap[q.topic].push(q._id.toString());
+            }
+        });
+        
+        let remainingCount = countToSelect;
+        const guaranteedIds: string[] = [];
+        const remainingPools: { [topic: string]: string[] } = {};
+        
+        assignment.topicWeights.forEach((tw: any) => {
+            let qs = [...topicMap[tw.topic]].sort(() => 0.5 - Math.random());
+            if (qs.length > 0 && remainingCount > 0) {
+                guaranteedIds.push(qs[0]);
+                qs = qs.slice(1);
+                remainingCount--;
+            }
+            remainingPools[tw.topic] = qs;
+        });
+        
+        const additionalIds: string[] = [];
+        if (remainingCount > 0) {
+            const totalWeight = assignment.topicWeights.reduce((sum: number, tw: any) => sum + tw.weight, 0);
+            let allocations: { topic: string, count: number }[] = [];
+            let allocatedSum = 0;
+            
+            assignment.topicWeights.forEach((tw: any) => {
+                const ratio = totalWeight > 0 ? (tw.weight / totalWeight) : 0;
+                const count = Math.floor(ratio * remainingCount);
+                allocations.push({ topic: tw.topic, count });
+                allocatedSum += count;
+            });
+            
+            let remainder = remainingCount - allocatedSum;
+            allocations.sort((a, b) => {
+                const twA = assignment.topicWeights.find((tw: any) => tw.topic === a.topic)?.weight || 0;
+                const twB = assignment.topicWeights.find((tw: any) => tw.topic === b.topic)?.weight || 0;
+                return twB - twA;
+            });
+            
+            for (let i = 0; i < remainder; i++) {
+                allocations[i % allocations.length].count++;
+            }
+            
+            allocations.forEach(a => {
+                let qs = remainingPools[a.topic] || [];
+                const needed = a.count;
+                const grabbed = qs.slice(0, needed);
+                additionalIds.push(...grabbed);
+                remainingPools[a.topic] = qs.slice(needed);
+            });
+        }
+        
+        selectedIds = [...guaranteedIds, ...additionalIds];
+        if (selectedIds.length < countToSelect) {
+            let allUnused: string[] = [];
+            Object.values(remainingPools).forEach(qs => allUnused.push(...qs));
+            allUnused = allUnused.sort(() => 0.5 - Math.random());
+            const shortfall = countToSelect - selectedIds.length;
+            selectedIds.push(...allUnused.slice(0, shortfall));
+        }
+        
+        selectedIds = selectedIds.sort(() => 0.5 - Math.random());
+    } else {
+        const shuffled = [...assignment.questionPool].sort(() => 0.5 - Math.random());
+        selectedIds = shuffled.slice(0, countToSelect);
+    }
+    return selectedIds;
+}
+
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
     try {
         await connectDB();
@@ -193,8 +274,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
             if (!studentAssignment && countToSelect > 0) {
                 // Lazy Generation
-                const shuffled = [...assignment.questionPool].sort(() => 0.5 - Math.random());
-                const selectedIds = shuffled.slice(0, countToSelect);
+                const selectedIds = await selectQuestionsByWeight(assignment, countToSelect);
 
                 try {
                     studentAssignment = await StudentAssignment.create({
@@ -213,11 +293,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
                 // Dynamic Recalculation: update questions if attendance rule dictates a different count
                 const currentLength = studentAssignment.questionIds ? studentAssignment.questionIds.length : 0;
                 if (currentLength !== countToSelect) {
-                    const shuffled = [...assignment.questionPool].sort(() => 0.5 - Math.random());
-                    const selectedIds = shuffled.slice(0, countToSelect);
+                    const newSelectedIds = await selectQuestionsByWeight(assignment, countToSelect);
                     
                     try {
-                        studentAssignment.questionIds = selectedIds;
+                        studentAssignment.questionIds = newSelectedIds;
                         await studentAssignment.save();
                     } catch (err) {
                         console.error('Dynamic recalculation failed:', err);

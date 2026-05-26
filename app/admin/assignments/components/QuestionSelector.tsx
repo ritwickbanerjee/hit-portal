@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, memo } from 'react';
 import { Search, CheckSquare, Square } from 'lucide-react';
 import LatexWrapper from './LatexWrapper';
 
@@ -16,7 +16,7 @@ interface Props {
     onChange: (ids: string[]) => void;
 }
 
-export default function QuestionSelector({ questions, selectedIds, onChange }: Props) {
+const QuestionSelector = memo(function QuestionSelector({ questions, selectedIds, onChange }: Props) {
     const [searchTerm, setSearchTerm] = useState('');
     const [filtered, setFiltered] = useState<Question[]>([]);
 
@@ -108,4 +108,6 @@ export default function QuestionSelector({ questions, selectedIds, onChange }: P
             </div>
         </div>
     );
-}
+});
+
+export default QuestionSelector;
