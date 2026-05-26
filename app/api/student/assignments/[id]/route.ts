@@ -167,9 +167,14 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
         // 0. Manual Auth Verification (Middleware Fallback)
 
+        // 7b. Check if already submitted (needed for dynamic recalculation)
+        const existingSubmission = await Submission.findOne({
+            assignment: id,
+            student: { $in: allStudentIds }
+        });
 
-        // 7b. Lazy Generation for new students (Fix for "No questions to show")
-        if (!studentAssignment && canAccess && !isPastDeadline && ['randomized', 'batch_attendance'].includes(assignment.type) && assignment.questionPool?.length > 0) {
+        // 7c. Lazy Generation and Dynamic Recalculation
+        if (canAccess && !isPastDeadline && ['randomized', 'batch_attendance'].includes(assignment.type) && assignment.questionPool?.length > 0) {
             let countToSelect = 0;
 
             if (assignment.type === 'randomized') {
@@ -186,8 +191,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
                 if (matchingRule) countToSelect = matchingRule.count || 0;
             }
 
-            if (countToSelect > 0) {
-                // Shuffle pool and select
+            if (!studentAssignment && countToSelect > 0) {
+                // Lazy Generation
                 const shuffled = [...assignment.questionPool].sort(() => 0.5 - Math.random());
                 const selectedIds = shuffled.slice(0, countToSelect);
 
@@ -203,6 +208,20 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
                 } catch (err) {
                     console.error('Lazy generation failed:', err);
                     // Continue without crashing, questions will remain empty
+                }
+            } else if (studentAssignment && !existingSubmission && assignment.type === 'batch_attendance') {
+                // Dynamic Recalculation: update questions if attendance rule dictates a different count
+                const currentLength = studentAssignment.questionIds ? studentAssignment.questionIds.length : 0;
+                if (currentLength !== countToSelect) {
+                    const shuffled = [...assignment.questionPool].sort(() => 0.5 - Math.random());
+                    const selectedIds = shuffled.slice(0, countToSelect);
+                    
+                    try {
+                        studentAssignment.questionIds = selectedIds;
+                        await studentAssignment.save();
+                    } catch (err) {
+                        console.error('Dynamic recalculation failed:', err);
+                    }
                 }
             }
         }
@@ -254,13 +273,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
             scriptUrl = assignment.scriptUrl;
         }
 
-        // 9. Check if already submitted
-        // 9. Check if already submitted
-        const existingSubmission = await Submission.findOne({
-            assignment: id,
-            student: { $in: allStudentIds }
-        });
-
+        // 9. Check if already submitted (Fetched earlier)
         return NextResponse.json({
             assignment: {
                 _id: assignment._id,
