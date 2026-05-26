@@ -30,7 +30,6 @@ const ConfigSchema = new mongoose.Schema({
     },
     activePlatform: {
         type: String,
-        enum: ['vercel', 'netlify'],
         default: 'vercel'
     }
 }, { timestamps: true });
