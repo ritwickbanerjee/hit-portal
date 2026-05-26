@@ -42,8 +42,16 @@ function fmtDatetime(iso: string | null | undefined): string {
 
 function formatMarkdownMathToLatex(text: string, qIndex: number) {
     let out = '';
+    // Clean up typical HTML/markdown artifacts
+    let cleanText = text;
+    cleanText = cleanText.replace(/<br\s*\/?>/gi, ' \\newline ');
+    cleanText = cleanText.replace(/<\/p>/gi, ' \\newline ');
+    cleanText = cleanText.replace(/<[^>]+>/g, '');
+    cleanText = cleanText.replace(/&nbsp;/g, ' ');
+    cleanText = cleanText.replace(/\?br/g, '');
+    
     // Split by $ or $$
-    const parts = text.split(/(\$\$[\s\S]*?\$\$|\$[\s\S]*?\$)/g);
+    const parts = cleanText.split(/(\$\$[\s\S]*?\$\$|\$[\s\S]*?\$)/g);
     
     for (let p of parts) {
         if (!p) continue;

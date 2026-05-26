@@ -165,24 +165,46 @@ export async function GET(req: Request) {
         });
 
         // Fetch attendance for the student + course
-        const attendanceRecords = await connectDB().then(() => mongoose.models.Attendance || mongoose.model('Attendance', new mongoose.Schema({})));
-        // Note: we can just fetch all records for this course + student
-        // Let's dynamically import Attendance model or use existing mongoose models
-        const Attendance = mongoose.models.Attendance;
+        const Attendance = mongoose.models.Attendance || mongoose.model('Attendance', new mongoose.Schema({}));
         
         let attendancePercent = 0;
         if (Attendance) {
-            const courseClasses = await Attendance.find({
+            const allAttendance = await Attendance.find({
                 course_code: course,
                 ...(faculty ? { facultyName: faculty } : {})
             });
-            const totalClasses = courseClasses.length;
-            const attendedClasses = courseClasses.filter(record => 
-                record.presentStudents?.some((s: any) => allStudentIds.map(id => id.toString()).includes(s.toString()))
-            ).length;
             
+            const participatedRecords = allAttendance.filter((r: any) =>
+                (r.presentStudentIds && r.presentStudentIds.some((pid: any) =>
+                    allStudentIds.map(id => id.toString()).includes(pid.toString())
+                )) ||
+                (r.absentStudentIds && r.absentStudentIds.some((pid: any) =>
+                    allStudentIds.map(id => id.toString()).includes(pid.toString())
+                ))
+            );
+
+            let totalClasses = participatedRecords.length;
+            let attendedClasses = 0;
+
+            if (totalClasses > 0) {
+                attendedClasses = participatedRecords.filter((r: any) =>
+                    r.presentStudentIds && r.presentStudentIds.some((pid: any) =>
+                        allStudentIds.map(id => id.toString()).includes(pid.toString())
+                    )
+                ).length;
+            }
+
+            const totalAttendedAdj = allStudentDocs.reduce((sum, s) => sum + (s.attended_adjustment || 0), 0);
+            const totalClassesAdj = allStudentDocs.reduce((sum, s) => sum + (s.total_classes_adjustment || 0), 0);
+
+            attendedClasses += totalAttendedAdj;
+            totalClasses += totalClassesAdj;
+
             if (totalClasses > 0) {
                 attendancePercent = Math.round((attendedClasses / totalClasses) * 1000) / 10;
+            } else if (totalClassesAdj > 0) {
+                totalClasses = totalClassesAdj;
+                attendancePercent = Math.round((totalAttendedAdj / totalClasses) * 1000) / 10;
             }
         }
 
