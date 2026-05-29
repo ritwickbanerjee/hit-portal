@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Loader2, Search, Download, Save, FileText, CheckCircle, XCircle, Eye, X, BookOpen, BarChart } from 'lucide-react';
+import { Loader2, Search, Download, Save, FileText, CheckCircle, XCircle, Eye, X, BookOpen, BarChart, AlertTriangle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import InstructionsBox from '../assignments/components/InstructionsBox';
 import 'katex/dist/katex.min.css';
@@ -326,7 +326,10 @@ export default function AssignmentSubmissionsPage() {
                 isEligible: attendance.isEligible,
                 driveLink: sub?.driveLink || '',
                 manualAdj: manualAdj,
-                courseCode: targetCourse
+                courseCode: targetCourse,
+                pageCount: sub?.pageCount || 0,
+                totalQuestions: sub?.totalQuestions || 0,
+                isAnomaly: sub ? (sub.pageCount > 0 && sub.pageCount < Math.ceil((sub.totalQuestions || 0) / 4)) : false
             };
         });
 
@@ -378,9 +381,9 @@ export default function AssignmentSubmissionsPage() {
     const exportCSV = () => {
         if (activeTab === 'submissions') {
             if (reportData.length === 0) return;
-            const headers = ["Name", "Roll", "Status", "Assignment Date", "Deadline", "Submitted At", "Manual Adj", "Attd %", "Eligible", "Link"];
+            const headers = ["Name", "Roll", "Status", "Assignment Date", "Deadline", "Submitted At", "Manual Adj", "Pages", "Questions", "Anomaly", "Attd %", "Eligible", "Link"];
             const rows = reportData.map(d => [
-                d.name, d.roll, d.status, d.generatedAt, d.deadlineAt, d.submittedAt, d.manualAdj, d.attendanceAtDeadline, d.isEligible ? "Yes" : "No", d.driveLink
+                d.name, d.roll, d.status, d.generatedAt, d.deadlineAt, d.submittedAt, d.manualAdj, d.pageCount, d.totalQuestions, d.isAnomaly ? "Yes" : "No", d.attendanceAtDeadline, d.isEligible ? "Yes" : "No", d.driveLink
             ]);
 
             const csvContent = [
@@ -580,6 +583,8 @@ export default function AssignmentSubmissionsPage() {
                                         <th className="px-4 py-3 text-left">Deadline</th>
                                         <th className="px-4 py-3 text-left">Submitted At</th>
                                         <th className="px-4 py-3 text-center w-32">Adj.</th>
+                                        <th className="px-4 py-3 text-center">Pages</th>
+                                        <th className="px-4 py-3 text-center">Questions</th>
                                         <th className="px-4 py-3 text-left">Attd. %</th>
                                         <th className="px-4 py-3 text-left">File</th>
                                         <th className="px-4 py-3 text-center">View Questions</th>
@@ -590,8 +595,15 @@ export default function AssignmentSubmissionsPage() {
                                         <tr><td colSpan={10} className="text-center py-8 text-gray-500">No students found matching criteria.</td></tr>
                                     ) : (
                                         reportData.map((d) => (
-                                            <tr key={d.studentId} className="hover:bg-gray-700/30 transition-colors">
-                                                <td className="px-4 py-3 font-medium text-white">{d.name}</td>
+                                            <tr key={d.studentId} className={`hover:bg-gray-700/30 transition-colors ${d.isAnomaly ? 'bg-orange-900/40 border-l-4 border-orange-500' : ''}`}>
+                                                <td className="px-4 py-3 font-medium text-white flex items-center gap-2">
+                                                    {d.isAnomaly && (
+                                                        <span title="Possible Anomaly: Too few pages for the number of questions">
+                                                            <AlertTriangle className="h-4 w-4 text-orange-400" />
+                                                        </span>
+                                                    )}
+                                                    {d.name}
+                                                </td>
                                                 <td className="px-4 py-3">{d.roll}</td>
                                                 <td className={`px-4 py-3 font-bold ${d.status === 'Submitted' ? 'text-green-400' : 'text-red-400'}`}>
                                                     {d.status}
@@ -618,6 +630,8 @@ export default function AssignmentSubmissionsPage() {
                                                         )}
                                                     </div>
                                                 </td>
+                                                <td className="px-4 py-3 text-center text-gray-300 font-medium">{d.status === 'Submitted' ? d.pageCount : '-'}</td>
+                                                <td className="px-4 py-3 text-center text-gray-300 font-medium">{d.status === 'Submitted' ? d.totalQuestions : '-'}</td>
                                                 <td className={`px-4 py-3 font-bold ${d.isEligible ? 'text-green-400' : 'text-red-400'}`}>
                                                     {d.attendanceAtDeadline}%
                                                 </td>
