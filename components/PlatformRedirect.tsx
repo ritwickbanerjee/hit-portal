@@ -56,6 +56,12 @@ export default function PlatformRedirect() {
                     }
                 }
 
+                if (activePlatformStr === 'none' || activePlatformStr === 'disabled') {
+                    sessionStorage.setItem(PLATFORM_CACHE_KEY, currentOrigin);
+                    sessionStorage.setItem(PLATFORM_CACHE_TS_KEY, String(Date.now()));
+                    return;
+                }
+
                 // Resolve legacy strings to their actual domains
                 let targetUrl = activePlatformStr;
                 if (activePlatformStr === 'vercel') {

@@ -108,13 +108,24 @@ export default function ActiveDeploymentToggle({ userEmail }: { userEmail: strin
                     <button
                         onClick={() => savePlatform('https://maths-hit-attendance-assignment-track.netlify.app')}
                         disabled={saving}
-                        className={`col-span-2 text-[10px] uppercase font-bold px-2 py-1.5 rounded transition-all ${
+                        className={`text-[10px] uppercase font-bold px-2 py-1.5 rounded transition-all ${
                             platform === 'https://maths-hit-attendance-assignment-track.netlify.app' || platform === 'netlify'
                                 ? 'bg-[#00C7B7]/20 text-[#00C7B7] border-2 border-[#00C7B7]' 
                                 : 'bg-black/40 text-slate-400 border border-white/20 hover:border-[#00C7B7]/50 hover:text-[#00C7B7]'
                         }`}
                     >
                         Netlify (0 Credits)
+                    </button>
+                    <button
+                        onClick={() => savePlatform('disabled')}
+                        disabled={saving}
+                        className={`text-[10px] uppercase font-bold px-2 py-1.5 rounded transition-all ${
+                            platform === 'disabled'
+                                ? 'bg-red-500/20 text-red-500 border-2 border-red-500' 
+                                : 'bg-black/40 text-slate-400 border border-white/20 hover:border-red-500/50 hover:text-red-500'
+                        }`}
+                    >
+                        Disable Switcher
                     </button>
                 </div>
 
