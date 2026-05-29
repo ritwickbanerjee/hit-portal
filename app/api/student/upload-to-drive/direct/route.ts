@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-const pdfParse = require('pdf-parse');
+const pdfParse = require('pdf-parse/lib/pdf-parse.js');
 
 // Next.js body parser size limit needs to be increased for direct uploads
 export const maxDuration = 60; // Set timeout to 60s

@@ -9,7 +9,7 @@ import { ArrowLeft, Clock, FileText, AlertTriangle, CheckCircle, User, Loader2, 
 import { toast } from 'react-hot-toast';
 import LatexRenderer from '@/components/LatexRenderer';
 
-const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB
+const MAX_FILE_SIZE = 3 * 1024 * 1024; // 3MB
 
 interface AssignmentDetailClientProps {
     assignmentId: string;
@@ -77,7 +77,7 @@ export default function AssignmentDetailClient({ assignmentId }: AssignmentDetai
         }
 
         if (file.size > MAX_FILE_SIZE) {
-            toast.error('File too large (>4MB). Please compress it first.');
+            toast.error('File too large (>3MB). Please compress it first.');
             return;
         }
 
@@ -486,7 +486,7 @@ export default function AssignmentDetailClient({ assignmentId }: AssignmentDetai
                                         </div>
                                         <div className="flex-1">
                                             <p className="font-bold text-white text-sm sm:text-base">Step 1: Compress PDF</p>
-                                            <p className="text-[10px] sm:text-sm text-blue-300/70">Reduce file size below 4MB</p>
+                                            <p className="text-[10px] sm:text-sm text-blue-300/70">Reduce file size below 3MB</p>
                                         </div>
                                         <ExternalLink className="h-4 w-4 sm:h-5 sm:w-5 text-blue-400" />
                                     </div>
@@ -500,7 +500,7 @@ export default function AssignmentDetailClient({ assignmentId }: AssignmentDetai
                                         </div>
                                         <div className="flex-1">
                                             <p className="font-bold text-white text-sm sm:text-base">Step 2: Select File</p>
-                                            <p className="text-[10px] sm:text-sm text-gray-400">PDF only, max 4MB</p>
+                                            <p className="text-[10px] sm:text-sm text-gray-400">PDF only, max 3MB</p>
                                         </div>
                                     </div>
                                     <input
