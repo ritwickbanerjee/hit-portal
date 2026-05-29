@@ -1,9 +1,11 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import User from '@/models/User';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import { SignJWT } from 'jose';
+
+export const runtime = 'nodejs';
 
 export async function POST(req: Request) {
     try {

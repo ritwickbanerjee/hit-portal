@@ -1,6 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import CRContact from '@/models/CRContact';
+
+export const runtime = 'nodejs';
 
 // GET: Fetch all CR contacts (Global)
 export async function GET(req: NextRequest) {

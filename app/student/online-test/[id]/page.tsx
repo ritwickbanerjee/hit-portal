@@ -515,8 +515,8 @@ export default function TakeTestPage() {
     useEffect(() => {
         if (!started) return;
 
-        // Periodic auto-save every 30 seconds
-        autoSaveTimerRef.current = setInterval(() => doAutoSave(false), 30000);
+        // Periodic auto-save every 60 seconds (was 30s — halves DB write load during live exams)
+        autoSaveTimerRef.current = setInterval(() => doAutoSave(false), 60000);
 
         // Save on page hide (tab close, app switch, browser killed)
         // pagehide is more reliable than beforeunload on mobile

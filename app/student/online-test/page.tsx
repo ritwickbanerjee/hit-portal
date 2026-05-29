@@ -82,7 +82,7 @@ export default function OnlineTestPage() {
         setLoading(true);
         try {
             const url = batch ? `/api/student/online-test?batch=${encodeURIComponent(batch)}` : '/api/student/online-test';
-            const res = await fetch(url, { cache: 'no-store' });
+            const res = await fetch(url);
             if (!res.ok) {
                 if (res.status === 401) { router.push('/student/login'); return; }
                 throw new Error('Failed to fetch');
@@ -105,7 +105,7 @@ export default function OnlineTestPage() {
 
         try {
             const url = batch ? `/api/student/analytics?batch=${encodeURIComponent(batch)}` : '/api/student/analytics';
-            const res = await fetch(url, { cache: 'no-store' });
+            const res = await fetch(url);
             if (res.ok) {
                 const data = await res.json();
 

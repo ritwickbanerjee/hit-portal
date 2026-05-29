@@ -1,9 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
 import connectDB from '@/lib/db';
 import OnlineTest from '@/models/OnlineTest';
 import Student from '@/models/Student';
 import StudentTestAttempt from '@/models/StudentTestAttempt';
+
+export const runtime = 'nodejs';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-dev-secret-change-this-in-prod';
 const key = new TextEncoder().encode(JWT_SECRET);
@@ -608,7 +610,7 @@ export async function PATCH(
         }
 
         // Save answers without grading (raw answer data only)
-        // Merge with existing answers — update existing, add new
+        // Merge with existing answers â€” update existing, add new
         const existingMap = new Map<string, any>();
         if (attempt.answers && attempt.answers.length > 0) {
             for (const a of attempt.answers) {

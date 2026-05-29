@@ -1,17 +1,17 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import OnlineTest from '@/models/OnlineTest';
+
+export const runtime = 'nodejs';
 
 export async function POST(req: Request) {
     try {
         await connectDB();
         const body = await req.json();
-        console.log('Save Test Payload:', JSON.stringify(body, null, 2)); // DEBUG
         const { _id, title, description, questions, deployment, config, randomization, status, createdBy } = body;
 
         // Basic Validation
         if (!title || !questions || questions.length === 0) {
-            console.error('Validation Failed: Title or Questions missing');
             return NextResponse.json({ error: 'Title and at least one question are required.' }, { status: 400 });
         }
 

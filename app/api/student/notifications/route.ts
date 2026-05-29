@@ -1,8 +1,10 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import Notification from '@/models/Notification';
 import Student from '@/models/Student';
 import mongoose from 'mongoose';
+
+export const runtime = 'nodejs';
 
 export async function GET(req: Request) {
     try {
@@ -14,26 +16,31 @@ export async function GET(req: Request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // Multi-ID Support: Find all IDs for this student
-        const currentStudent = await Student.findById(studentId);
-        let allStudentIds = [studentId];
+        // Multi-ID Support: Find all IDs for this student (lean() skips hydration â€” faster)
+        const currentStudent = await Student.findById(studentId).lean() as any;
+        let allStudentIds: string[] = [studentId];
         if (currentStudent) {
-            const allDocs = await Student.find({ roll: currentStudent.roll });
-            allStudentIds = allDocs.map(d => d._id.toString());
+            const allDocs = await Student.find({ roll: currentStudent.roll }).lean() as any[];
+            allStudentIds = allDocs.map((d: any) => d._id.toString());
         }
 
-        const notifications = await Notification.find({ studentId: { $in: allStudentIds } })
-            .sort({ createdAt: -1 })
-            .limit(20);
+        const [notifications, unreadCount] = await Promise.all([
+            Notification.find({ studentId: { $in: allStudentIds } })
+                .sort({ createdAt: -1 })
+                .limit(20)
+                .lean(),
+            Notification.countDocuments({ studentId: { $in: allStudentIds }, isRead: false }),
+        ]);
 
-        const unreadCount = await Notification.countDocuments({ studentId: { $in: allStudentIds }, isRead: false });
-
-        return NextResponse.json({ notifications, unreadCount });
+        const res = NextResponse.json({ notifications, unreadCount });
+        // Cache per-user for 30 s â€” reduces DB hits on rapid page switches
+        res.headers.set('Cache-Control', 'private, max-age=30');
+        return res;
     } catch (error) {
-        console.error('Fetch Notifications Error:', error);
         return NextResponse.json({ error: 'Server error' }, { status: 500 });
     }
 }
+
 
 export async function PATCH(req: Request) {
     try {

@@ -48,11 +48,17 @@ export default function TokenUsageIndicator({ userEmail, onQuotaExhausted, refre
     useEffect(() => {
         if (userEmail) {
             fetchUsage();
-            // Refresh every minute
-            const interval = setInterval(fetchUsage, 60000);
+            // Poll every 5 minutes instead of every minute — usage doesn't change that fast.
+            // Also skip polling when the tab is hidden to avoid background edge requests.
+            const interval = setInterval(() => {
+                if (document.visibilityState === 'visible') {
+                    fetchUsage();
+                }
+            }, 300000); // 5 minutes
             return () => clearInterval(interval);
         }
     }, [userEmail, refreshTrigger]);
+
 
     if (loading || !usageData) {
         return (

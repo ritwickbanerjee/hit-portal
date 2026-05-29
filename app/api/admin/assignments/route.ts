@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import Assignment from '@/models/Assignment';
 import Question from '@/models/Question';
@@ -8,6 +8,8 @@ import Notification from '@/models/Notification';
 import Attendance from '@/models/Attendance';
 import Submission from '@/models/Submission';
 import User from '@/models/User';
+
+export const runtime = 'nodejs';
 
 const GLOBAL_ADMIN_KEY = 'globaladmin_25';
 

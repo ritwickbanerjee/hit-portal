@@ -1,8 +1,10 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import Submission from '@/models/Submission';
 import Student from '@/models/Student'; // Ensure model is registered
 import Assignment from '@/models/Assignment'; // Ensure model is registered
+
+export const runtime = 'nodejs';
 
 export async function GET() {
     try {

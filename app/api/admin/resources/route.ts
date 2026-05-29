@@ -1,6 +1,8 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import Resource from '@/models/Resource';
+
+export const runtime = 'nodejs';
 
 const GLOBAL_ADMIN_KEY = 'globaladmin_25';
 

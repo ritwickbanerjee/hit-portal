@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import connectDB from '@/lib/db';
 import Assignment from '@/models/Assignment';
@@ -8,6 +8,8 @@ import Student from '@/models/Student';
 import Question from '@/models/Question';
 import Config from '@/models/Config';
 import { jwtVerify } from 'jose';
+
+export const runtime = 'nodejs';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-dev-secret-change-this-in-prod';
 const key = new TextEncoder().encode(JWT_SECRET);

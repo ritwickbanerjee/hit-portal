@@ -1,8 +1,10 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import Student from '@/models/Student';
 import OTP from '@/models/OTP';
 import bcrypt from 'bcryptjs';
+
+export const runtime = 'nodejs';
 
 export async function POST(req: Request) {
     try {

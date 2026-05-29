@@ -1,7 +1,9 @@
-
+﻿
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import Attendance from '@/models/Attendance';
+
+export const runtime = 'nodejs';
 
 export async function GET(req: Request) {
     try {

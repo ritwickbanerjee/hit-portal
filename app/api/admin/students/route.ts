@@ -1,7 +1,9 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import Student from '@/models/Student';
 import bcrypt from 'bcryptjs';
+
+export const runtime = 'nodejs';
 
 export async function GET() {
     await connectDB();
@@ -32,14 +34,10 @@ export async function POST(req: Request) {
         // Default password is roll number
         const hashedPassword = await bcrypt.hash(data.roll, 10);
 
-        console.log('Creating student with data:', data); // DEBUG
-
         const student = await Student.create({
             ...data,
             password: hashedPassword,
         });
-
-        console.log('Created student:', student); // DEBUG
 
         return NextResponse.json({ message: 'Student added', student });
     } catch (error: any) {

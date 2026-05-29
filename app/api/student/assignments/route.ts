@@ -1,9 +1,11 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import Assignment from '@/models/Assignment';
 import StudentAssignment from '@/models/StudentAssignment';
 import Submission from '@/models/Submission';
 import Student from '@/models/Student';
+
+export const runtime = 'nodejs';
 
 export async function GET(req: Request) {
     try {

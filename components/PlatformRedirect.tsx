@@ -2,20 +2,37 @@
 
 import { useEffect } from 'react';
 
+// Cache TTL: 5 minutes. The platform rarely changes; no need to hit the edge on every navigation.
+const PLATFORM_CACHE_KEY = 'platform_redirect_origin';
+const PLATFORM_CACHE_TS_KEY = 'platform_redirect_ts';
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
 export default function PlatformRedirect() {
     useEffect(() => {
         const checkPlatform = async () => {
             try {
                 const currentOrigin = window.location.origin;
-                
-                // Endpoints to try sequentially. 
+
+                // --- Session cache: skip the network if we have a fresh result ---
+                const cachedOrigin = sessionStorage.getItem(PLATFORM_CACHE_KEY);
+                const cachedTs = Number(sessionStorage.getItem(PLATFORM_CACHE_TS_KEY) || '0');
+                if (cachedOrigin && Date.now() - cachedTs < CACHE_TTL_MS) {
+                    // We already know where to go — redirect if needed, otherwise do nothing.
+                    if (currentOrigin !== cachedOrigin) {
+                        window.location.href = cachedOrigin + window.location.pathname + window.location.search;
+                    }
+                    return;
+                }
+
+                // --- Fresh fetch (only runs once per 5 minutes per session) ---
+                // Endpoints to try sequentially.
                 // We DO NOT add Netlify domains here to ensure 0 Netlify function invocations.
                 const endpoints = [
                     'https://hit-portal-six.vercel.app/api/public/platform',
                     'https://hit-portal.vercel.app/api/public/platform'
                 ];
 
-                // If current domain is NOT Netlify, we add it to the top of the list 
+                // If current domain is NOT Netlify, we add it to the top of the list
                 // so that newly set active platforms can be queried from themselves.
                 if (!currentOrigin.includes('netlify')) {
                     endpoints.unshift(currentOrigin + '/api/public/platform');
@@ -25,7 +42,8 @@ export default function PlatformRedirect() {
 
                 for (const ep of endpoints) {
                     try {
-                        const res = await fetch(ep, { cache: 'no-store' });
+                        // Use default caching (not no-store) so the browser and CDN can cache too.
+                        const res = await fetch(ep);
                         if (res.ok) {
                             const data = await res.json();
                             if (data?.activePlatform) {
@@ -55,6 +73,10 @@ export default function PlatformRedirect() {
 
                 const targetOrigin = new URL(targetUrl).origin;
 
+                // Store result in sessionStorage so subsequent navigations skip the fetch.
+                sessionStorage.setItem(PLATFORM_CACHE_KEY, targetOrigin);
+                sessionStorage.setItem(PLATFORM_CACHE_TS_KEY, String(Date.now()));
+
                 // Redirect if we are not on the active platform
                 if (currentOrigin !== targetOrigin) {
                     window.location.href = targetOrigin + window.location.pathname + window.location.search;
@@ -64,7 +86,7 @@ export default function PlatformRedirect() {
                 console.error("Platform check failed", e);
             }
         };
-        
+
         checkPlatform();
     }, []);
 

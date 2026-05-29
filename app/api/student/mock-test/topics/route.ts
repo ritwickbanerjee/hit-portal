@@ -1,6 +1,8 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import MockTestConfig from '@/models/MockTestConfig';
+
+export const runtime = 'nodejs';
 
 export async function GET(req: Request) {
     try {
@@ -15,14 +17,10 @@ export async function GET(req: Request) {
             return NextResponse.json({ error: 'Faculty name is required' }, { status: 400 });
         }
 
-        console.log('[MOCK TEST TOPICS] Fetching topics for faculty:', facultyName);
-        console.log('[MOCK TEST TOPICS] Student:', { course, department, year });
-
-        // Find config for this faculty
-        const config = await MockTestConfig.findOne({ facultyName });
+        // Find config for this faculty (lean = skip Mongoose hydration)
+        const config = await MockTestConfig.findOne({ facultyName }).lean() as any;
 
         if (!config || !config.topics) {
-            console.log('[MOCK TEST TOPICS] No config found for faculty');
             return NextResponse.json([]);
         }
 
@@ -48,9 +46,10 @@ export async function GET(req: Request) {
             .map((t: any) => t.topic)
             .sort();
 
-        console.log('[MOCK TEST TOPICS] Enabled topics for this student:', enabledTopics);
-
-        return NextResponse.json(enabledTopics);
+        const res = NextResponse.json(enabledTopics);
+        // Topics change rarely â€” cache per-user for 2 minutes
+        res.headers.set('Cache-Control', 'private, max-age=120');
+        return res;
     } catch (error) {
         console.error('[MOCK TEST TOPICS] Error:', error);
         return NextResponse.json({ error: 'Server error' }, { status: 500 });

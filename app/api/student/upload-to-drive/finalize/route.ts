@@ -1,6 +1,8 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import UploadChunk from '@/models/UploadChunk';
+
+export const runtime = 'nodejs';
 
 export async function POST(req: Request) {
     try {

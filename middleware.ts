@@ -58,11 +58,9 @@ export async function middleware(req: NextRequest) {
              requestHeaders.delete('x-global-admin-key');
         }
 
-        console.log(`[Middleware] Authenticated User: ${payload.userId} (${payload.role})`);
 
         // 4. Return response with new headers
         if (req.nextUrl.pathname.startsWith('/api/admin') && payload.role !== 'admin') {
-            console.log(`[Middleware] Blocked unauthorized admin access from ${payload.userId} (${payload.role})`);
             return NextResponse.json({ error: 'Unauthorized: Admin access required' }, { status: 403 });
         }
 

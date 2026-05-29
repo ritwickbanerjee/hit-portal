@@ -1,7 +1,9 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import Submission from '@/models/Submission';
 import Student from '@/models/Student';
+
+export const runtime = 'nodejs';
 
 export async function POST(req: Request) {
     try {

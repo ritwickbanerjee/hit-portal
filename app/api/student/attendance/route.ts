@@ -1,8 +1,10 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import Attendance from '@/models/Attendance';
 import Student from '@/models/Student';
 import mongoose from 'mongoose';
+
+export const runtime = 'nodejs';
 
 export async function GET(req: Request) {
     try {

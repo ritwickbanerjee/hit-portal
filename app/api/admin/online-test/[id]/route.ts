@@ -1,6 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import OnlineTest from '@/models/OnlineTest';
+
+export const runtime = 'nodejs';
 
 // GET - Fetch single test by ID
 export async function GET(

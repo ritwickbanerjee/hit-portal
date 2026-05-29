@@ -1,6 +1,8 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import FacultyConfig from '@/models/FacultyConfig';
+
+export const runtime = 'nodejs';
 
 export async function GET() {
     await connectDB();

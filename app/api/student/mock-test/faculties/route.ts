@@ -1,6 +1,8 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import MockTestConfig from '@/models/MockTestConfig';
+
+export const runtime = 'nodejs';
 
 export async function GET(req: Request) {
     try {
@@ -11,11 +13,8 @@ export async function GET(req: Request) {
         const department = searchParams.get('department');
         const year = searchParams.get('year');
 
-        console.log('[MOCK TEST FACULTIES] Student:', { course, department, year });
-
-        // Get all mock test configurations
-        const configs = await MockTestConfig.find({});
-        console.log('[MOCK TEST FACULTIES] Found', configs.length, 'faculty configs');
+        // Get all mock test configurations (lean = no Mongoose hydration overhead)
+        const configs = await MockTestConfig.find({}).lean() as any[];
 
         // Find faculties who have topics deployed to this student
         const facultiesWithDeployments = new Set<string>();
@@ -36,9 +35,11 @@ export async function GET(req: Request) {
         }
 
         const facultyNames = Array.from(facultiesWithDeployments).sort();
-        console.log('[MOCK TEST FACULTIES] Faculties with deployments:', facultyNames);
 
-        return NextResponse.json(facultyNames);
+        const res = NextResponse.json(facultyNames);
+        // Faculty configs change rarely â€” cache per-user for 2 minutes
+        res.headers.set('Cache-Control', 'private, max-age=120');
+        return res;
     } catch (error) {
         console.error('[MOCK TEST FACULTIES] Error:', error);
         return NextResponse.json({ error: 'Server error' }, { status: 500 });

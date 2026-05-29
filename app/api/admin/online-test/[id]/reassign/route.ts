@@ -1,7 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import OnlineTest from '@/models/OnlineTest';
 import StudentTestAttempt from '@/models/StudentTestAttempt';
+
+export const runtime = 'nodejs';
 
 // DELETE /api/admin/online-test/[id]/reassign
 // Body: { phones: string[] }

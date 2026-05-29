@@ -1,6 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import OnlineTest from '@/models/OnlineTest';
+
+export const runtime = 'nodejs';
 
 // GET - List all tests
 export async function GET(request: NextRequest) {
@@ -31,11 +33,7 @@ export async function GET(request: NextRequest) {
             query.folderId = folderIdParam === 'null' ? null : folderIdParam;
         }
 
-        console.log('🔍 GET /api/admin/online-test - Query:', JSON.stringify(query));
-
         const tests = await OnlineTest.find(query).sort({ createdAt: -1 });
-
-        console.log('📦 Found', tests.length, 'tests');
 
         return NextResponse.json(tests);
     } catch (error: any) {
@@ -95,8 +93,6 @@ export async function PUT(request: NextRequest) {
         const body = await request.json();
         const { id, graceMarksForModified, ...updates } = body;
 
-        console.log('🔧 PUT request - ID:', id, 'Updates:', Object.keys(updates));
-
         if (!id) {
             return NextResponse.json({ error: 'Test ID is required' }, { status: 400 });
         }
@@ -104,17 +100,14 @@ export async function PUT(request: NextRequest) {
         // Find test and check ownership
         const test = await OnlineTest.findOne({ _id: id, createdBy: userEmail });
         if (!test) {
-            console.log('❌ Test not found or unauthorized');
             return NextResponse.json({ error: 'Test not found or unauthorized' }, { status: 404 });
         }
-
-        console.log('📋 Current test status:', test.status, 'Current folderId:', test.folderId);
 
         // If deployed test, handle grace marks OR question updates (re-grading)
         if (test.status === 'deployed' && updates.questions) {
             const StudentTestAttempt = (await import('@/models/StudentTestAttempt')).default;
 
-            console.log('🔄 Re-grading all completed attempts for test:', id);
+            console.log('ðŸ”„ Re-grading all completed attempts for test:', id);
             const attempts = await StudentTestAttempt.find({ testId: id, status: 'completed' });
 
             const newQuestionsMap = new Map();
@@ -240,8 +233,6 @@ export async function PUT(request: NextRequest) {
         Object.assign(test, updates);
         await test.save();
 
-        console.log('✅ Test updated! New folderId:', test.folderId);
-
         return NextResponse.json(test);
     } catch (error: any) {
         console.error('Error updating test:', error);
@@ -275,11 +266,8 @@ export async function DELETE(request: NextRequest) {
         // Delete associated student attempts first
         const StudentTestAttempt = (await import('@/models/StudentTestAttempt')).default;
         const deleteResult = await StudentTestAttempt.deleteMany({ testId: id });
-        console.log(`🗑️ Deleted ${deleteResult.deletedCount} attempts for test ${id}`);
 
         await OnlineTest.deleteOne({ _id: id });
-
-        console.log('✅ Test deleted:', id);
 
         return NextResponse.json({ message: 'Test deleted successfully' });
     } catch (error: any) {
