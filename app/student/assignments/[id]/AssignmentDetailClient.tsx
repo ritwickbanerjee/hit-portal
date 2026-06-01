@@ -175,9 +175,19 @@ export default function AssignmentDetailClient({ assignmentId }: AssignmentDetai
             if (!saveRes.ok) {
                 throw new Error('Failed to save submission');
             }
+            
+            const savedData = await saveRes.json();
 
             toast.success('Submitted successfully!', { id: toastId });
             setSelectedFile(null);
+            
+            // Asynchronously fetch page count in the background without blocking the user
+            if (savedData.submission && savedData.submission._id) {
+                fetch(`/api/admin/submissions/${savedData.submission._id}/fetch-pages`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                }).catch(err => console.error('Background page fetch failed:', err));
+            }
             setUploadProgress('');
             if (fileInputRef.current) fileInputRef.current.value = '';
             fetchAssignmentDetail(data.student._id);

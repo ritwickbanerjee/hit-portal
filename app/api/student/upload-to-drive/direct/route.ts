@@ -1,6 +1,4 @@
 import { NextResponse } from 'next/server';
-const pdfParse = require('pdf-parse/lib/pdf-parse.js');
-
 // Next.js body parser size limit needs to be increased for direct uploads
 export const maxDuration = 60; // Set timeout to 60s
 export const dynamic = 'force-dynamic';
@@ -53,14 +51,6 @@ export async function POST(req: Request) {
         }
 
         let pageCount = 0;
-        try {
-            const base64Data = fileData.includes(',') ? fileData.split(',')[1] : fileData;
-            const buffer = Buffer.from(base64Data, 'base64');
-            const pdfData = await pdfParse(buffer);
-            pageCount = pdfData.numpages;
-        } catch (pdfErr) {
-            console.error('Error counting PDF pages:', pdfErr);
-        }
 
         return NextResponse.json({
             status: 'success',

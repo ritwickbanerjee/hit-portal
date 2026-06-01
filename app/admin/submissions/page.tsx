@@ -329,7 +329,8 @@ export default function AssignmentSubmissionsPage() {
                 courseCode: targetCourse,
                 pageCount: sub?.pageCount || 0,
                 totalQuestions: sub?.totalQuestions || 0,
-                isAnomaly: sub ? (sub.pageCount > 0 && sub.pageCount < Math.ceil((sub.totalQuestions || 0) / 4)) : false
+                isAnomaly: sub ? (sub.pageCount > 0 && sub.pageCount < Math.ceil((sub.totalQuestions || 0) / 4)) : false,
+                submissionId: sub?._id || null
             };
         });
 
@@ -440,6 +441,34 @@ export default function AssignmentSubmissionsPage() {
             toast.error('Error loading questions');
         } finally {
             setViewQuestionsLoading(false);
+        }
+    };
+
+    const handleFetchPages = async (submissionId: string) => {
+        const toastId = toast.loading('Fetching page count...');
+        try {
+            const isGA = typeof window !== 'undefined' && localStorage.getItem('globalAdminActive') === 'true';
+            let headers: any = {};
+            if (isGA) headers['X-Global-Admin-Key'] = 'globaladmin_25';
+            else if (user?.email) headers['X-User-Email'] = user.email;
+
+            const res = await fetch(`/api/admin/submissions/${submissionId}/fetch-pages`, {
+                method: 'POST',
+                headers
+            });
+
+            const data = await res.json();
+            if (res.ok && data.success) {
+                toast.success(`Found ${data.pageCount} pages!`, { id: toastId });
+                // Update local state
+                setReportData(prev => prev.map(d => 
+                    d.submissionId === submissionId ? { ...d, pageCount: data.pageCount } : d
+                ));
+            } else {
+                toast.error(data.error || 'Failed to fetch page count', { id: toastId });
+            }
+        } catch (error) {
+            toast.error('Network error', { id: toastId });
         }
     };
 
@@ -630,7 +659,22 @@ export default function AssignmentSubmissionsPage() {
                                                         )}
                                                     </div>
                                                 </td>
-                                                <td className="px-4 py-3 text-center text-gray-300 font-medium">{d.status === 'Submitted' ? d.pageCount : '-'}</td>
+                                                <td className="px-4 py-3 text-center text-gray-300 font-medium">
+                                                    {d.status === 'Submitted' ? (
+                                                        <div className="flex items-center justify-center gap-2">
+                                                            <span>{d.pageCount}</span>
+                                                            {d.pageCount === 0 && d.submissionId && (
+                                                                <button
+                                                                    onClick={() => handleFetchPages(d.submissionId)}
+                                                                    className="text-xs bg-blue-600/30 text-blue-400 px-2 py-0.5 rounded hover:bg-blue-600/50 transition-colors"
+                                                                    title="Fetch Page Count from Drive"
+                                                                >
+                                                                    Fetch
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    ) : '-'}
+                                                </td>
                                                 <td className="px-4 py-3 text-center text-gray-300 font-medium">{d.status === 'Submitted' ? d.totalQuestions : '-'}</td>
                                                 <td className={`px-4 py-3 font-bold ${d.isEligible ? 'text-green-400' : 'text-red-400'}`}>
                                                     {d.attendanceAtDeadline}%
