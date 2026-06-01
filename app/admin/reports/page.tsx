@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Loader2, Calendar, FileSpreadsheet, Copy, Mail, Search, Upload, Download, Edit, Save, X, Trash2, ArrowRight, MessageSquare, MessageCircle, Shield } from 'lucide-react';
+import { Loader2, Calendar, FileSpreadsheet, Copy, Mail, Search, Upload, Download, Edit, Save, X, Trash2, ArrowRight, MessageSquare, MessageCircle, Shield, History, Plus, Clock } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 export default function AdminReports() {
@@ -38,6 +38,17 @@ export default function AdminReports() {
 
     // Adjustment State (for inline editing)
     const [adjustments, setAdjustments] = useState<{ [key: string]: { attended: number, total: number } }>({});
+
+    // Adjustment Popup State
+    const [adjustmentPopup, setAdjustmentPopup] = useState<{ open: boolean, student: any, delta: number }>({ open: false, student: null, delta: 0 });
+    const [adjustmentDate, setAdjustmentDate] = useState('');
+    const [adjustmentReason, setAdjustmentReason] = useState('');
+    const [savingAdjustment, setSavingAdjustment] = useState(false);
+
+    // Adjustment History State
+    const [historyModal, setHistoryModal] = useState<{ open: boolean, student: any }>({ open: false, student: null });
+    const [historyEntries, setHistoryEntries] = useState<any[]>([]);
+    const [loadingHistory, setLoadingHistory] = useState(false);
 
     // Helper for Auth Headers
     const getHeaders = () => {
@@ -206,32 +217,129 @@ export default function AdminReports() {
         const adj = adjustments[student._id];
         if (!adj) return;
 
-        const newAttendedAdj = adj.attended !== undefined ? adj.attended : (student.attended_adjustment || 0);
-        const newTotalAdj = adj.total !== undefined ? adj.total : (student.total_classes_adjustment || 0);
+        const currentAttAdj = student.attended_adjustment || 0;
+        const newAttendedAdj = adj.attended !== undefined ? adj.attended : currentAttAdj;
+        const delta = newAttendedAdj - currentAttAdj;
+
+        if (delta <= 0) {
+            // For total_classes_adjustment changes or no-change, use old direct method
+            const newTotalAdj = adj.total !== undefined ? adj.total : (student.total_classes_adjustment || 0);
+            try {
+                const res = await fetch(`/api/admin/students/${student._id}`, {
+                    method: 'PUT',
+                    headers: { ...getHeaders(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        attended_adjustment: newAttendedAdj,
+                        total_classes_adjustment: newTotalAdj
+                    })
+                });
+                if (!res.ok) throw new Error('Failed to save adjustment');
+                const updated = await res.json();
+                setStudents(prev => prev.map(s => s._id === updated._id ? updated : s));
+                setAdjustments(prev => { const next = { ...prev }; delete next[student._id]; return next; });
+                toast.success('Adjustment saved!');
+            } catch (error) {
+                console.error(error);
+                toast.error('Failed to save adjustment.');
+            }
+            return;
+        }
+
+        // Positive delta: open the popup
+        setAdjustmentPopup({ open: true, student, delta });
+        setAdjustmentDate('');
+        setAdjustmentReason('');
+    };
+
+    const confirmAdjustmentPopup = async () => {
+        const { student, delta } = adjustmentPopup;
+        if (!student) return;
+        setSavingAdjustment(true);
 
         try {
-            const res = await fetch(`/api/admin/students/${student._id}`, {
-                method: 'PUT',
+            const res = await fetch('/api/admin/attendance-adjustments', {
+                method: 'POST',
                 headers: { ...getHeaders(), 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    attended_adjustment: newAttendedAdj,
-                    total_classes_adjustment: newTotalAdj
+                    studentId: student._id,
+                    studentRoll: student.roll,
+                    studentName: student.name,
+                    facultyEmail: adminEmail || '',
+                    facultyName: adminName || '',
+                    courseCode: student.course_code,
+                    batchKey: `${student.department}_${student.year}_${student.course_code}`,
+                    date: adjustmentDate,
+                    delta,
+                    reason: adjustmentReason
                 })
             });
 
             if (!res.ok) throw new Error('Failed to save adjustment');
 
-            const updated = await res.json();
-            setStudents(prev => prev.map(s => s._id === updated._id ? updated : s));
-            setAdjustments(prev => {
-                const next = { ...prev };
-                delete next[student._id];
-                return next;
-            });
-            alert('Adjustment saved!');
+            // Also update total_classes_adjustment if changed
+            const adj = adjustments[student._id];
+            const newTotalAdj = adj?.total !== undefined ? adj.total : (student.total_classes_adjustment || 0);
+            if (newTotalAdj !== (student.total_classes_adjustment || 0)) {
+                await fetch(`/api/admin/students/${student._id}`, {
+                    method: 'PUT',
+                    headers: { ...getHeaders(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ total_classes_adjustment: newTotalAdj })
+                });
+            }
+
+            // Refresh student data
+            const refreshRes = await fetch('/api/admin/students/all', { headers: getHeaders() });
+            if (refreshRes.ok) setStudents(await refreshRes.json());
+
+            setAdjustments(prev => { const next = { ...prev }; delete next[student._id]; return next; });
+            setAdjustmentPopup({ open: false, student: null, delta: 0 });
+            toast.success('Adjustment recorded successfully!');
         } catch (error) {
             console.error(error);
-            alert('Failed to save adjustment.');
+            toast.error('Failed to save adjustment.');
+        } finally {
+            setSavingAdjustment(false);
+        }
+    };
+
+    const openHistory = async (student: any) => {
+        setHistoryModal({ open: true, student });
+        setLoadingHistory(true);
+        try {
+            const res = await fetch(`/api/admin/attendance-adjustments?studentId=${student._id}`, { headers: getHeaders() });
+            if (res.ok) {
+                setHistoryEntries(await res.json());
+            } else {
+                setHistoryEntries([]);
+            }
+        } catch (e) {
+            console.error(e);
+            setHistoryEntries([]);
+        } finally {
+            setLoadingHistory(false);
+        }
+    };
+
+    const deleteAdjustmentEntry = async (entryId: string) => {
+        if (!confirm('Delete this adjustment entry? This will also reduce the student\'s adjusted attendance.')) return;
+        try {
+            const res = await fetch(`/api/admin/attendance-adjustments?id=${entryId}`, {
+                method: 'DELETE',
+                headers: getHeaders()
+            });
+            if (!res.ok) throw new Error('Failed to delete');
+
+            // Refresh history
+            setHistoryEntries(prev => prev.filter(e => e._id !== entryId));
+
+            // Refresh student data
+            const refreshRes = await fetch('/api/admin/students/all', { headers: getHeaders() });
+            if (refreshRes.ok) setStudents(await refreshRes.json());
+
+            toast.success('Adjustment deleted');
+        } catch (e) {
+            console.error(e);
+            toast.error('Failed to delete adjustment.');
         }
     };
 
@@ -716,6 +824,9 @@ Treat this matter with extreme urgency.`;
                                                         <Save className="h-4 w-4" />
                                                     </button>
                                                 )}
+                                                <button onClick={() => openHistory(student)} className="text-amber-400 hover:text-amber-300 transition-transform hover:scale-110" title="View Adjustment History">
+                                                    <History className="h-4 w-4" />
+                                                </button>
                                                 <button onClick={() => handleEditClick(student)} className="text-indigo-400 hover:text-indigo-300 transition-transform hover:scale-110" title="Edit Details">
                                                     <Edit className="h-4 w-4" />
                                                 </button>
@@ -1146,6 +1257,139 @@ Treat this matter with extreme urgency.`;
                     </div>
                 )
             }
+
+            {/* --- Adjustment Popup Modal --- */}
+            {adjustmentPopup.open && adjustmentPopup.student && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="bg-slate-900 rounded-2xl border border-white/10 w-full max-w-md p-8 shadow-2xl relative animate-in zoom-in-95 duration-300">
+                        <button onClick={() => setAdjustmentPopup({ open: false, student: null, delta: 0 })} className="absolute top-6 right-6 text-slate-400 hover:text-white transition-colors">
+                            <X className="h-6 w-6" />
+                        </button>
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="h-10 w-10 rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-400">
+                                <Plus className="h-5 w-5" />
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-bold text-white">Record Adjustment</h3>
+                                <p className="text-sm text-slate-400">+{adjustmentPopup.delta} attendance for <span className="text-white font-medium">{adjustmentPopup.student.name}</span></p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-5">
+                            <div>
+                                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Date (which class does this relate to?)</label>
+                                <input
+                                    type="date"
+                                    className="w-full bg-slate-950 border border-white/10 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none transition-all"
+                                    value={adjustmentDate}
+                                    onChange={e => setAdjustmentDate(e.target.value)}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Reason (optional)</label>
+                                <textarea
+                                    className="w-full bg-slate-950 border border-white/10 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none transition-all resize-none"
+                                    rows={3}
+                                    placeholder="e.g., Student was present but unmarked, late entry..."
+                                    value={adjustmentReason}
+                                    onChange={e => setAdjustmentReason(e.target.value)}
+                                />
+                            </div>
+                            <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                                <p className="text-xs text-amber-300/80">
+                                    <span className="font-bold">Note:</span> This reason and date will be visible to the student in their attendance portal.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-white/5">
+                            <button onClick={() => setAdjustmentPopup({ open: false, student: null, delta: 0 })} className="px-6 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors font-medium border border-white/5">
+                                Cancel
+                            </button>
+                            <button onClick={confirmAdjustmentPopup} disabled={savingAdjustment} className="px-6 py-2.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold shadow-lg shadow-amber-500/20 hover:-translate-y-0.5 transition-all flex items-center gap-2 disabled:opacity-50">
+                                {savingAdjustment && <Loader2 className="animate-spin h-4 w-4" />}
+                                Confirm Adjustment
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* --- Adjustment History Modal --- */}
+            {historyModal.open && historyModal.student && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="bg-slate-900 rounded-2xl border border-white/10 w-full max-w-2xl p-8 shadow-2xl relative max-h-[85vh] flex flex-col animate-in zoom-in-95 duration-300">
+                        <button onClick={() => setHistoryModal({ open: false, student: null })} className="absolute top-6 right-6 text-slate-400 hover:text-white transition-colors">
+                            <X className="h-6 w-6" />
+                        </button>
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="h-10 w-10 rounded-xl bg-indigo-500/20 flex items-center justify-center text-indigo-400">
+                                <History className="h-5 w-5" />
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-bold text-white">Adjustment History</h3>
+                                <p className="text-sm text-slate-400">{historyModal.student.name} • {historyModal.student.roll} • {historyModal.student.course_code}</p>
+                            </div>
+                        </div>
+
+                        <div className="overflow-auto flex-1 custom-scrollbar">
+                            {loadingHistory ? (
+                                <div className="flex items-center justify-center py-12">
+                                    <Loader2 className="animate-spin h-6 w-6 text-indigo-400" />
+                                </div>
+                            ) : historyEntries.length === 0 ? (
+                                <div className="text-center py-12">
+                                    <Clock className="h-10 w-10 text-slate-600 mx-auto mb-3" />
+                                    <p className="text-slate-500">No adjustments recorded yet</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {historyEntries.map((entry: any) => (
+                                        <div key={entry._id} className="p-4 rounded-xl bg-slate-950/50 border border-white/5 hover:border-white/10 transition-colors group">
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold">+{entry.delta}</span>
+                                                        <span className="text-sm text-white font-medium truncate">{entry.facultyName || 'Unknown Faculty'}</span>
+                                                    </div>
+                                                    {entry.reason && (
+                                                        <p className="text-sm text-slate-400 mt-1">{entry.reason}</p>
+                                                    )}
+                                                    <div className="flex items-center gap-3 mt-2 text-xs text-slate-500">
+                                                        {entry.date && (
+                                                            <span className="flex items-center gap-1">
+                                                                <Calendar className="h-3 w-3" />
+                                                                For: {new Date(entry.date).toLocaleDateString()}
+                                                            </span>
+                                                        )}
+                                                        <span className="flex items-center gap-1">
+                                                            <Clock className="h-3 w-3" />
+                                                            {new Date(entry.createdAt).toLocaleString()}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    onClick={() => deleteAdjustmentEntry(entry._id)}
+                                                    className="text-slate-600 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-red-500/10"
+                                                    title="Delete this adjustment"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex justify-end mt-6 pt-4 border-t border-white/5">
+                            <button onClick={() => setHistoryModal({ open: false, student: null })} className="px-6 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors font-medium border border-white/5">
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div >
     );
 }

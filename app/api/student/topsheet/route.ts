@@ -1,5 +1,4 @@
-﻿import { NextResponse } from 'next/server';
-import mongoose from 'mongoose';
+import { NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import Assignment from '@/models/Assignment';
 import StudentAssignment from '@/models/StudentAssignment';
@@ -7,6 +6,7 @@ import Submission from '@/models/Submission';
 import Student from '@/models/Student';
 import Question from '@/models/Question';
 import Config from '@/models/Config';
+import Attendance from '@/models/Attendance';
 import { jwtVerify } from 'jose';
 
 export const runtime = 'nodejs';
@@ -167,12 +167,12 @@ export async function GET(req: Request) {
         });
 
         // Fetch attendance for the student + course
-        const Attendance = mongoose.models.Attendance || mongoose.model('Attendance', new mongoose.Schema({}));
-        
         let attendancePercent = 0;
-        if (Attendance) {
-            let allAttendance = await Attendance.find({
-                course_code: course
+        {
+            const normalizedCourse = course.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+            let allAttendance = (await Attendance.find({})).filter((r: any) => {
+                const recordCourse = (r.course_code || "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+                return recordCourse === normalizedCourse;
             });
 
             if (faculty) {

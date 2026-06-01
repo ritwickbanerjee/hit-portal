@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, PieChart, User, Calendar, Loader2, CheckCircle, XCircle, AlertTriangle, Users, ChevronDown, ChevronUp, FileDown } from 'lucide-react';
+import { ArrowLeft, PieChart, User, Calendar, Loader2, CheckCircle, XCircle, AlertTriangle, Users, ChevronDown, ChevronUp, FileDown, Star } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -14,6 +14,7 @@ export default function StudentAttendance() {
     const [massBunkCount, setMassBunkCount] = useState(0);
     const [massBunkDates, setMassBunkDates] = useState<any[]>([]);
     const [adjustments, setAdjustments] = useState<Record<string, { attended: number, total: number }>>({});
+    const [adjustmentEntries, setAdjustmentEntries] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeCourse, setActiveCourse] = useState<string | null>(null);
     const [expandedFaculties, setExpandedFaculties] = useState<Set<string>>(new Set());
@@ -59,6 +60,7 @@ export default function StudentAttendance() {
                     setMassBunkCount(data.massBunkCount || 0);
                     setMassBunkDates(data.massBunkDates || []);
                     setAdjustments(data.adjustments || {});
+                    setAdjustmentEntries(data.adjustmentEntries || []);
                 }
             } else {
                 toast.error('Failed to load attendance');
@@ -135,8 +137,12 @@ export default function StudentAttendance() {
         });
 
         const percent = totalClassesAll > 0 ? Math.round((totalAttendedAll / totalClassesAll) * 100) : 0;
-        return { totalAttendedAll, totalClassesAll, percent };
-    }, [groupedData, adjustments]);
+
+        // Calculate total adjustments for display (sum of all per-entry deltas)
+        const totalAdjusted = adjustmentEntries.reduce((sum: number, entry: any) => sum + (entry.delta || 0), 0);
+
+        return { totalAttendedAll, totalClassesAll, percent, totalAdjusted };
+    }, [groupedData, adjustments, adjustmentEntries]);
 
     const getPercentColor = (percent: number) => {
         if (percent >= 75) return { text: 'text-emerald-400', bg: 'from-emerald-500 to-teal-500', bgLight: 'bg-emerald-500/20', ring: 'ring-emerald-500/30' };
@@ -397,6 +403,11 @@ export default function StudentAttendance() {
                                             <span className="text-rose-400 flex items-center gap-1">
                                                 <XCircle className="h-3 w-3" /> {overallStats.totalClassesAll - overallStats.totalAttendedAll}
                                             </span>
+                                            {overallStats.totalAdjusted > 0 && (
+                                                <span className="text-amber-400 flex items-center gap-1 animate-pulse">
+                                                    <Star className="h-3 w-3" /> +{overallStats.totalAdjusted} adjusted
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -536,6 +547,43 @@ export default function StudentAttendance() {
                                                 ))}
                                             </div>
 
+                                            {/* Adjustment Entries for this Faculty + Course */}
+                                            {(() => {
+                                                const facultyAdjustments = adjustmentEntries.filter(
+                                                    (e: any) => e.facultyName === faculty && e.courseCode === activeCourse
+                                                );
+                                                if (facultyAdjustments.length === 0) return null;
+                                                return (
+                                                    <div className="px-2 sm:px-5 pb-2 sm:pb-3 space-y-1.5">
+                                                        {facultyAdjustments.map((entry: any, i: number) => (
+                                                            <div
+                                                                key={`adj-${i}`}
+                                                                className="flex items-center justify-between p-2 sm:p-3 rounded-lg text-xs sm:text-sm bg-amber-500/10 border border-amber-500/30 shadow-[0_0_12px_rgba(251,191,36,0.15)] animate-glow"
+                                                            >
+                                                                <div className="flex flex-col min-w-0 flex-1">
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        <Star className="h-3 w-3 text-amber-400 shrink-0" />
+                                                                        <span className="text-amber-300 font-bold text-[10px] sm:text-xs">+{entry.delta} Adjustment</span>
+                                                                    </div>
+                                                                    {entry.reason && (
+                                                                        <span className="text-amber-200/60 text-[9px] sm:text-[10px] ml-4 mt-0.5 truncate">{entry.reason}</span>
+                                                                    )}
+                                                                    {entry.date && (
+                                                                        <span className="text-amber-200/40 text-[9px] sm:text-[10px] ml-4 mt-0.5 flex items-center gap-1">
+                                                                            <Calendar className="h-2.5 w-2.5" />
+                                                                            {new Date(entry.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 text-[10px] sm:text-xs font-bold shrink-0">
+                                                                    +{entry.delta}
+                                                                </span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                );
+                                            })()}
+
                                             {/* Show More/Less */}
                                             {data.dates.length > 3 && (
                                                 <button
@@ -571,6 +619,13 @@ export default function StudentAttendance() {
                 .custom-scrollbar::-webkit-scrollbar-thumb {
                     background: rgba(255,255,255,0.1);
                     border-radius: 2px;
+                }
+                @keyframes glow-pulse {
+                    0%, 100% { box-shadow: 0 0 8px rgba(251, 191, 36, 0.15); }
+                    50% { box-shadow: 0 0 20px rgba(251, 191, 36, 0.35); }
+                }
+                .animate-glow {
+                    animation: glow-pulse 2s ease-in-out infinite;
                 }
             `}</style>
         </div >

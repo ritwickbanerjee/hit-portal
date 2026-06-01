@@ -1,7 +1,8 @@
-﻿import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import Attendance from '@/models/Attendance';
 import Student from '@/models/Student';
+import AttendanceAdjustment from '@/models/AttendanceAdjustment';
 import mongoose from 'mongoose';
 
 export const runtime = 'nodejs';
@@ -87,11 +88,26 @@ export async function GET(req: Request) {
             }
         });
 
+        // Fetch per-entry adjustment records for display
+        const adjustmentEntries = await AttendanceAdjustment.find({
+            studentRoll: student.roll
+        }).sort({ createdAt: -1 });
+
         return NextResponse.json({
             records: processedRecords,
             massBunkCount: massBunks.length,
             massBunkDates,
-            adjustments // Now a dictionary: { "MTH101": { attended: 1, total: 0 }, ... }
+            adjustments, // Now a dictionary: { "MTH101": { attended: 1, total: 0 }, ... }
+            adjustmentEntries: adjustmentEntries.map(e => ({
+                _id: e._id,
+                facultyName: e.facultyName,
+                facultyEmail: e.facultyEmail,
+                courseCode: e.courseCode,
+                date: e.date,
+                delta: e.delta,
+                reason: e.reason,
+                createdAt: e.createdAt
+            }))
         });
     } catch (error) {
         console.error('Fetch Attendance Error:', error);

@@ -1,4 +1,4 @@
-﻿import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import Assignment from '@/models/Assignment';
 import StudentAssignment from '@/models/StudentAssignment';
@@ -295,10 +295,70 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
                 // Dynamic Recalculation: update questions if attendance rule dictates a different count
                 const currentLength = studentAssignment.questionIds ? studentAssignment.questionIds.length : 0;
                 if (currentLength !== countToSelect) {
-                    const newSelectedIds = await selectQuestionsByWeight(assignment, countToSelect);
-                    
                     try {
-                        studentAssignment.questionIds = newSelectedIds;
+                        if (currentLength > countToSelect) {
+                            // Attendance improved, fewer questions needed — trim from the end
+                            studentAssignment.questionIds = studentAssignment.questionIds.slice(0, countToSelect);
+                        } else {
+                            // Attendance dropped, more questions needed — keep existing, append new
+                            const needed = countToSelect - currentLength;
+                            const existingSet = new Set(studentAssignment.questionIds.map((id: any) => id.toString()));
+                            const candidates = (assignment.questionPool || []).filter(
+                                (qId: any) => !existingSet.has(qId.toString())
+                            );
+
+                            let newQuestions: any[] = [];
+                            if (assignment.topicWeights && assignment.topicWeights.length > 0) {
+                                // Weighted selection from unused candidates only
+                                const candidateQuestions = await Question.find({ _id: { $in: candidates } });
+                                const topicMap: { [topic: string]: any[] } = {};
+                                assignment.topicWeights.forEach((tw: any) => { topicMap[tw.topic] = []; });
+                                candidateQuestions.forEach((q: any) => {
+                                    if (topicMap[q.topic] !== undefined) {
+                                        topicMap[q.topic].push(q._id.toString());
+                                    }
+                                });
+
+                                // Allocate by weight
+                                const totalWeight = assignment.topicWeights.reduce((sum: number, tw: any) => sum + tw.weight, 0);
+                                let allocations: { topic: string; count: number }[] = [];
+                                let allocatedSum = 0;
+                                assignment.topicWeights.forEach((tw: any) => {
+                                    const ratio = totalWeight > 0 ? (tw.weight / totalWeight) : 0;
+                                    const count = Math.floor(ratio * needed);
+                                    allocations.push({ topic: tw.topic, count });
+                                    allocatedSum += count;
+                                });
+                                let remainder = needed - allocatedSum;
+                                allocations.sort((a, b) => {
+                                    const twA = assignment.topicWeights.find((tw: any) => tw.topic === a.topic)?.weight || 0;
+                                    const twB = assignment.topicWeights.find((tw: any) => tw.topic === b.topic)?.weight || 0;
+                                    return twB - twA;
+                                });
+                                for (let i = 0; i < remainder; i++) {
+                                    allocations[i % allocations.length].count++;
+                                }
+
+                                allocations.forEach(a => {
+                                    let qs = (topicMap[a.topic] || []).sort(() => 0.5 - Math.random());
+                                    newQuestions.push(...qs.slice(0, a.count));
+                                });
+
+                                // If still short, grab from any remaining unused candidates
+                                if (newQuestions.length < needed) {
+                                    const usedNewSet = new Set(newQuestions.map((id: any) => id.toString()));
+                                    const leftover = candidates.filter((id: any) => !usedNewSet.has(id.toString()));
+                                    const shuffled = leftover.sort(() => 0.5 - Math.random());
+                                    newQuestions.push(...shuffled.slice(0, needed - newQuestions.length));
+                                }
+                            } else {
+                                // No topic weights — randomly select from unused candidates
+                                const shuffled = [...candidates].sort(() => 0.5 - Math.random());
+                                newQuestions = shuffled.slice(0, needed);
+                            }
+
+                            studentAssignment.questionIds = [...studentAssignment.questionIds, ...newQuestions];
+                        }
                         await studentAssignment.save();
                     } catch (err) {
                         console.error('Dynamic recalculation failed:', err);
