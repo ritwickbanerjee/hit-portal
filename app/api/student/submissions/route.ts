@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import Submission from '@/models/Submission';
 import Student from '@/models/Student';
+import Assignment from '@/models/Assignment';
+import StudentAssignment from '@/models/StudentAssignment';
+import mongoose from 'mongoose';
 
 export const runtime = 'nodejs';
 
@@ -17,6 +20,28 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
+        // Calculate total questions server-side to prevent client-side bug
+        let finalTotalQuestions = totalQuestions || 0;
+
+        const assignment = await Assignment.findById(assignmentId);
+        if (assignment) {
+            if (assignment.type === 'personalized' || assignment.type === 'batch_attendance') {
+                const sa = await StudentAssignment.findOne({ studentId, assignmentId });
+                if (sa && sa.questionIds) {
+                    finalTotalQuestions = sa.questionIds.length;
+                }
+            } else if (assignment.type === 'randomized') {
+                const sa = await StudentAssignment.findOne({ studentId, assignmentId });
+                if (sa && sa.questionIds) {
+                    finalTotalQuestions = sa.questionIds.length;
+                } else if (assignment.questions) {
+                     finalTotalQuestions = assignment.questions.length;
+                }
+            } else if (assignment.questions) {
+                finalTotalQuestions = assignment.questions.length;
+            }
+        }
+
         // Check if submission already exists
         const existingSubmission = await Submission.findOne({
             assignment: assignmentId,
@@ -27,7 +52,7 @@ export async function POST(req: Request) {
             // Update existing submission
             existingSubmission.driveLink = driveLink;
             if (pageCount !== undefined) existingSubmission.pageCount = pageCount;
-            if (totalQuestions !== undefined) existingSubmission.totalQuestions = totalQuestions;
+            existingSubmission.totalQuestions = finalTotalQuestions;
             existingSubmission.submittedAt = new Date();
             await existingSubmission.save();
 
@@ -43,7 +68,7 @@ export async function POST(req: Request) {
             student: studentId,
             driveLink,
             pageCount: pageCount || 0,
-            totalQuestions: totalQuestions || 0,
+            totalQuestions: finalTotalQuestions,
             submittedAt: new Date()
         });
 
