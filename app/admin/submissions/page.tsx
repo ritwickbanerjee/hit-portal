@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Loader2, Search, Download, Save, FileText, CheckCircle, XCircle, Eye, X, BookOpen, BarChart, AlertTriangle } from 'lucide-react';
+import { Loader2, Search, Download, Save, FileText, CheckCircle, XCircle, Eye, X, BookOpen, BarChart, AlertTriangle, RefreshCw } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import InstructionsBox from '../assignments/components/InstructionsBox';
 import 'katex/dist/katex.min.css';
@@ -287,11 +287,30 @@ export default function AssignmentSubmissionsPage() {
         };
     };
 
-    const handleGenerateReport = () => {
+    const handleGenerateReport = async () => {
         if (!filters.assignmentId) return toast.error("Please select an assignment");
 
         const assignment = assignments.find(a => a._id === filters.assignmentId);
         if (!assignment) return;
+
+        const toastId = toast.loading("Fetching latest submissions...");
+        
+        let latestSubmissions = submissions;
+        try {
+            const isGA = typeof window !== 'undefined' && localStorage.getItem('globalAdminActive') === 'true';
+            let headers: any = {};
+            if (isGA) headers['X-Global-Admin-Key'] = 'globaladmin_25';
+            else if (user?.email) headers['X-User-Email'] = user.email;
+
+            const subRes = await fetch('/api/admin/submissions', { headers });
+            if (subRes.ok) {
+                latestSubmissions = await subRes.json();
+                setSubmissions(latestSubmissions);
+            }
+        } catch (e) {
+            console.error("Failed to fetch latest submissions", e);
+        }
+        toast.dismiss(toastId);
 
         const targetCourse = assignment.targetCourse || assignment.course_code;
         if (!targetCourse) return toast.error("Assignment has no target course configured");
@@ -305,7 +324,7 @@ export default function AssignmentSubmissionsPage() {
         );
 
         const data = filteredStudents.map(student => {
-            const sub = submissions.find(s =>
+            const sub = latestSubmissions.find(s =>
                 (s.student._id === student._id || s.student === student._id) &&
                 (s.assignment._id === assignment._id || s.assignment === assignment._id)
             );
@@ -444,8 +463,8 @@ export default function AssignmentSubmissionsPage() {
         }
     };
 
-    const handleFetchPages = async (submissionId: string) => {
-        const toastId = toast.loading('Fetching page count...');
+    const handleFetchPages = async (submissionId: string, silent: boolean = false) => {
+        const toastId = silent ? '' : toast.loading('Fetching page count...');
         try {
             const isGA = typeof window !== 'undefined' && localStorage.getItem('globalAdminActive') === 'true';
             let headers: any = {};
@@ -459,17 +478,45 @@ export default function AssignmentSubmissionsPage() {
 
             const data = await res.json();
             if (res.ok && data.success) {
-                toast.success(`Found ${data.pageCount} pages!`, { id: toastId });
+                if (!silent) toast.success(`Found ${data.pageCount} pages!`, { id: toastId });
                 // Update local state
                 setReportData(prev => prev.map(d => 
-                    d.submissionId === submissionId ? { ...d, pageCount: data.pageCount } : d
+                    d.submissionId === submissionId ? { 
+                        ...d, 
+                        pageCount: data.pageCount,
+                        totalQuestions: data.totalQuestions || d.totalQuestions 
+                    } : d
                 ));
             } else {
-                toast.error(data.error || 'Failed to fetch page count', { id: toastId });
+                if (!silent) toast.error(data.error || 'Failed to fetch page count', { id: toastId });
+                // Still update totalQuestions if it was fixed
+                if (data.totalQuestions) {
+                    setReportData(prev => prev.map(d => 
+                        d.submissionId === submissionId ? { ...d, totalQuestions: data.totalQuestions } : d
+                    ));
+                }
             }
         } catch (error) {
-            toast.error('Network error', { id: toastId });
+            if (!silent) toast.error('Network error', { id: toastId });
         }
+    };
+
+    const handleSyncAllMissingPages = async () => {
+        const missing = reportData.filter(d => d.status === 'Submitted' && (d.pageCount === 0 || d.totalQuestions === 0) && d.submissionId);
+        if (missing.length === 0) {
+            toast.success("No missing page counts or questions found.");
+            return;
+        }
+
+        const toastId = toast.loading(`Syncing ${missing.length} submissions...`);
+        let successCount = 0;
+        
+        for (const m of missing) {
+            await handleFetchPages(m.submissionId!, true);
+            successCount++;
+        }
+        
+        toast.success(`Finished syncing ${successCount} submissions.`, { id: toastId });
     };
 
     if (loading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin h-8 w-8 text-blue-500" /></div>;
@@ -573,7 +620,7 @@ export default function AssignmentSubmissionsPage() {
             </div>
 
             <div className="flex gap-4 items-center justify-between">
-                <div>
+                <div className="flex gap-2">
                     {activeTab === 'submissions' && (
                         <button
                             onClick={handleGenerateReport}
@@ -581,6 +628,14 @@ export default function AssignmentSubmissionsPage() {
                             className="rounded-md bg-transparent border border-blue-500 text-blue-400 px-6 py-2 text-sm font-semibold hover:bg-blue-600 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                         >
                             Generate Report
+                        </button>
+                    )}
+                    {activeTab === 'submissions' && showReport && reportData.some(d => d.status === 'Submitted' && d.pageCount === 0 && d.submissionId) && (
+                        <button
+                            onClick={handleSyncAllMissingPages}
+                            className="rounded-md bg-transparent border border-orange-500 text-orange-400 px-4 py-2 text-sm font-semibold hover:bg-orange-600 hover:text-white transition-all flex items-center gap-2"
+                        >
+                            <RefreshCw className="h-4 w-4" /> Sync All Missing
                         </button>
                     )}
                 </div>
