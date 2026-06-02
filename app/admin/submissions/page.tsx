@@ -249,7 +249,7 @@ export default function AssignmentSubmissionsPage() {
                 return true;
             });
 
-            const totalTagged = taggedAssignments.length;
+            const totalTagged = taggedAssignments.filter(a => a.type !== 'personalized').length;
             const taggedIds = new Set(taggedAssignments.map(a => a._id.toString()));
 
             const studentSubmissions = latestSubmissions.filter(sub => {
