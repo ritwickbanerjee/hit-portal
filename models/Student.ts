@@ -69,6 +69,10 @@ const StudentSchema = new mongoose.Schema({
         of: Number,
         default: {}
     },
+    is_highlighted: {
+        type: Boolean,
+        default: false
+    },
     hasLoggedIn: {
         type: Boolean,
         default: false

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Loader2, Search, Download, Save, FileText, CheckCircle, XCircle, Eye, X, BookOpen, BarChart, AlertTriangle, RefreshCw, Mail, Copy } from 'lucide-react';
+import { Loader2, Search, Download, Save, FileText, CheckCircle, XCircle, Eye, X, BookOpen, BarChart, AlertTriangle, RefreshCw, Mail, Copy, Star } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import InstructionsBox from '../assignments/components/InstructionsBox';
 import 'katex/dist/katex.min.css';
@@ -274,6 +274,7 @@ export default function AssignmentSubmissionsPage() {
                 name: student.name,
                 roll: student.roll,
                 email: student.email,
+                is_highlighted: student.is_highlighted || false,
                 status: sub ? 'Submitted' : 'Not Submitted',
                 generatedAt: assignment.createdAt ? new Date(assignment.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'N/A',
                 deadlineAt: deadlineDate.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
@@ -396,6 +397,31 @@ export default function AssignmentSubmissionsPage() {
             toast.success("Marks Saved", { id: toastId });
         } catch (error: any) {
             toast.error(error.message || "Failed to save marks", { id: toastId });
+        }
+    };
+
+    const handleToggleHighlight = async (studentId: string, currentStatus: boolean) => {
+        const toastId = toast.loading(currentStatus ? "Removing highlight..." : "Highlighting student...");
+        try {
+            const res = await fetch(`/api/admin/students/${studentId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ is_highlighted: !currentStatus })
+            });
+
+            if (!res.ok) throw new Error("Failed to update");
+
+            setStudents(prev => prev.map(s =>
+                s._id === studentId ? { ...s, is_highlighted: !currentStatus } : s
+            ));
+
+            setReportData(prev => prev.map(d => 
+                d.studentId === studentId ? { ...d, is_highlighted: !currentStatus } : d
+            ));
+
+            toast.success("Saved", { id: toastId });
+        } catch (error: any) {
+            toast.error(error.message || "Failed to save", { id: toastId });
         }
     };
 
@@ -557,7 +583,7 @@ Admin`;
                         <label className="block text-sm font-medium text-gray-300 mb-1">Department</label>
                         <select
                             value={filters.dept}
-                            onChange={e => { setFilters({ ...filters, dept: e.target.value }); setShowReport(false); }}
+                            onChange={e => setFilters({ ...filters, dept: e.target.value })}
                             className="w-full rounded-md border-0 bg-gray-900 py-2 px-3 text-white ring-1 ring-inset ring-gray-600 focus:ring-2 focus:ring-blue-500"
                         >
                             <option value="all">All Departments</option>
@@ -568,7 +594,7 @@ Admin`;
                         <label className="block text-sm font-medium text-gray-300 mb-1">Year</label>
                         <select
                             value={filters.year}
-                            onChange={e => { setFilters({ ...filters, year: e.target.value }); setShowReport(false); }}
+                            onChange={e => setFilters({ ...filters, year: e.target.value })}
                             className="w-full rounded-md border-0 bg-gray-900 py-2 px-3 text-white ring-1 ring-inset ring-gray-600 focus:ring-2 focus:ring-blue-500"
                         >
                             <option value="all">All Years</option>
@@ -579,7 +605,7 @@ Admin`;
                         <label className="block text-sm font-medium text-gray-300 mb-1">Course</label>
                         <select
                             value={filters.course}
-                            onChange={e => { setFilters({ ...filters, course: e.target.value }); setShowReport(false); }}
+                            onChange={e => setFilters({ ...filters, course: e.target.value })}
                             className="w-full rounded-md border-0 bg-gray-900 py-2 px-3 text-white ring-1 ring-inset ring-gray-600 focus:ring-2 focus:ring-blue-500"
                         >
                             <option value="all">All Courses</option>
@@ -592,7 +618,7 @@ Admin`;
                     <label className="block text-sm font-medium text-gray-300 mb-1">Assignment</label>
                     <select
                         value={filters.assignmentId}
-                        onChange={e => { setFilters({ ...filters, assignmentId: e.target.value }); setShowReport(false); }}
+                        onChange={e => setFilters({ ...filters, assignmentId: e.target.value })}
                         className="w-full rounded-md border-0 bg-gray-900 py-2 px-3 text-white ring-1 ring-inset ring-gray-600 focus:ring-2 focus:ring-blue-500"
                     >
                         <option value="">Select an assignment...</option>
@@ -666,18 +692,24 @@ Admin`;
                                         <th className="px-4 py-3 text-left">Attd. %</th>
                                         <th className="px-4 py-3 text-center whitespace-nowrap">Submitted / Total</th>
                                         <th className="px-4 py-3 text-center w-32">Marks (10)</th>
-                                        <th className="px-4 py-3 text-left">File</th>
-                                        <th className="px-4 py-3 text-center">View</th>
+                                        <th className="px-4 py-3 text-center">Submission</th>
                                         <th className="px-4 py-3 text-center">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-700">
                                     {reportData.length === 0 ? (
-                                        <tr><td colSpan={13} className="text-center py-8 text-gray-500">No students found matching criteria.</td></tr>
+                                        <tr><td colSpan={12} className="text-center py-8 text-gray-500">No students found matching criteria.</td></tr>
                                     ) : (
                                         reportData.map((d) => (
                                             <tr key={d.studentId} className={`hover:bg-gray-700/30 transition-colors ${d.isAnomaly ? 'bg-orange-900/40 border-l-4 border-orange-500' : ''}`}>
                                                 <td className="px-4 py-3 font-medium text-white flex items-center gap-2">
+                                                    <button 
+                                                        onClick={() => handleToggleHighlight(d.studentId, d.is_highlighted)}
+                                                        className={`p-1 rounded-md transition-colors ${d.is_highlighted ? 'text-yellow-400 hover:text-yellow-500 bg-yellow-400/10' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-700'}`}
+                                                        title={d.is_highlighted ? "Remove Highlight" : "Highlight Student"}
+                                                    >
+                                                        <Star className={`h-4 w-4 ${d.is_highlighted ? 'fill-yellow-400' : ''}`} />
+                                                    </button>
                                                     {d.isAnomaly && (
                                                         <span title="Possible Anomaly: Too few pages for the number of questions">
                                                             <AlertTriangle className="h-4 w-4 text-orange-400" />
@@ -696,7 +728,7 @@ Admin`;
                                                             type="number"
                                                             value={d.manualAdj}
                                                             onChange={(e) => handleAdjustmentChange(d.studentId, e.target.value)}
-                                                            className="w-16 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-center text-white focus:ring-2 focus:ring-blue-500"
+                                                            className="w-16 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-center text-white focus:ring-2 focus:ring-blue-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                                         />
                                                         {d._changed && (
                                                             <button
@@ -747,7 +779,7 @@ Admin`;
                                                             placeholder={d.marks}
                                                             value={d.newOverride}
                                                             onChange={(e) => handleMarksChange(d.studentId, e.target.value)}
-                                                            className={`w-16 bg-gray-900 border ${d.overrideMarks !== null ? 'border-purple-500 text-purple-400' : 'border-gray-600 text-white'} rounded px-2 py-1 text-center font-bold focus:ring-2 focus:ring-blue-500`}
+                                                            className={`w-16 bg-gray-900 border ${d.overrideMarks !== null ? 'border-purple-500 text-purple-400' : 'border-gray-600'} ${getMarkColor(d.overrideMarks !== null ? d.overrideMarks.toString() : d.marks.toString())} rounded px-2 py-1 text-center font-bold focus:ring-2 focus:ring-blue-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
                                                             title={d.overrideMarks !== null ? "Manually Overridden" : "Calculated Marks"}
                                                         />
                                                         {d._marksChanged && (
@@ -762,19 +794,20 @@ Admin`;
                                                     </div>
                                                 </td>
                                                 <td className="px-4 py-3">
-                                                    {d.driveLink ? (
-                                                        <a href={d.driveLink} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline flex items-center gap-1">
-                                                            <Download className="h-3 w-3" /> Link
-                                                        </a>
-                                                    ) : <span className="text-gray-600">-</span>}
-                                                </td>
-                                                <td className="px-4 py-3 text-center">
-                                                    <button
-                                                        onClick={() => handleViewQuestions(d.studentId, d.name)}
-                                                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white text-xs font-medium transition-all border border-indigo-500/30"
-                                                    >
-                                                        <Eye className="h-3 w-3" /> View
-                                                    </button>
+                                                    <div className="flex flex-col items-center justify-center gap-2">
+                                                        {d.driveLink ? (
+                                                            <a href={d.driveLink} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 text-xs flex items-center gap-1 bg-blue-900/20 px-2 py-1 rounded w-full justify-center">
+                                                                <Download className="h-3 w-3" /> File
+                                                            </a>
+                                                        ) : <span className="text-gray-600 text-xs">-</span>}
+                                                        
+                                                        <button
+                                                            onClick={() => handleViewQuestions(d.studentId, d.name)}
+                                                            className="flex items-center justify-center gap-1 px-2 py-1 rounded w-full bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white text-xs font-medium transition-all"
+                                                        >
+                                                            <Eye className="h-3 w-3" /> Q's
+                                                        </button>
+                                                    </div>
                                                 </td>
                                                 <td className="px-4 py-3 text-center">
                                                     <div className="flex items-center justify-center gap-2">
