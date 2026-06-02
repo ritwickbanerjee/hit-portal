@@ -28,6 +28,7 @@ export default function AssignmentsPage() {
 
     // Edit Modal State
     const [editModal, setEditModal] = useState<{ open: boolean; assignment: any }>({ open: false, assignment: null });
+    const [editTitle, setEditTitle] = useState('');
     const [editDeadline, setEditDeadline] = useState('');
     const [editStartTime, setEditStartTime] = useState('');
     const [editDepartments, setEditDepartments] = useState<string[]>([]);
@@ -175,6 +176,7 @@ export default function AssignmentsPage() {
             return new Date(dateObj).toLocaleString('sv-SE', { timeZone: 'Asia/Kolkata' }).replace(' ', 'T').slice(0, 16);
         };
 
+        setEditTitle(assignment.title || '');
         setEditDeadline(toISTString(new Date(assignment.deadline)));
         setEditStartTime(toISTString(assignment.startTime ? new Date(assignment.startTime) : null));
         setEditDepartments(assignment.targetDepartments || []);
@@ -192,6 +194,7 @@ export default function AssignmentsPage() {
                 headers: { 'Content-Type': 'application/json', ...getHeaders() },
                 body: JSON.stringify({
                     id: editModal.assignment._id,
+                    title: editTitle,
                     deadline: editDeadline ? editDeadline.slice(0, 16) + ':00+05:30' : undefined,
                     startTime: editStartTime ? editStartTime.slice(0, 16) + ':00+05:30' : undefined,
                     targetDepartments: editDepartments,
@@ -375,8 +378,14 @@ export default function AssignmentsPage() {
                         </div>
                         <div className="p-6 space-y-6">
                             <div>
-                                <p className="text-sm text-gray-400 mb-1">Assignment</p>
-                                <p className="text-white font-semibold">{editModal.assignment?.title}</p>
+                                <label className="block text-sm font-medium text-gray-300 mb-2">Assignment Title *</label>
+                                <input
+                                    type="text"
+                                    className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    value={editTitle}
+                                    onChange={(e) => setEditTitle(e.target.value)}
+                                    required
+                                />
                             </div>
 
                             <div>
