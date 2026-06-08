@@ -238,7 +238,7 @@ export default function OnlineTestPage() {
                         <BatchTabSwitcher
                             batches={batches}
                             selectedBatch={selectedBatch}
-                            onSelect={(batch) => setSelectedBatch(batch)}
+                            onSelect={(batch) => setSelectedBatch(batch || 'all')}
                         />
                     </div>
                 )}
