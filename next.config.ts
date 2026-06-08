@@ -45,8 +45,14 @@ const nextConfig: NextConfig = {
       return [
         {
           source: '/:path*',
+          has: [
+            {
+              type: 'host',
+              value: 'hit-portal-six.vercel.app',
+            },
+          ],
           destination: `${targetDomain.replace(/\/$/, '')}/:path*`,
-          permanent: false, // Allows reverting back easily if needed
+          permanent: false, 
         },
       ];
     }
