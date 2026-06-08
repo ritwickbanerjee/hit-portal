@@ -36,28 +36,6 @@ const nextConfig: NextConfig = {
 
   // Turbopack configuration (empty to acknowledge webpack config is intentional)
   turbopack: {},
-
-  async redirects() {
-    // To switch the domain back, simply change or comment out this targetDomain variable.
-    const targetDomain = "https://hit-portal-five.vercel.app";
-    
-    if (targetDomain) {
-      return [
-        {
-          source: '/:path*',
-          has: [
-            {
-              type: 'host',
-              value: 'hit-portal-six.vercel.app',
-            },
-          ],
-          destination: `${targetDomain.replace(/\/$/, '')}/:path*`,
-          permanent: false, 
-        },
-      ];
-    }
-    return [];
-  },
 };
 
 export default withPWA(nextConfig);
