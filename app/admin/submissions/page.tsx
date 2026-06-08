@@ -218,88 +218,93 @@ export default function AssignmentSubmissionsPage() {
         );
 
         const now = new Date();
-        const data = filteredStudents.map(student => {
-            const sub = latestSubmissions.find(s =>
-                (s.student._id === student._id || s.student === student._id) &&
-                (s.assignment._id === assignment._id || s.assignment === assignment._id)
-            );
+        try {
+            const data = filteredStudents.map(student => {
+                const sub = latestSubmissions.find(s =>
+                    (s.student?._id === student._id || s.student === student._id) &&
+                    (s.assignment?._id === assignment._id || s.assignment === assignment._id)
+                );
 
-            const attendance = calculateAttendance(student, targetCourse, deadlineDate, assignment.facultyName);
-            const adjustments = student.submission_adjustments || {};
-            const manualAdj = adjustments[targetCourse] || 0;
+                const attendance = calculateAttendance(student, targetCourse, deadlineDate, assignment.facultyName);
+                const adjustments = student.submission_adjustments || {};
+                const manualAdj = adjustments[targetCourse] || 0;
 
-            const isGA = typeof window !== 'undefined' && localStorage.getItem('globalAdminActive') === 'true';
+                const isGA = typeof window !== 'undefined' && localStorage.getItem('globalAdminActive') === 'true';
 
-            // Calculate Marks (overall for course)
-            const taggedAssignments = assignments.filter(asn => {
-                const createdDate = asn.createdAt ? new Date(asn.createdAt) : new Date(0);
-                if (createdDate > now) return false;
-                if (!isGA) {
-                    const isCreator = asn.createdBy === user?.email || asn.facultyName === user?.name;
-                    if (!isCreator) return false;
+                // Calculate Marks (overall for course)
+                const taggedAssignments = assignments.filter(asn => {
+                    const createdDate = asn.createdAt ? new Date(asn.createdAt) : new Date(0);
+                    if (createdDate > now) return false;
+                    if (!isGA) {
+                        const isCreator = asn.createdBy === user?.email || asn.facultyName === user?.name;
+                        if (!isCreator) return false;
+                    }
+                    if (asn.targetDepartments && Array.isArray(asn.targetDepartments) && asn.targetDepartments.length > 0) {
+                        if (!asn.targetDepartments.includes(student.department)) return false;
+                    }
+                    if (asn.targetYear && asn.targetYear !== 'all') {
+                        if (asn.targetYear !== student.year) return false;
+                    }
+                    const targetCourseAssigned = (asn.targetCourse || asn.course_code || "").trim().toUpperCase();
+                    if (targetCourseAssigned && targetCourseAssigned !== targetCourse.trim().toUpperCase()) return false;
+                    return true;
+                });
+
+                const totalTagged = taggedAssignments.filter(a => a.type !== 'personalized').length;
+                const taggedIds = new Set(taggedAssignments.map(a => (a._id || '').toString()));
+
+                const studentSubmissions = latestSubmissions.filter(sub => {
+                    const studentId = sub.student?._id || sub.student;
+                    const assignmentId = sub.assignment?._id || sub.assignment;
+                    return (studentId && studentId.toString() === student._id.toString()) && 
+                           (assignmentId && taggedIds.has(assignmentId.toString()));
+                });
+
+                const submittedCount = studentSubmissions.length + manualAdj;
+                let marks = 0;
+                if (totalTagged > 0) {
+                    marks = (submittedCount / totalTagged) * 10;
+                    if (marks > 10) marks = 10;
                 }
-                if (asn.targetDepartments && Array.isArray(asn.targetDepartments) && asn.targetDepartments.length > 0) {
-                    if (!asn.targetDepartments.includes(student.department)) return false;
-                }
-                if (asn.targetYear && asn.targetYear !== 'all') {
-                    if (asn.targetYear !== student.year) return false;
-                }
-                const targetCourseAssigned = (asn.targetCourse || asn.course_code || "").trim().toUpperCase();
-                if (targetCourseAssigned && targetCourseAssigned !== targetCourse.trim().toUpperCase()) return false;
-                return true;
+
+                const overrideMap = student.marks_override || {};
+                const overrideVal = overrideMap[targetCourse];
+
+                return {
+                    studentId: student._id,
+                    name: student.name || 'Unknown',
+                    roll: student.roll || '',
+                    email: student.email || '',
+                    is_highlighted: student.is_highlighted || false,
+                    status: sub ? 'Submitted' : 'Not Submitted',
+                    generatedAt: assignment.createdAt ? new Date(assignment.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'N/A',
+                    deadlineAt: deadlineDate.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+                    submittedAt: sub ? new Date(sub.submittedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'N/A',
+                    attendanceAtDeadline: attendance.percentage.toFixed(1),
+                    isEligible: attendance.isEligible,
+                    driveLink: sub?.driveLink || '',
+                    manualAdj: manualAdj,
+                    courseCode: targetCourse,
+                    pageCount: sub?.pageCount || 0,
+                    totalQuestions: sub?.totalQuestions || 0,
+                    isAnomaly: sub ? (sub.pageCount > 0 && sub.pageCount < Math.ceil((sub.totalQuestions || 0) / 4)) : false,
+                    submissionId: sub?._id || null,
+                    totalAssigned: totalTagged,
+                    totalSubmitted: studentSubmissions.length, // Unadjusted
+                    marks: marks.toFixed(2),
+                    overrideMarks: overrideVal !== undefined ? overrideVal : null,
+                    _marksChanged: false,
+                    newOverride: overrideVal !== undefined ? overrideVal.toString() : ''
+                };
             });
 
-            const totalTagged = taggedAssignments.filter(a => a.type !== 'personalized').length;
-            const taggedIds = new Set(taggedAssignments.map(a => a._id.toString()));
-
-            const studentSubmissions = latestSubmissions.filter(sub => {
-                const studentId = sub.student?._id || sub.student;
-                const assignmentId = sub.assignment?._id || sub.assignment;
-                return (studentId && studentId.toString() === student._id.toString()) && 
-                       (assignmentId && taggedIds.has(assignmentId.toString()));
-            });
-
-            const submittedCount = studentSubmissions.length + manualAdj;
-            let marks = 0;
-            if (totalTagged > 0) {
-                marks = (submittedCount / totalTagged) * 10;
-                if (marks > 10) marks = 10;
-            }
-
-            const overrideMap = student.marks_override || {};
-            const overrideVal = overrideMap[targetCourse];
-
-            return {
-                studentId: student._id,
-                name: student.name,
-                roll: student.roll,
-                email: student.email,
-                is_highlighted: student.is_highlighted || false,
-                status: sub ? 'Submitted' : 'Not Submitted',
-                generatedAt: assignment.createdAt ? new Date(assignment.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'N/A',
-                deadlineAt: deadlineDate.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
-                submittedAt: sub ? new Date(sub.submittedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'N/A',
-                attendanceAtDeadline: attendance.percentage.toFixed(1),
-                isEligible: attendance.isEligible,
-                driveLink: sub?.driveLink || '',
-                manualAdj: manualAdj,
-                courseCode: targetCourse,
-                pageCount: sub?.pageCount || 0,
-                totalQuestions: sub?.totalQuestions || 0,
-                isAnomaly: sub ? (sub.pageCount > 0 && sub.pageCount < Math.ceil((sub.totalQuestions || 0) / 4)) : false,
-                submissionId: sub?._id || null,
-                totalAssigned: totalTagged,
-                totalSubmitted: studentSubmissions.length, // Unadjusted
-                marks: marks.toFixed(2),
-                overrideMarks: overrideVal !== undefined ? overrideVal : null,
-                _marksChanged: false,
-                newOverride: overrideVal !== undefined ? overrideVal.toString() : ''
-            };
-        });
-
-        data.sort((a, b) => a.roll.localeCompare(b.roll));
-        setReportData(data);
-        setShowReport(true);
+            data.sort((a, b) => (a.roll || '').localeCompare(b.roll || ''));
+            setReportData(data);
+            setShowReport(true);
+        } catch (error: any) {
+            console.error("Report Generation Error:", error);
+            toast.error("Error generating report: " + (error.message || "Unknown error"));
+        }
     };
 
     const handleAdjustmentChange = (studentId: string, newVal: string) => {

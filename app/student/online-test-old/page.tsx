@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Clock, AlertCircle, Play, Trophy, Calendar, Timer, ChevronRight, Sparkles, Lock, TrendingUp, Activity, Medal, Crown, Star } from 'lucide-react';
-import BatchTabSwitcher from '../../components/BatchTabSwitcher';
 
 interface TestInfo {
     _id: string;
@@ -34,7 +33,7 @@ interface AnalyticsData {
     batchHighestAverage: number;
     batchRank: number;
     totalBatchStudents: number;
-    leaderboard: { rank: number; name: string; phone: string; average: number; testsAttempted: number }[];
+    leaderboard: { name: string; phone: string; average: number; testsAttempted: number }[];
 }
 
 function getRemark(avg: number): { label: string; color: string; bg: string; border: string } {
@@ -55,8 +54,6 @@ const remarkLegend = [
 
 export default function OnlineTestPage() {
     const router = useRouter();
-    const formatScore = (val: any) => (val !== null && val !== undefined && !isNaN(val)) ? Number(Number(val).toFixed(2)) : val;
-
     const [loading, setLoading] = useState(true);
     const [available, setAvailable] = useState<TestInfo[]>([]);
     const [upcoming, setUpcoming] = useState<TestInfo[]>([]);
@@ -85,7 +82,7 @@ export default function OnlineTestPage() {
         setLoading(true);
         try {
             const url = batch ? `/api/student/online-test?batch=${encodeURIComponent(batch)}` : '/api/student/online-test';
-            const res = await fetch(url, { cache: 'no-store' });
+            const res = await fetch(url);
             if (!res.ok) {
                 if (res.status === 401) { router.push('/student/login'); return; }
                 throw new Error('Failed to fetch');
@@ -107,8 +104,8 @@ export default function OnlineTestPage() {
         if (!analytics || batch) setAnalyticsLoading(true);
 
         try {
-            const url = batch ? `/api/student/online-test/analytics?batch=${encodeURIComponent(batch)}` : '/api/student/online-test/analytics';
-            const res = await fetch(url, { cache: 'no-store' });
+            const url = batch ? `/api/student/analytics?batch=${encodeURIComponent(batch)}` : '/api/student/analytics';
+            const res = await fetch(url);
             if (res.ok) {
                 const data = await res.json();
 
@@ -146,19 +143,14 @@ export default function OnlineTestPage() {
     };
 
     const formatDate = (dateStr: string) => {
-        if (!dateStr) return 'N/A';
         const d = new Date(dateStr);
-        if (isNaN(d.getTime())) return 'N/A';
         const date = d.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit', timeZone: 'Asia/Kolkata' });
         const time = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' });
         return `${date} & ${time}`;
     };
 
     const getTimeRemaining = (dateStr: string) => {
-        if (!dateStr) return '';
-        const d = new Date(dateStr);
-        if (isNaN(d.getTime())) return '';
-        const diff = d.getTime() - Date.now();
+        const diff = new Date(dateStr).getTime() - Date.now();
         if (diff <= 0) return 'Starting now';
         const hours = Math.floor(diff / 3600000);
         const mins = Math.floor((diff % 3600000) / 60000);
@@ -210,21 +202,18 @@ export default function OnlineTestPage() {
     const remark = analytics ? getRemark(analytics.averageScore) : null;
 
     return (
-        <div className="min-h-screen bg-[#050b14] font-sans text-slate-200 relative overflow-x-hidden">
+        <div className="min-h-screen bg-[#050b14] font-sans text-slate-200 relative overflow-hidden">
             {/* Ambient Background */}
             <div className="fixed inset-0 pointer-events-none z-0">
-                <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-[radial-gradient(circle,rgba(16,185,129,0.05)_0%,transparent_70%)]"></div>
-                <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-[radial-gradient(circle,rgba(79,70,229,0.05)_0%,transparent_70%)]"></div>
+                <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-emerald-600/5 blur-[120px]"></div>
+                <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-600/5 blur-[120px]"></div>
             </div>
 
             {/* Header */}
-            <header className="sticky top-0 z-50 backdrop-blur-xl shadow-[0_1px_0_0_rgba(255,255,255,0.05)] bg-[#050b14]/70 px-4 py-3">
+            <header className="sticky top-0 z-50 backdrop-blur-xl border-b border-white/5 bg-[#050b14]/70 px-4 py-3">
                 <div className="max-w-7xl mx-auto flex items-center gap-3">
-                    <button 
-                        onClick={() => router.push('/student')} 
-                        className="flex items-center gap-1 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg text-sm font-bold transition-colors shrink-0"
-                    >
-                        <ArrowLeft className="h-5 w-5" /> Back
+                    <button onClick={() => router.push('/student')} className="p-2 rounded-full bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all">
+                        <ArrowLeft className="h-4 w-4" />
                     </button>
                     <h1 className="text-sm font-bold text-white">Online<span className="text-emerald-400">Tests</span></h1>
                 </div>
@@ -233,13 +222,45 @@ export default function OnlineTestPage() {
             <main className="max-w-7xl mx-auto px-4 py-2 sm:py-6 relative z-10 space-y-8">
 
                 {/* ===== BATCH SELECTION TABS ===== */}
-                {batches.length > 1 && (
-                    <div className="mb-6">
-                        <BatchTabSwitcher
-                            batches={batches}
-                            selectedBatch={selectedBatch}
-                            onSelect={(batch) => setSelectedBatch(batch)}
-                        />
+                {batches.length > 0 && (
+                    <div className="flex overflow-x-auto pb-4 gap-3 mb-6 no-scrollbar snap-x">
+                        {batches.map((batch, index) => {
+                            // Generate a unique prominent gradient for each batch based on index
+                            const gradients = [
+                                'from-blue-600 to-indigo-600 shadow-blue-500/25',
+                                'from-emerald-600 to-teal-600 shadow-emerald-500/25',
+                                'from-violet-600 to-purple-600 shadow-violet-500/25',
+                                'from-amber-500 to-orange-600 shadow-amber-500/25',
+                                'from-rose-600 to-pink-600 shadow-rose-500/25',
+                                'from-cyan-600 to-sky-600 shadow-cyan-500/25'
+                            ];
+                            const activeGradient = gradients[index % gradients.length];
+
+                            return (
+                                <button
+                                    key={batch}
+                                    onClick={() => setSelectedBatch(batch)}
+                                    className={`
+                                        relative group px-5 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 transform flex-shrink-0 snap-center
+                                        ${selectedBatch === batch
+                                            ? `bg-gradient-to-r ${activeGradient} text-white shadow-lg scale-105 ring-2 ring-white/20`
+                                            : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white border border-white/5 hover:border-white/10'
+                                        }
+                                    `}
+                                >
+                                    {selectedBatch === batch && (
+                                        <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                                            <span className="relative inline-flex rounded-full h-3 w-3 bg-white"></span>
+                                        </span>
+                                    )}
+                                    <span className="relative z-10 flex items-center gap-2">
+                                        {batch}
+                                        {selectedBatch === batch && <Sparkles className="h-3 w-3" />}
+                                    </span>
+                                </button>
+                            );
+                        })}
                     </div>
                 )}
 
@@ -248,19 +269,19 @@ export default function OnlineTestPage() {
                     <section className="space-y-6">
                         {/* Row 1: Key Metrics */}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <div className="bg-slate-900/80 ring-1 ring-white/5 rounded-2xl p-4">
+                            <div className="bg-slate-900/80 border border-white/5 rounded-2xl p-4">
                                 <div className="text-[9px] text-slate-500 uppercase tracking-wider font-bold mb-1">Your Avg Score</div>
-                                <div className="text-xl sm:text-3xl font-black text-white">{formatScore(analytics.averageScore)}%</div>
+                                <div className="text-xl sm:text-3xl font-black text-white">{analytics.averageScore}%</div>
                             </div>
                             <div className="bg-slate-900/80 border border-white/5 rounded-2xl p-4">
                                 <div className="text-[9px] text-slate-500 uppercase tracking-wider font-bold mb-1">Batch Topper Avg</div>
-                                <div className="text-xl sm:text-3xl font-black text-amber-400">{formatScore(analytics.batchHighestAverage)}%</div>
+                                <div className="text-xl sm:text-3xl font-black text-amber-400">{analytics.batchHighestAverage}%</div>
                             </div>
                             <div className="bg-slate-900/80 border border-white/5 rounded-2xl p-4">
                                 <div className="text-[9px] text-slate-500 uppercase tracking-wider font-bold mb-1">Your Highest Score</div>
-                                <div className="text-xl sm:text-3xl font-black text-emerald-400">{formatScore(analytics.highestScore)}%</div>
+                                <div className="text-xl sm:text-3xl font-black text-emerald-400">{analytics.highestScore}%</div>
                             </div>
-                            <div className="bg-gradient-to-br from-indigo-900/40 to-purple-900/20 ring-1 ring-indigo-500/20 rounded-2xl p-4">
+                            <div className="bg-gradient-to-br from-indigo-900/40 to-purple-900/20 border border-indigo-500/20 rounded-2xl p-4">
                                 <div className="text-[9px] text-slate-500 uppercase tracking-wider font-bold mb-1">Batch Rank</div>
                                 <div className="flex items-baseline gap-1">
                                     <span className="text-xl sm:text-3xl font-black text-indigo-300">#{analytics.batchRank}</span>
@@ -272,7 +293,7 @@ export default function OnlineTestPage() {
                         {/* Row 2: Remark (compact) + Consistency (wider) */}
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                             {/* Student Remark Card (1 col) */}
-                            <div className="bg-slate-900/80 ring-1 ring-white/5 rounded-2xl p-6 flex flex-col">
+                            <div className="bg-slate-900/80 border border-white/5 rounded-2xl p-6 flex flex-col">
                                 <div className="flex justify-between items-center mb-4">
                                     <div>
                                         <h3 className="text-sm font-bold text-white">Student Remark</h3>
@@ -285,7 +306,7 @@ export default function OnlineTestPage() {
                                 {remark && (
                                     <div className={`${remark.bg} ${remark.border} border rounded-xl px-4 py-3 mb-4 text-center`}>
                                         <div className={`text-base sm:text-xl font-black ${remark.color}`}>{remark.label}</div>
-                                        <div className="text-[9px] text-slate-400 mt-1">{formatScore(analytics.averageScore)}% average</div>
+                                        <div className="text-[9px] text-slate-400 mt-1">{analytics.averageScore}% average</div>
                                     </div>
                                 )}
 
@@ -302,7 +323,7 @@ export default function OnlineTestPage() {
                             </div>
 
                             {/* Consistency Chart (2 cols - wider) */}
-                            <div className="lg:col-span-2 bg-slate-900/80 ring-1 ring-white/5 rounded-2xl p-6 flex flex-col">
+                            <div className="lg:col-span-2 bg-slate-900/80 border border-white/5 rounded-2xl p-6 flex flex-col">
                                 <div className="flex justify-between items-center mb-4">
                                     <div>
                                         <h3 className="text-sm font-bold text-white">Consistency</h3>
@@ -319,7 +340,7 @@ export default function OnlineTestPage() {
                                                     {[100, 75, 50, 25, 0].map(v => (
                                                         <div key={v} className="flex items-center gap-2">
                                                             <span className="text-[8px] text-slate-700 w-6 text-right">{v}%</span>
-                                                            <div className="flex-1 shadow-[0_1px_0_0_rgba(255,255,255,0.05)]"></div>
+                                                            <div className="flex-1 border-b border-white/5"></div>
                                                         </div>
                                                     ))}
                                                 </div>
@@ -362,7 +383,7 @@ export default function OnlineTestPage() {
                                             <div className="flex justify-between text-[9px] text-slate-500 pl-8">
                                                 {analytics.history.map((h, i) => (
                                                     <span key={i} className="text-center truncate max-w-[60px]" title={h.title}>
-                                                        {formatScore(h.percentage)}%
+                                                        {h.percentage}%
                                                     </span>
                                                 ))}
                                             </div>
@@ -376,7 +397,7 @@ export default function OnlineTestPage() {
 
                         {/* Row 3: Leaderboard */}
                         {analytics.leaderboard.length > 0 && (
-                            <div className="bg-slate-900/80 ring-1 ring-white/5 rounded-2xl p-4 sm:p-6">
+                            <div className="bg-slate-900/80 border border-white/5 rounded-2xl p-4 sm:p-6">
                                 <div className="flex justify-between items-center mb-6">
                                     <div className="flex items-center gap-2">
                                         <Crown className="h-5 w-5 text-amber-400" />
@@ -385,7 +406,7 @@ export default function OnlineTestPage() {
                                             <p className="text-[10px] text-slate-500">Cumulative average across all tests</p>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-indigo-500/10 ring-1 ring-indigo-500/20">
+                                    <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20">
                                         <Medal className="h-3 w-3 text-indigo-400" />
                                         <span className="text-[10px] sm:text-xs font-bold text-indigo-300">Your Rank: #{analytics.batchRank}</span>
                                     </div>
@@ -393,7 +414,7 @@ export default function OnlineTestPage() {
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-sm">
                                         <thead>
-                                            <tr className="text-[10px] text-slate-500 uppercase tracking-wider shadow-[0_1px_0_0_rgba(255,255,255,0.05)]">
+                                            <tr className="text-[10px] text-slate-500 uppercase tracking-wider border-b border-white/5">
                                                 <th className="text-left py-3 px-1.5 w-10">#</th>
                                                 <th className="text-left py-3 px-1.5">Student</th>
                                                 <th className="text-center py-3 px-1.5 whitespace-nowrap">Tests</th>
@@ -404,12 +425,12 @@ export default function OnlineTestPage() {
                                             {analytics.leaderboard.map((entry, i) => {
                                                 const isCurrentStudent = entry.phone !== '***';
                                                 return (
-                                                    <tr key={i} className={`shadow-[0_1px_0_0_rgba(255,255,255,0.05)] transition-colors ${isCurrentStudent ? 'bg-emerald-500/5' : 'hover:bg-white/5'}`}>
+                                                    <tr key={i} className={`border-b border-white/5 transition-colors ${isCurrentStudent ? 'bg-emerald-500/5' : 'hover:bg-white/5'}`}>
                                                         <td className="py-2.5 px-1.5">
-                                                            {entry.rank === 1 ? <span className="text-base" title="Rank 1">🥇</span> :
-                                                                entry.rank === 2 ? <span className="text-base" title="Rank 2">🥈</span> :
-                                                                    entry.rank === 3 ? <span className="text-base" title="Rank 3">🥉</span> :
-                                                                        <span className="text-slate-500 font-bold text-xs">{entry.rank}</span>}
+                                                            {i === 0 ? <span className="text-base">🥇</span> :
+                                                                i === 1 ? <span className="text-base">🥈</span> :
+                                                                    i === 2 ? <span className="text-base">🥉</span> :
+                                                                        <span className="text-slate-500 font-bold text-xs">{i + 1}</span>}
                                                         </td>
                                                         <td className="py-2.5 px-1.5">
                                                             <div className="flex flex-col">
@@ -422,7 +443,7 @@ export default function OnlineTestPage() {
                                                         <td className="py-2.5 px-1.5 text-center text-slate-400 text-xs">{entry.testsAttempted}</td>
                                                         <td className="py-2.5 px-1.5 text-right">
                                                             <span className={`font-bold text-xs sm:text-sm ${entry.average >= 80 ? 'text-emerald-400' : entry.average >= 50 ? 'text-amber-400' : 'text-red-400'}`}>
-                                                                {formatScore(entry.average)}%
+                                                                {entry.average}%
                                                             </span>
                                                         </td>
                                                     </tr>
@@ -438,7 +459,7 @@ export default function OnlineTestPage() {
 
                 {/* Loading state for analytics */}
                 {analyticsLoading && (
-                    <div className="bg-slate-900/50 ring-1 ring-white/5 rounded-2xl p-8 text-center">
+                    <div className="bg-slate-900/50 border border-white/5 rounded-2xl p-8 text-center">
                         <div className="w-6 h-6 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin mx-auto mb-3"></div>
                         <p className="text-sm text-slate-500">Loading analytics...</p>
                     </div>
@@ -459,7 +480,7 @@ export default function OnlineTestPage() {
                         </div>
 
                         {available.length === 0 && upcoming.length === 0 && (
-                            <div className="p-8 rounded-2xl bg-white/5 ring-1 ring-white/5 text-center text-slate-500">
+                            <div className="p-8 rounded-2xl bg-white/5 border border-white/5 text-center text-slate-500">
                                 <Sparkles className="h-8 w-8 mx-auto mb-3 opacity-20" />
                                 <p>No active tests at the moment.</p>
                             </div>
@@ -468,7 +489,7 @@ export default function OnlineTestPage() {
                         {available.map(test => (
                             <div key={test._id} className="relative group">
                                 <div className="absolute inset-0 bg-gradient-to-r from-emerald-600/20 to-teal-600/20 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                                <div className="relative bg-slate-900/80 ring-1 ring-emerald-500/30 rounded-2xl p-5 hover:ring-emerald-500/50 transition-all shadow-xl shadow-emerald-900/10">
+                                <div className="relative bg-slate-900/80 border border-emerald-500/30 rounded-2xl p-5 hover:border-emerald-500/50 transition-all shadow-xl shadow-emerald-900/10">
                                     <div className="flex items-start justify-between gap-4">
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2 mb-2">
@@ -491,7 +512,7 @@ export default function OnlineTestPage() {
                                         </button>
                                     </div>
                                     {test.endTime && (
-                                        <div className="mt-4 pt-3 shadow-[0_-1px_0_0_rgba(255,255,255,0.05)] flex items-center gap-2 text-xs text-emerald-300">
+                                        <div className="mt-4 pt-3 border-t border-white/5 flex items-center gap-2 text-xs text-emerald-300">
                                             <Clock className="h-3 w-3" />
                                             <span>Ends in {getTimeRemaining(test.endTime)}</span>
                                         </div>
@@ -502,7 +523,7 @@ export default function OnlineTestPage() {
 
                         {upcoming.map(test => (
                             <div key={test._id} className="relative group">
-                                <div className="relative bg-slate-900/60 ring-1 ring-amber-500/20 rounded-2xl p-5 hover:ring-amber-500/40 transition-all">
+                                <div className="relative bg-slate-900/60 border border-amber-500/20 rounded-2xl p-5 hover:border-amber-500/40 transition-all">
                                     <div className="flex items-start justify-between gap-4">
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2 mb-2">
@@ -515,7 +536,7 @@ export default function OnlineTestPage() {
                                                 <span>{test.durationMinutes} min</span>
                                             </div>
                                         </div>
-                                        <div className="flex flex-col items-center justify-center p-3 bg-white/5 rounded-xl ring-1 ring-white/5 min-w-[80px]">
+                                        <div className="flex flex-col items-center justify-center p-3 bg-white/5 rounded-xl border border-white/5 min-w-[80px]">
                                             <Clock className="h-5 w-5 text-amber-400 mb-1" />
                                             <span className="text-[10px] text-slate-400">Starts in</span>
                                             <span className="text-xs font-bold text-white">{test.startTime && getTimeRemaining(test.startTime)}</span>
@@ -538,7 +559,7 @@ export default function OnlineTestPage() {
                         </div>
 
                         {completed.length === 0 && expired.length === 0 && (
-                            <div className="p-8 rounded-2xl bg-white/5 ring-1 ring-white/5 text-center text-slate-500">
+                            <div className="p-8 rounded-2xl bg-white/5 border border-white/5 text-center text-slate-500">
                                 <p>No test history yet.</p>
                             </div>
                         )}
@@ -552,7 +573,7 @@ export default function OnlineTestPage() {
                                     className={`relative group ${test.resultsPending ? 'cursor-not-allowed opacity-90' : 'cursor-pointer'}`}
                                     onClick={() => !test.resultsPending && router.push(`/student/online-test/${test._id}/result`)}
                                 >
-                                    <div className="relative bg-slate-900/40 ring-1 ring-blue-500/10 rounded-2xl p-5 hover:bg-slate-900/60 hover:ring-blue-500/30 transition-all active:scale-[0.98]">
+                                    <div className="relative bg-slate-900/40 border border-blue-500/10 rounded-2xl p-5 hover:bg-slate-900/60 hover:border-blue-500/30 transition-all active:scale-[0.98]">
                                         <div className="flex items-start justify-between gap-4">
                                             <div className="flex-1 min-w-0">
                                                 <h3 className="font-bold text-slate-200 text-xs mb-2 truncate group-hover:text-white transition-colors">{test.title}</h3>
@@ -577,7 +598,7 @@ export default function OnlineTestPage() {
                                                     // Published State
                                                     <>
                                                         <div className={`text-lg font-black ${pct >= 40 ? 'text-emerald-400' : 'text-red-400'}`}>
-                                                            {formatScore(pct)}%
+                                                            {pct}%
                                                         </div>
                                                         <span className="text-[9px] text-blue-400 font-bold mt-1 flex items-center gap-1">
                                                             View Result <ChevronRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
@@ -589,20 +610,20 @@ export default function OnlineTestPage() {
 
                                         {/* Per-test comparison: You vs Batch Highest (Only if not pending) */}
                                         {!test.resultsPending && batchHighest !== undefined && (
-                                            <div className="mt-3 pt-3 shadow-[0_-1px_0_0_rgba(255,255,255,0.05)] space-y-1.5">
+                                            <div className="mt-3 pt-3 border-t border-white/5 space-y-1.5">
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-[9px] text-slate-500 w-24 flex-shrink-0">Your score</span>
                                                     <div className="flex-1 h-3 bg-slate-800 rounded-full overflow-hidden">
                                                         <div className="h-full bg-emerald-500 rounded-full transition-all duration-700" style={{ width: `${Math.max(pct, 2)}%` }}></div>
                                                     </div>
-                                                    <span className="text-[10px] font-bold text-emerald-400 w-8 text-right">{formatScore(pct)}%</span>
+                                                    <span className="text-[10px] font-bold text-emerald-400 w-8 text-right">{pct}%</span>
                                                 </div>
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-[9px] text-slate-500 w-24 flex-shrink-0">Topper&apos;s score</span>
                                                     <div className="flex-1 h-3 bg-slate-800 rounded-full overflow-hidden">
                                                         <div className="h-full bg-amber-500/60 rounded-full transition-all duration-700" style={{ width: `${Math.max(batchHighest, 2)}%` }}></div>
                                                     </div>
-                                                    <span className="text-[10px] font-bold text-amber-400 w-8 text-right">{formatScore(batchHighest)}%</span>
+                                                    <span className="text-[10px] font-bold text-amber-400 w-8 text-right">{batchHighest}%</span>
                                                 </div>
                                             </div>
                                         )}
@@ -613,7 +634,7 @@ export default function OnlineTestPage() {
 
                         {expired.map(test => (
                             <div key={test._id} className="relative group">
-                                <div className="relative bg-slate-900/20 ring-1 ring-red-500/10 rounded-2xl p-4 hover:ring-red-500/30 transition-all">
+                                <div className="relative bg-slate-900/20 border border-red-500/10 rounded-2xl p-4 hover:border-red-500/30 transition-all">
                                     <div className="flex items-center justify-between gap-4">
                                         <div className="flex-1 min-w-0 opacity-60 group-hover:opacity-100 transition-opacity">
                                             <div className="flex items-center gap-2 mb-1">

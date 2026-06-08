@@ -7,90 +7,6 @@ import { toast } from 'react-hot-toast';
 import Latex from 'react-latex-next';
 import 'katex/dist/katex.min.css';
 
-/**
- * Runtime KaTeX CSS health-check.
- * Students cannot hard-refresh during an exam, so if KaTeX CSS/fonts fail to load
- * (network hiccup, aggressive mobile memory management, CSS chunk failure), math
- * renders as raw LaTeX strings. This hook detects that scenario by rendering an
- * invisible KaTeX element and checking if KaTeX styles are actually applied. If not,
- * it injects a CDN fallback stylesheet silently — no user action needed.
- */
-function useKatexCssGuard() {
-    const cdnInjectedRef = useRef(false);
-
-    useEffect(() => {
-        const KATEX_CDN = 'https://cdn.jsdelivr.net/npm/katex@0.16.27/dist/katex.min.css';
-
-        function isKatexCssLoaded(): boolean {
-            // Create a temporary element styled as KaTeX would style it
-            const probe = document.createElement('span');
-            probe.className = 'katex';
-            probe.style.position = 'absolute';
-            probe.style.left = '-9999px';
-            probe.style.top = '-9999px';
-            probe.innerHTML = '<span class="katex-html"><span class="base"><span class="mord mathnormal">x</span></span></span>';
-            document.body.appendChild(probe);
-
-            // If KaTeX CSS is loaded, .katex has specific font-family and sizing rules.
-            // Without it, the element uses the page's default font.
-            const style = getComputedStyle(probe);
-            const fontFamily = style.fontFamily || '';
-            // KaTeX CSS sets font-family to "KaTeX_Main", ...; if missing, it'll be the page default
-            const hasKatexFont = /katex/i.test(fontFamily);
-
-            // Also check if the .katex-html display rule is applied (KaTeX CSS sets specific line-height)
-            const katexHtml = probe.querySelector('.katex-html') as HTMLElement;
-            let hasKatexDisplay = false;
-            if (katexHtml) {
-                const htmlStyle = getComputedStyle(katexHtml);
-                // KaTeX CSS explicitly sets display and line-height on .katex-html
-                hasKatexDisplay = htmlStyle.display !== 'inline';
-            }
-
-            document.body.removeChild(probe);
-            return hasKatexFont || hasKatexDisplay;
-        }
-
-        function injectCdnFallback() {
-            if (cdnInjectedRef.current) return;
-
-            // Check if a CDN link is already present
-            const existing = document.querySelector(`link[href*="katex"][href*="cdn"]`);
-            if (existing) { cdnInjectedRef.current = true; return; }
-
-            const link = document.createElement('link');
-            link.rel = 'stylesheet';
-            link.href = KATEX_CDN;
-            link.crossOrigin = 'anonymous';
-            document.head.appendChild(link);
-            cdnInjectedRef.current = true;
-            console.info('[KaTeX Guard] Bundled KaTeX CSS missing — injected CDN fallback.');
-        }
-
-        function checkAndFix() {
-            if (!isKatexCssLoaded()) {
-                injectCdnFallback();
-            }
-        }
-
-        // Check after a short delay (allow CSS chunks to finish loading)
-        const initialTimer = setTimeout(checkAndFix, 1500);
-
-        // Re-check when page becomes visible again (mobile may purge cached styles)
-        const handleVisibility = () => {
-            if (!document.hidden) {
-                setTimeout(checkAndFix, 500);
-            }
-        };
-        document.addEventListener('visibilitychange', handleVisibility);
-
-        return () => {
-            clearTimeout(initialTimer);
-            document.removeEventListener('visibilitychange', handleVisibility);
-        };
-    }, []);
-}
-
 interface Question {
     id: string;
     text: string;
@@ -135,9 +51,6 @@ export default function TakeTestPage() {
     const params = useParams();
     const testId = params?.id as string;
 
-    // Ensure KaTeX CSS is loaded — silently injects CDN fallback if bundled CSS failed
-    useKatexCssGuard();
-
     const [loading, setLoading] = useState(true);
     const [test, setTest] = useState<TestData | null>(null);
     const [currentIndex, setCurrentIndex] = useState(0);
@@ -149,6 +62,8 @@ export default function TakeTestPage() {
     const questionVisitTimeRef = useRef<number>(Date.now()); // timestamp when they visited the current question
     const currentQuestionIdRef = useRef<string | undefined>(undefined); // To prevent stale closure in doAutoSave
     const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
+    const [showResultsPendingModal, setShowResultsPendingModal] = useState(false);
+    const [submissionResult, setSubmissionResult] = useState<any>(null);
     const [submitting, setSubmitting] = useState(false);
     const [showPalette, setShowPalette] = useState(false);
     const [started, setStarted] = useState(false);
@@ -160,7 +75,11 @@ export default function TakeTestPage() {
     const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null); // Periodic auto-save
     const testDurationMs = useRef<number>(0); // Total test duration in ms (set once)
 
-
+    // Camera Gimmick State
+    const [cameraActive, setCameraActive] = useState(false);
+    const [cameraError, setCameraError] = useState<string | null>(null);
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const streamRef = useRef<MediaStream | null>(null);
 
     // Resume State
     const [isResuming, setIsResuming] = useState(false);
@@ -258,11 +177,8 @@ export default function TakeTestPage() {
         };
     }, [started, test, currentIndex, allQuestions.length, currentQuestion]);
 
-    // Proctoring: Comprehensive Visibility & Overlay Detection
-    // Detects tab switches, app switches, AND system overlays (Google Assistant, split screen, etc.)
-    // Multiple detection layers are used because Android system overlays (like Google Assistant
-    // triggered by long-pressing the home button) render ON TOP of the browser activity without
-    // backgrounding it, so visibilitychange never fires and blur is unreliable.
+    // Proctoring: Visibility Change Detection (mobile-safe)
+    // Uses focusin/focusout tracking to avoid false positives from keyboard open/close
     useEffect(() => {
         if (!started) return;
 
@@ -279,154 +195,39 @@ export default function TakeTestPage() {
         };
         fetchWarnings();
 
-        // Debounce: Prevent multiple violations from firing within a short window
-        // (e.g., blur + visibilitychange + heartbeat all detecting the same event)
-        let lastViolationTime = 0;
-        const VIOLATION_DEBOUNCE_MS = 2000;
-        const debouncedViolation = (violationType: string, detail?: string) => {
-            const now = Date.now();
-            if (now - lastViolationTime < VIOLATION_DEBOUNCE_MS) return;
-            lastViolationTime = now;
-            handleViolation(violationType, detail);
-        };
-
-        // ============================================================
-        // LAYER 1: visibilitychange (catches full tab/app switches)
-        // ============================================================
-        const handleVisibilityChange = () => {
-            if (document.hidden) {
-                debouncedViolation('screen_away', 'Tab/app switch detected via visibilitychange');
+        // --- Visibility change & blur handler ---
+        const handleProctoringViolation = (e: Event) => {
+            // If visibilitychange and document is hidden, it's a definite tab/app switch
+            if (e.type === 'visibilitychange' && document.hidden) {
+                handleViolation();
             }
-        };
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-
-        // ============================================================
-        // LAYER 2: window blur (catches focus loss to other windows/overlays)
-        // ============================================================
-        let blurTimestamp = 0;
-        const handleWindowBlur = () => {
-            const activeEl = document.activeElement;
-            const isInputFocused = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA');
-
-            // Record when the blur happened for re-entry detection
-            blurTimestamp = Date.now();
-
-            setTimeout(() => {
-                // If user is in an input field, this could be mobile keyboard — skip
-                if (isInputFocused) return;
-                // Double-check: if document no longer has focus, it's a real switch
-                if (!document.hasFocus()) {
-                    debouncedViolation('screen_away', 'Window blur detected — switched away from exam');
-                }
-            }, 300);
-        };
-        window.addEventListener('blur', handleWindowBlur);
-
-        // ============================================================
-        // LAYER 3: Focus heartbeat polling (catches overlays like Google Assistant)
-        //
-        // Google Assistant on Android renders as a system overlay ON TOP of the 
-        // browser without backgrounding it. The browser thinks it's still visible,
-        // so visibilitychange never fires. On many devices, even window.blur doesn't
-        // fire. However, document.hasFocus() returns FALSE when an overlay is on top.
-        // We poll this every 2 seconds to catch it.
-        // ============================================================
-        let hadFocus = document.hasFocus();
-        let lostFocusAt = 0;
-        const heartbeatInterval = setInterval(() => {
-            const hasFocusNow = document.hasFocus();
-
-            if (hadFocus && !hasFocusNow) {
-                // Focus was just lost — could be keyboard, overlay, or app switch
-                // Check if an input is focused (keyboard scenario)
+            // If window blur, it means they clicked outside or switched windows
+            else if (e.type === 'blur') {
+                // Ignore blur if an input/textarea is currently focused (to prevent mobile keyboard false positives)
                 const activeEl = document.activeElement;
                 const isInputFocused = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA');
 
-                if (!isInputFocused && !document.hidden) {
-                    // Document is NOT hidden (so visibilitychange didn't fire) and no input focused
-                    // This is very likely an overlay like Google Assistant
-                    lostFocusAt = Date.now();
-                    debouncedViolation('google_assistant', 'System overlay detected — focus lost without visibility change (likely Google Assistant or similar)');
-                }
-            }
-
-            hadFocus = hasFocusNow;
-        }, 2000);
-
-        // ============================================================
-        // LAYER 4: window.focus re-entry detection
-        //
-        // When the student returns from Google Assistant (presses back),
-        // the window regains focus. If they were gone > 1.5 seconds and
-        // we didn't already catch it, flag it now.
-        // ============================================================
-        const handleWindowFocus = () => {
-            const goneForMs = Date.now() - blurTimestamp;
-            if (blurTimestamp > 0 && goneForMs > 1500) {
-                // They left for a meaningful amount of time
-                debouncedViolation('focus_lost', `Returned to exam after ${Math.round(goneForMs / 1000)}s away`);
-            }
-            blurTimestamp = 0;
-            hadFocus = true;
-        };
-        window.addEventListener('focus', handleWindowFocus);
-
-        // ============================================================
-        // LAYER 5: pageshow event (catches bfcache returns)
-        //
-        // On some Android browsers, pressing Back from Google Assistant
-        // can restore the page from bfcache (back-forward cache), which 
-        // only fires 'pageshow' with persisted=true, not visibilitychange.
-        // ============================================================
-        const handlePageShow = (e: PageTransitionEvent) => {
-            if (e.persisted) {
-                debouncedViolation('bfcache_return', 'Page restored from bfcache — returned from external app');
+                // Some mobile browsers fire blur on the window when keyboard opens, 
+                // but the input remains the active element. Recheck focus after a tiny delay
+                // to see if the document still has focus.
+                setTimeout(() => {
+                    if (!document.hasFocus() && !isInputFocused && !document.hidden) {
+                        handleViolation();
+                    }
+                }, 200);
             }
         };
-        window.addEventListener('pageshow', handlePageShow);
 
-        // ============================================================
-        // LAYER 6: Viewport resize detection (catches Assistant panel)
-        //
-        // Google Assistant slides up from the bottom, significantly reducing
-        // the visible viewport height. If the viewport shrinks by more than
-        // 30% while NO input is focused (ruling out keyboard), it's likely
-        // an overlay or split-screen scenario.
-        // ============================================================
-        let baseViewportHeight = window.innerHeight;
-        // Set the baseline after a short delay (after keyboard might close)
-        setTimeout(() => { baseViewportHeight = window.innerHeight; }, 1000);
-
-        const handleResize = () => {
-            const activeEl = document.activeElement;
-            const isInputFocused = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA');
-
-            const currentHeight = window.innerHeight;
-            const shrinkRatio = currentHeight / baseViewportHeight;
-
-            // If viewport shrunk more than 30% AND no input is focused (not keyboard)
-            if (!isInputFocused && shrinkRatio < 0.7 && baseViewportHeight > 0) {
-                debouncedViolation('resize_detected', `Viewport shrunk by ${Math.round((1 - shrinkRatio) * 100)}% — possible overlay or split screen`);
-            }
-
-            // Update baseline when viewport grows back (user returned)
-            if (currentHeight > baseViewportHeight) {
-                baseViewportHeight = currentHeight;
-            }
-        };
-        window.addEventListener('resize', handleResize);
+        document.addEventListener('visibilitychange', handleProctoringViolation);
+        window.addEventListener('blur', handleProctoringViolation);
 
         return () => {
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
-            window.removeEventListener('blur', handleWindowBlur);
-            window.removeEventListener('focus', handleWindowFocus);
-            window.removeEventListener('pageshow', handlePageShow);
-            window.removeEventListener('resize', handleResize);
-            clearInterval(heartbeatInterval);
+            document.removeEventListener('visibilitychange', handleProctoringViolation);
+            window.removeEventListener('blur', handleProctoringViolation);
         };
     }, [started]);
 
-    const handleViolation = async (violationType: string = 'unknown', detail: string = '') => {
+    const handleViolation = async () => {
         if (submitting) return; // Prevent loop if already submitting
 
         const newCount = warningCountRef.current + 1;
@@ -445,13 +246,9 @@ export default function TakeTestPage() {
             handleSubmit(true, 'proctoring_violation');
         }
 
-        // Persist warning count with violation type
+        // Persist warning count
         try {
-            await fetch(`/api/student/online-test/${testId}/warning`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ violationType, detail })
-            });
+            await fetch(`/api/student/online-test/${testId}/warning`, { method: 'POST' });
         } catch (error) {
             console.error('Failed to update warning count', error);
         }
@@ -579,7 +376,13 @@ export default function TakeTestPage() {
     };
 
     const startTest = async () => {
-
+        // --- CAMERA GIMMICK CLEANUP ---
+        // Clean up the camera stream so the recording indicator disappears during the test,
+        // saving battery and resources while the student thinks it's still running.
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
+            streamRef.current = null;
+        }
 
         try {
             const res = await fetch(`/api/student/online-test/${testId}`, { method: 'POST' });
@@ -619,7 +422,27 @@ export default function TakeTestPage() {
         }
     };
 
+    // Fix for camera viewing issues on mobile webviews/iOS
+    useEffect(() => {
+        if (cameraActive && videoRef.current && streamRef.current) {
+            videoRef.current.srcObject = streamRef.current;
+            // Explicitly play to avoid sticking on a play icon
+            videoRef.current.play().catch(e => console.error('Video play failed:', e));
+        }
+    }, [cameraActive]);
 
+    const startCamera = async () => {
+        setCameraError(null);
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            streamRef.current = stream;
+            setCameraActive(true);
+            // srcObject assignment is handled by the useEffect above once the div renders
+        } catch (err: any) {
+            console.error('Camera access denied:', err);
+            setCameraError('Please allow camera and microphone access to start the exam.');
+        }
+    };
 
     // --- Auto-save answers periodically (every 30 seconds) and on pagehide ---
     const doAutoSave = useCallback(async (useBeacon = false) => {
@@ -692,8 +515,8 @@ export default function TakeTestPage() {
     useEffect(() => {
         if (!started) return;
 
-        // Periodic auto-save every 30 seconds
-        autoSaveTimerRef.current = setInterval(() => doAutoSave(false), 30000);
+        // Periodic auto-save every 60 seconds (was 30s — halves DB write load during live exams)
+        autoSaveTimerRef.current = setInterval(() => doAutoSave(false), 60000);
 
         // Save on page hide (tab close, app switch, browser killed)
         // pagehide is more reliable than beforeunload on mobile
@@ -825,8 +648,13 @@ export default function TakeTestPage() {
 
             if (res.ok) {
                 const data = await res.json();
-                toast.success(autoSubmit ? 'Time up! Test auto-submitted.' : 'Test submitted successfully!');
-                router.push(`/student/online-test/${testId}/result`);
+                setSubmissionResult(data);
+                if (data.resultsPending) {
+                    setShowResultsPendingModal(true);
+                } else {
+                    toast.success(autoSubmit ? 'Time up! Test auto-submitted.' : 'Test submitted successfully!');
+                    router.push(`/student/online-test/${testId}/result`);
+                }
             } else {
                 const data = await res.json();
                 toast.error(data.error || 'Failed to submit');
@@ -945,7 +773,51 @@ export default function TakeTestPage() {
                         </ul>
                     </div>
 
+                    {/* Camera Recording Gimmick Section */}
+                    <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 mb-6 text-left">
+                        <div className="text-sm font-bold text-white mb-2 flex items-center justify-between">
+                            <span>Security Check</span>
+                            {cameraActive && <span className="flex h-2 w-2 relative">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                            </span>}
+                        </div>
+                        <p className="text-xs text-slate-400 mb-4 pb-4 border-b border-slate-700/50">
+                            Your <strong className="text-emerald-400">front camera & voice</strong> will remain open and recorded during the exam tenure.
+                            You must place the phone in front of you in a stationary upright position throughout the exam tenure.<br /><br />
+                            <strong className="text-red-400">NOTE:</strong> Any malpractices shall easily get detected in the video stream using AI-powered exam proctoring tools and immediately get reported to the admin.
+                        </p>
 
+                        {!cameraActive ? (
+                            <div className="flex flex-col items-center">
+                                {cameraError && <p className="text-red-400 text-xs mb-3 text-center w-full bg-red-500/10 p-2 rounded">{cameraError}</p>}
+                                <button
+                                    onClick={startCamera}
+                                    className="w-full sm:w-auto px-6 py-2.5 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-white rounded-lg text-sm font-medium transition-all"
+                                >
+                                    Start Camera Config
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col items-center gap-3">
+                                <div className="relative w-[150px] sm:w-[200px] aspect-[3/4] rounded-lg overflow-hidden border-2 border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.2)] bg-black">
+                                    <video
+                                        ref={videoRef}
+                                        autoPlay
+                                        playsInline
+                                        muted
+                                        className="w-full h-full object-cover mirror-x"
+                                        style={{ transform: 'scaleX(-1)' }}
+                                    />
+                                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent pt-6 pb-2 px-3 flex items-center justify-between text-[10px] font-mono text-emerald-400">
+                                        <span>REC</span>
+                                        <span className="font-bold">READY</span>
+                                    </div>
+                                </div>
+                                <p className="text-xs text-emerald-400 font-medium text-center">Camera and microphone active. You may now begin the exam.</p>
+                            </div>
+                        )}
+                    </div>
 
                     {isResuming && (
                         <div className="bg-red-500/10 border border-red-500/50 rounded-xl p-4 mb-6 text-left text-sm text-red-300">
@@ -960,10 +832,10 @@ export default function TakeTestPage() {
 
                     <button
                         onClick={startTest}
-                        disabled={loading || started}
+                        disabled={loading || started || !cameraActive}
                         className="w-full px-8 py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl font-black text-sm sm:text-base transition-all shadow-lg shadow-emerald-500/20 active:scale-95 disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed"
                     >
-                        {started ? 'Processing...' : (isResuming ? 'Resume Test' : 'Start Test')}
+                        {started ? 'Processing...' : (isResuming ? 'Resume Test and Start Recording' : 'Start Test and Start Recording')}
                     </button>
                 </div>
             </div>
@@ -973,15 +845,22 @@ export default function TakeTestPage() {
 
 
     return (
-        <div className="min-h-screen bg-[#050b14] font-sans text-slate-200 flex flex-col relative overflow-x-hidden">
+        <div className="min-h-screen bg-[#050b14] font-sans text-slate-200 flex flex-col relative">
 
             <div className="test-content flex flex-col min-h-screen">
                 {/* Top Bar - Timer & Progress */}
-                <header className="sticky top-0 z-50 bg-slate-900/95 backdrop-blur-xl shadow-[0_1px_0_0_rgba(255,255,255,0.05)] px-4 py-3 shadow-sm">
+                <header className="sticky top-0 z-50 bg-slate-900/95 backdrop-blur-xl border-b border-white/5 px-4 py-3 shadow-sm">
                     <div className="max-w-5xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
                         <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
                             <h1 className="text-xs font-bold text-white truncate max-w-[150px] sm:max-w-xs">{test.title}</h1>
-
+                            {/* Recording Indicator */}
+                            <div className="flex items-center gap-1.5 px-2 py-1 bg-black/40 border border-slate-700/50 rounded-full shrink-0">
+                                <span className="flex h-2 w-2 relative">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                                </span>
+                                <span className="text-[10px] sm:text-xs font-bold text-red-400 tracking-wider">REC</span>
+                            </div>
                         </div>
 
                         <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
@@ -1053,14 +932,14 @@ export default function TakeTestPage() {
                                 </div>
 
                                 {/* Question Text */}
-                                <div className="bg-slate-900/60 ring-1 ring-white/10 rounded-2xl p-3 sm:p-6 shadow-lg">
+                                <div className="bg-slate-900/60 border border-white/10 rounded-2xl p-3 sm:p-6 shadow-lg">
                                     {currentQuestion.type === 'comprehension' && (
-                                        <div className="mb-8 pb-8 shadow-[0_1px_0_0_rgba(255,255,255,0.1)]">
+                                        <div className="mb-8 pb-8 border-b border-white/10">
                                             <div className="inline-block px-3 py-1 rounded-lg bg-purple-500/10 text-xs font-bold text-purple-400 uppercase tracking-wider mb-4 border border-purple-500/20">
                                                 Passage
                                             </div>
                                             <div className="text-xs sm:text-sm text-slate-300 prose prose-invert prose-p:leading-relaxed prose-img:rounded-xl max-w-none">
-                                                {currentQuestion.latexContent ? <Latex>{currentQuestion.comprehensionText || ''}</Latex> : (currentQuestion.comprehensionText || '')}
+                                                <Latex>{currentQuestion.comprehensionText || ''}</Latex>
                                             </div>
                                             {currentQuestion.comprehensionImage && (
                                                 <div className="mt-4 rounded-xl overflow-hidden border border-slate-700 bg-black/20">
@@ -1073,7 +952,7 @@ export default function TakeTestPage() {
                                     {currentQuestion.type !== 'comprehension' ? (
                                         <>
                                             <div className="text-sm sm:text-base font-medium text-white leading-relaxed mb-6 prose prose-invert prose-p:text-white prose-headings:text-white max-w-none">
-                                                {currentQuestion.latexContent ? <Latex>{currentQuestion.text}</Latex> : currentQuestion.text}
+                                                <Latex>{currentQuestion.text || ''}</Latex>
                                             </div>
                                             {currentQuestion.image && (
                                                 <div className="mb-6 rounded-xl overflow-hidden border border-slate-700 bg-black/20">
@@ -1086,7 +965,7 @@ export default function TakeTestPage() {
                                         /* Comprehension sub-questions */
                                         <div className="space-y-8">
                                             {currentQuestion.subQuestions?.map((sq, i) => (
-                                                <div key={sq.id} className="bg-slate-950/50 rounded-xl p-3 sm:p-5 ring-1 ring-white/5 relative">
+                                                <div key={sq.id} className="bg-slate-950/50 rounded-xl p-3 sm:p-5 border border-white/5 relative">
                                                     <div className="absolute top-0 left-0 -mt-2 -ml-2 w-7 h-7 rounded-full bg-slate-800 border border-white/10 flex items-center justify-center text-xs font-bold text-white shadow-lg">
                                                         {String.fromCharCode(65 + i)}
                                                     </div>
@@ -1094,7 +973,7 @@ export default function TakeTestPage() {
                                                         <span className="text-xs text-slate-500 font-medium">({sq.marks} marks)</span>
                                                     </div>
                                                     <div className="text-xs sm:text-sm text-white mb-4 prose prose-invert prose-p:leading-relaxed max-w-none">
-                                                        {sq.latexContent ? <Latex>{sq.text}</Latex> : sq.text}
+                                                        <Latex>{sq.text || ''}</Latex>
                                                     </div>
                                                     {sq.image && (
                                                         <div className="mb-4 rounded-lg overflow-hidden border border-slate-700 bg-black/20">
@@ -1140,14 +1019,25 @@ export default function TakeTestPage() {
                                             const isFlagged = flagged.has(q.id);
                                             const isCurrent = i === currentIndex;
 
+                                            const isNavDisabled = 
+                                                test.config?.enablePerQuestionTimer === true
+                                                    ? i !== currentIndex
+                                                    : (test.config?.allowBackNavigation === false && i < currentIndex);
+
                                             return (
                                                 <button
                                                     key={q.id}
-                                                    onClick={() => { setCurrentIndex(i); setShowPalette(false); }}
+                                                    onClick={() => {
+                                                        if (isNavDisabled) return;
+                                                        setCurrentIndex(i);
+                                                        setShowPalette(false);
+                                                    }}
+                                                    disabled={isNavDisabled}
                                                     className={`
                                                         relative aspect-square rounded-xl text-xs font-extrabold transition-all duration-200 flex items-center justify-center
                                                         ${isCurrent ? 'ring-2 ring-white scale-110 z-10' : ''} 
-                                                        ${status === 'answered' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' :
+                                                        ${isNavDisabled ? 'opacity-30 cursor-not-allowed' :
+                                                            status === 'answered' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' :
                                                             status === 'partial' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40' :
                                                                 'bg-slate-800 text-slate-400 border border-white/5 hover:bg-slate-700'
                                                         }
@@ -1189,7 +1079,7 @@ export default function TakeTestPage() {
 
                 {/* Bottom Navigation Bar */}
                 {/* Bottom Navigation Bar */}
-                <div className="fixed bottom-0 left-0 right-0 bg-[#0a0f1a]/95 backdrop-blur-xl shadow-[0_-1px_0_0_rgba(255,255,255,0.05)] px-4 py-3 z-40 safe-area-bottom shadow-[0_-5px_20px_rgba(0,0,0,0.3)]">
+                <div className="fixed bottom-0 left-0 right-0 bg-[#0a0f1a]/95 backdrop-blur-xl border-t border-white/5 px-4 py-3 z-40 safe-area-bottom shadow-[0_-5px_20px_rgba(0,0,0,0.3)]">
                     <div className="max-w-4xl mx-auto">
                         {/* Mobile Layout (Stacked) */}
                         <div className="flex sm:hidden flex-col gap-2 items-start">
@@ -1214,9 +1104,6 @@ export default function TakeTestPage() {
 
                                 <button
                                     onClick={() => setShowSubmitConfirm(true)}
-                                    // Submit is always enabled if on last question OR explicit submit allowed? 
-                                    // Usually submit is visible always or only on last. 
-                                    // Existing logic was disabled={currentIndex !== allQuestions.length - 1}
                                     disabled={currentIndex !== allQuestions.length - 1}
                                     className="w-24 px-3 py-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 rounded-lg text-[10px] font-extrabold transition-all flex items-center justify-center gap-1 disabled:opacity-30 disabled:cursor-not-allowed"
                                 >
@@ -1254,10 +1141,33 @@ export default function TakeTestPage() {
                     </div>
                 </div>
 
-                {/* Submit Confirmation Modal */}
-                {showSubmitConfirm && (
+            {/* Results Pending Modal */}
+            {showResultsPendingModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-sm" onClick={() => router.push('/student/online-test')}></div>
+                    <div className="relative bg-slate-900 border border-amber-500/30 rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl overflow-hidden group">
+                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-500/0 via-amber-500 to-amber-500/0"></div>
+                        <div className="w-20 h-20 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-amber-500/20 group-hover:scale-110 transition-transform duration-500">
+                            <Clock className="h-10 w-10 text-amber-500" />
+                        </div>
+                        <h3 className="text-2xl font-black text-white mb-3">Submission Received</h3>
+                        <p className="text-slate-400 text-sm leading-relaxed mb-8">
+                            Your answers have been securely recorded. Results for this test are scheduled to be disclosed at a later time.
+                        </p>
+                        <button
+                            onClick={() => router.push('/student/online-test')}
+                            className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white rounded-2xl font-black text-sm shadow-xl shadow-amber-500/20 transition-all active:scale-95"
+                        >
+                             Return to Dashboard
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Submit Confirmation Modal */}
+            {showSubmitConfirm && (
                     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                        <div className="bg-slate-900 ring-1 ring-white/10 rounded-2xl p-8 max-w-md w-full shadow-2xl">
+                        <div className="bg-slate-900 border border-white/10 rounded-2xl p-8 max-w-md w-full shadow-2xl">
                             <div className="flex items-center gap-3 mb-4">
                                 <div className="p-3 rounded-xl bg-red-500/20">
                                     <AlertTriangle className="h-6 w-6 text-red-400" />
@@ -1307,7 +1217,7 @@ export default function TakeTestPage() {
                 {/* Warning Modal */}
                 {showWarningModal && (
                     <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
-                        <div className="bg-slate-900 ring-1 ring-red-500/30 rounded-2xl p-8 max-w-md w-full shadow-2xl relative overflow-hidden">
+                        <div className="bg-slate-900 border border-red-500/30 rounded-2xl p-8 max-w-md w-full shadow-2xl relative overflow-hidden">
                             <div className="absolute top-0 left-0 w-full h-1 bg-red-500"></div>
 
                             <div className="flex flex-col items-center text-center space-y-4">

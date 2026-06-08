@@ -1,71 +1,10 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, Trophy, Clock, Target, CheckCircle, XCircle, Minus, Award, TrendingUp, BarChart3 } from 'lucide-react';
 import Latex from 'react-latex-next';
 import 'katex/dist/katex.min.css';
-
-/**
- * Runtime KaTeX CSS health-check — same guard as in the test-taking page.
- * Silently injects CDN fallback if bundled KaTeX CSS/fonts failed to load.
- */
-function useKatexCssGuard() {
-    const cdnInjectedRef = useRef(false);
-
-    useEffect(() => {
-        const KATEX_CDN = 'https://cdn.jsdelivr.net/npm/katex@0.16.27/dist/katex.min.css';
-
-        function isKatexCssLoaded(): boolean {
-            const probe = document.createElement('span');
-            probe.className = 'katex';
-            probe.style.position = 'absolute';
-            probe.style.left = '-9999px';
-            probe.style.top = '-9999px';
-            probe.innerHTML = '<span class="katex-html"><span class="base"><span class="mord mathnormal">x</span></span></span>';
-            document.body.appendChild(probe);
-
-            const style = getComputedStyle(probe);
-            const hasKatexFont = /katex/i.test(style.fontFamily || '');
-
-            const katexHtml = probe.querySelector('.katex-html') as HTMLElement;
-            let hasKatexDisplay = false;
-            if (katexHtml) {
-                hasKatexDisplay = getComputedStyle(katexHtml).display !== 'inline';
-            }
-
-            document.body.removeChild(probe);
-            return hasKatexFont || hasKatexDisplay;
-        }
-
-        function injectCdnFallback() {
-            if (cdnInjectedRef.current) return;
-            const existing = document.querySelector(`link[href*="katex"][href*="cdn"]`);
-            if (existing) { cdnInjectedRef.current = true; return; }
-
-            const link = document.createElement('link');
-            link.rel = 'stylesheet';
-            link.href = KATEX_CDN;
-            link.crossOrigin = 'anonymous';
-            document.head.appendChild(link);
-            cdnInjectedRef.current = true;
-            console.info('[KaTeX Guard] Bundled KaTeX CSS missing — injected CDN fallback.');
-        }
-
-        function checkAndFix() {
-            if (!isKatexCssLoaded()) injectCdnFallback();
-        }
-
-        const timer = setTimeout(checkAndFix, 1500);
-        const handleVisibility = () => { if (!document.hidden) setTimeout(checkAndFix, 500); };
-        document.addEventListener('visibilitychange', handleVisibility);
-
-        return () => {
-            clearTimeout(timer);
-            document.removeEventListener('visibilitychange', handleVisibility);
-        };
-    }, []);
-}
 
 interface QuestionReview {
     questionId: string;
@@ -104,11 +43,6 @@ export default function TestResultPage() {
     const router = useRouter();
     const params = useParams();
     const testId = params?.id as string;
-
-    // Ensure KaTeX CSS is loaded — silently injects CDN fallback if bundled CSS failed
-    useKatexCssGuard();
-
-    const formatScore = (val: any) => (val !== null && val !== undefined && !isNaN(val)) ? Number(Number(val).toFixed(2)) : val;
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -223,15 +157,15 @@ export default function TestResultPage() {
     const hasLeaderboard = !result?.resultsHidden && result?.leaderboard && result.leaderboard.length > 0;
 
     return (
-        <div className="min-h-screen bg-[#050b14] font-sans text-slate-200 relative overflow-x-hidden">
+        <div className="min-h-screen bg-[#050b14] font-sans text-slate-200 relative overflow-hidden">
             {/* Ambient Background */}
             <div className="fixed inset-0 pointer-events-none z-0">
-                <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-[radial-gradient(circle,rgba(16,185,129,0.05)_0%,transparent_70%)]"></div>
-                <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-[radial-gradient(circle,rgba(37,99,235,0.05)_0%,transparent_70%)]"></div>
+                <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-emerald-600/8 blur-[120px]"></div>
+                <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-blue-600/8 blur-[120px]"></div>
             </div>
 
             {/* Header */}
-            <header className="sticky top-0 z-50 backdrop-blur-xl shadow-[0_1px_0_0_rgba(255,255,255,0.05)] bg-[#050b14]/70 px-4 py-3">
+            <header className="sticky top-0 z-50 backdrop-blur-xl border-b border-white/5 bg-[#050b14]/70 px-4 py-3">
                 <div className="max-w-4xl mx-auto flex items-center gap-3">
                     <button onClick={() => router.push('/student/online-test')} className="p-2 rounded-full bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all">
                         <ArrowLeft className="h-4 w-4" />
@@ -246,16 +180,16 @@ export default function TestResultPage() {
                 <div className={`grid gap-6 ${hasLeaderboard ? 'lg:grid-cols-[1.5fr,1fr]' : 'max-w-3xl mx-auto'}`}>
 
                     {/* LEFT COLUMN: Stats & Rank Card */}
-                    <div className="bg-[#0c1220]/90 backdrop-blur-xl ring-1 ring-white/10 rounded-3xl p-6 shadow-2xl relative overflow-hidden flex flex-col h-full">
+                    <div className="bg-[#0c1220]/90 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl relative overflow-hidden flex flex-col h-full">
                         {/* Background glow effects */}
                         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 via-blue-500 to-amber-500 opacity-50" />
 
                         <div className="grid md:grid-cols-2 gap-8 items-center h-full relative z-10 flex-1">
                             {/* LEFT HALF: Score & Rank */}
-                            <div className="flex flex-col items-center justify-center space-y-6 shadow-[1px_0_0_0_rgba(255,255,255,0.05)] md:shadow-none pb-6 md:pb-0 md:pr-8">
+                            <div className="flex flex-col items-center justify-center space-y-6 border-b md:border-b-0 md:border-r border-white/5 pb-6 md:pb-0 md:pr-8">
                                 {result?.resultsHidden ? (
                                     <div className="flex flex-col items-center justify-center text-center p-8">
-                                        <div className="w-24 h-24 rounded-full bg-slate-800/50 flex items-center justify-center mb-4 ring-1 ring-white/5">
+                                        <div className="w-24 h-24 rounded-full bg-slate-800/50 flex items-center justify-center mb-4 border border-white/5">
                                             <Clock className="w-10 h-10 text-slate-500" />
                                         </div>
                                         <h3 className="text-xl font-bold text-white mb-2">Results Hidden</h3>
@@ -279,7 +213,7 @@ export default function TestResultPage() {
                                                 </svg>
                                                 <div className="absolute inset-0 flex flex-col items-center justify-center">
                                                     <span className={`text-3xl font-black tracking-tight ${result?.passed ? 'text-white' : 'text-red-100'}`}>
-                                                        {formatScore(result?.percentage)}%
+                                                        {result?.percentage}%
                                                     </span>
                                                     <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-1">Your Score</span>
                                                 </div>
@@ -287,7 +221,7 @@ export default function TestResultPage() {
                                         </div>
 
                                         {/* Pass Badge */}
-                                        <div className={`px-5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-[0.2em] shadow-lg ${result?.passed ? 'bg-emerald-900/30 text-emerald-400 ring-1 ring-emerald-500/30' : 'bg-red-900/30 text-red-400 ring-1 ring-red-500/30'
+                                        <div className={`px-5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-[0.2em] shadow-lg ${result?.passed ? 'bg-emerald-900/30 text-emerald-400 border border-emerald-500/30' : 'bg-red-900/30 text-red-400 border border-red-500/30'
                                             }`}>
                                             {result?.passed ? 'Passed' : 'Failed'}
                                         </div>
@@ -320,8 +254,8 @@ export default function TestResultPage() {
                             {/* RIGHT HALF: Stats (Stacked) - Time Taken Removed */}
                             <div className="flex flex-col gap-3 justify-center">
                                 {/* Correct */}
-                                <div className="bg-slate-900/40 hover:bg-slate-900/60 transition-colors rounded-xl p-4 flex items-center gap-4 ring-1 ring-white/5 group">
-                                    <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 ring-1 ring-emerald-500/20 group-hover:scale-110 transition-transform duration-300 shadow-[0_0_15px_-3px_rgba(16,185,129,0.2)]">
+                                <div className="bg-slate-900/40 hover:bg-slate-900/60 transition-colors rounded-xl p-4 flex items-center gap-4 border border-white/5 group">
+                                    <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 border border-emerald-500/20 group-hover:scale-110 transition-transform duration-300 shadow-[0_0_15px_-3px_rgba(16,185,129,0.2)]">
                                         <CheckCircle className="h-6 w-6" />
                                     </div>
                                     <div className="flex flex-col">
@@ -331,8 +265,8 @@ export default function TestResultPage() {
                                 </div>
 
                                 {/* Skipped (Placed 2nd to match typical flow, or User order: Correct, Skipped, Incorrect) */}
-                                <div className="bg-slate-900/40 hover:bg-slate-900/60 transition-colors rounded-xl p-4 flex items-center gap-4 ring-1 ring-white/5 group">
-                                    <div className="w-12 h-12 rounded-xl bg-slate-500/10 flex items-center justify-center text-slate-400 ring-1 ring-slate-500/20 group-hover:scale-110 transition-transform duration-300">
+                                <div className="bg-slate-900/40 hover:bg-slate-900/60 transition-colors rounded-xl p-4 flex items-center gap-4 border border-white/5 group">
+                                    <div className="w-12 h-12 rounded-xl bg-slate-500/10 flex items-center justify-center text-slate-400 border border-slate-500/20 group-hover:scale-110 transition-transform duration-300">
                                         <Minus className="h-6 w-6" />
                                     </div>
                                     <div className="flex flex-col">
@@ -342,8 +276,8 @@ export default function TestResultPage() {
                                 </div>
 
                                 {/* Incorrect */}
-                                <div className="bg-slate-900/40 hover:bg-slate-900/60 transition-colors rounded-xl p-4 flex items-center gap-4 ring-1 ring-white/5 group">
-                                    <div className="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500 ring-1 ring-red-500/20 group-hover:scale-110 transition-transform duration-300 shadow-[0_0_15px_-3px_rgba(239,68,68,0.2)]">
+                                <div className="bg-slate-900/40 hover:bg-slate-900/60 transition-colors rounded-xl p-4 flex items-center gap-4 border border-white/5 group">
+                                    <div className="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500 border border-red-500/20 group-hover:scale-110 transition-transform duration-300 shadow-[0_0_15px_-3px_rgba(239,68,68,0.2)]">
                                         <XCircle className="h-6 w-6" />
                                     </div>
                                     <div className="flex flex-col">
@@ -355,7 +289,7 @@ export default function TestResultPage() {
                         </div>
 
                         {result?.resultsHidden && (
-                            <div className="absolute bottom-0 left-0 w-full bg-slate-900/80 p-3 text-center text-xs text-slate-400 shadow-[0_-1px_0_0_rgba(255,255,255,0.05)] backdrop-blur-sm">
+                            <div className="absolute bottom-0 left-0 w-full bg-slate-900/80 p-3 text-center text-xs text-slate-400 border-t border-white/5 backdrop-blur-sm">
                                 Detailed solutions and leaderboards are hidden for this test.
                             </div>
                         )}
@@ -363,9 +297,9 @@ export default function TestResultPage() {
 
                     {/* RIGHT COLUMN: Leaderboard */}
                     {hasLeaderboard && (
-                        <div className="bg-[#0c1220]/90 backdrop-blur-xl ring-1 ring-white/10 rounded-3xl p-6 shadow-xl flex flex-col h-full max-h-[600px]">
+                        <div className="bg-[#0c1220]/90 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-xl flex flex-col h-full max-h-[600px]">
                             <div className="flex items-center gap-3 mb-4 shrink-0">
-                                <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400 ring-1 ring-amber-500/20">
+                                <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
                                     <Trophy className="h-5 w-5" />
                                 </div>
                                 <div>
@@ -376,7 +310,7 @@ export default function TestResultPage() {
 
                             <div className="overflow-y-auto pr-2 custom-scrollbar flex-1 -mr-2">
                                 <table className="w-full text-xs text-left border-collapse">
-                                    <thead className="text-[9px] text-slate-500 uppercase bg-slate-900/60 shadow-[0_1px_0_0_rgba(255,255,255,0.05)] sticky top-0 backdrop-blur-md z-10">
+                                    <thead className="text-[9px] text-slate-500 uppercase bg-slate-900/60 border-b border-white/5 sticky top-0 backdrop-blur-md z-10">
                                         <tr>
                                             <th className="px-3 py-2 font-bold">Rank</th>
                                             <th className="px-3 py-2 font-bold">Student</th>
@@ -403,8 +337,8 @@ export default function TestResultPage() {
                                                 </td>
                                                 <td className="px-3 py-3 text-right">
                                                     <div className="flex flex-col items-end">
-                                                        <span className="font-bold text-white text-xs">{formatScore(entry.score)}</span>
-                                                        <span className="text-[9px] text-slate-500 font-bold">{formatScore(entry.percentage)}%</span>
+                                                        <span className="font-bold text-white text-xs">{entry.score}</span>
+                                                        <span className="text-[9px] text-slate-500 font-bold">{entry.percentage}%</span>
                                                     </div>
                                                 </td>
                                                 <td className="px-3 py-3 text-right">
@@ -433,10 +367,10 @@ export default function TestResultPage() {
                     <div className="pt-4">
                         <button
                             onClick={() => setShowQuestions(!showQuestions)}
-                            className="w-full group flex items-center justify-between px-6 py-5 bg-[#0c1220]/80 ring-1 ring-white/10 rounded-2xl hover:ring-emerald-500/30 transition-all hover:shadow-lg hover:shadow-emerald-900/10"
+                            className="w-full group flex items-center justify-between px-6 py-5 bg-[#0c1220]/80 border border-white/10 rounded-2xl hover:border-emerald-500/30 transition-all hover:shadow-lg hover:shadow-emerald-900/10"
                         >
                             <div className="flex items-center gap-4">
-                                <div className="p-3 rounded-xl bg-slate-800 text-emerald-400 group-hover:bg-emerald-500/10 transition-colors ring-1 ring-white/5">
+                                <div className="p-3 rounded-xl bg-slate-800 text-emerald-400 group-hover:bg-emerald-500/10 transition-colors border border-white/5">
                                     <Target className="h-6 w-6" />
                                 </div>
                                 <div className="text-left">
@@ -444,35 +378,31 @@ export default function TestResultPage() {
                                     <div className="text-xs text-slate-500">Analyze your mistakes question by question</div>
                                 </div>
                             </div>
-                            <div className="text-xs font-bold text-slate-400 bg-slate-900/50 px-4 py-2 rounded-xl ring-1 ring-white/5 group-hover:ring-emerald-500/20 group-hover:text-emerald-400 transition-all">
+                            <div className="text-xs font-bold text-slate-400 bg-slate-900/50 px-4 py-2 rounded-xl border border-white/5 group-hover:border-emerald-500/20 group-hover:text-emerald-400 transition-all">
                                 {showQuestions ? 'Hide Review ▲' : 'Show Review ▼'}
                             </div>
                         </button>
 
                         {showQuestions && (
                             <div className="mt-6 space-y-6 animate-in fade-in slide-in-from-top-4 duration-500 grid gap-6">
-                                {questionReview.map((q, i) => {
-                                    const isSkipped = q.studentAnswer === null || q.studentAnswer === undefined || q.studentAnswer === '' || (Array.isArray(q.studentAnswer) && q.studentAnswer.length === 0);
-                                    const isWrong = !q.isCorrect && !isSkipped;
-
-                                    return (
-                                    <div key={q.questionId} className={`relative overflow-x-auto rounded-2xl sm:rounded-3xl p-2 sm:p-6 border transition-all ${q.isCorrect ? 'bg-emerald-900/5 border-emerald-500/20 shadow-lg shadow-emerald-900/5' :
-                                        isWrong ? 'bg-red-900/5 border-red-500/20 shadow-lg shadow-red-900/5' :
+                                {questionReview.map((q, i) => (
+                                    <div key={q.questionId} className={`rounded-3xl p-6 border transition-all ${q.isCorrect ? 'bg-emerald-900/5 border-emerald-500/20 shadow-lg shadow-emerald-900/5' :
+                                        q.marksAwarded < 0 ? 'bg-red-900/5 border-red-500/20 shadow-lg shadow-red-900/5' :
                                             'bg-slate-900/40 border-slate-700/30'
                                         }`}>
                                         {/* Question header */}
-                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-4 shadow-[0_1px_0_0_rgba(255,255,255,0.05)]">
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-4 border-b border-white/5">
                                             <div className="flex items-center justify-between sm:justify-start gap-4">
                                                 <div className="flex items-center gap-4">
                                                     <span className="text-xs px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 font-bold border border-white/5">Q{i + 1}</span>
                                                     <div className="flex items-center gap-2">
                                                         {q.isCorrect ? <CheckCircle className="h-5 w-5 text-emerald-500" /> :
-                                                            isWrong ? <XCircle className="h-5 w-5 text-red-500" /> :
+                                                            q.marksAwarded < 0 ? <XCircle className="h-5 w-5 text-red-500" /> :
                                                                 <Minus className="h-5 w-5 text-slate-500" />}
                                                         <span className={`text-xs font-bold uppercase tracking-wide ${q.isCorrect ? 'text-emerald-500' :
-                                                            isWrong ? 'text-red-500' : 'text-slate-500'
+                                                            q.marksAwarded < 0 ? 'text-red-500' : 'text-slate-500'
                                                             }`}>
-                                                            {q.isCorrect ? 'Correct' : isWrong ? 'Incorrect' : 'Skipped'}
+                                                            {q.isCorrect ? 'Correct' : q.marksAwarded < 0 ? 'Incorrect' : 'Skipped'}
                                                         </span>
                                                     </div>
                                                 </div>
@@ -488,7 +418,7 @@ export default function TestResultPage() {
                                         </div>
 
                                         {/* Question text */}
-                                        <div className="!text-[11px] sm:!text-sm text-slate-200 mb-5 prose prose-sm prose-invert max-w-none leading-relaxed overflow-x-auto w-full">
+                                        <div className="text-xs sm:text-sm text-slate-200 mb-5 prose prose-invert max-w-none leading-relaxed">
                                             {q.latexContent ? <Latex>{q.text}</Latex> : q.text}
                                         </div>
                                         {q.image && (
@@ -504,7 +434,7 @@ export default function TestResultPage() {
                                                     const isCorrectOption = q.correctIndices?.includes(oi);
                                                     const isStudentChoice = q.type === 'mcq' ? q.studentAnswer === oi : Array.isArray(q.studentAnswer) && q.studentAnswer.includes(oi);
                                                     return (
-                                                        <div key={oi} className={`flex items-start gap-2 sm:gap-4 px-2 sm:px-5 py-3 sm:py-4 rounded-xl text-sm transition-all ${isCorrectOption && isStudentChoice ? 'bg-emerald-500/20 border border-emerald-500/40 shadow-[0_0_20px_-5px_rgba(16,185,129,0.3)]' :
+                                                        <div key={oi} className={`flex items-start gap-4 px-5 py-4 rounded-xl text-sm transition-all ${isCorrectOption && isStudentChoice ? 'bg-emerald-500/20 border border-emerald-500/40 shadow-[0_0_20px_-5px_rgba(16,185,129,0.3)]' :
                                                             isCorrectOption ? 'bg-emerald-500/10 border border-emerald-500/20 border-dashed' :
                                                                 isStudentChoice ? 'bg-red-500/15 border border-red-500/30' :
                                                                     'bg-slate-800/30 border border-transparent'
@@ -514,9 +444,7 @@ export default function TestResultPage() {
                                                                     isStudentChoice ? <XCircle className="h-5 w-5 text-red-400" /> :
                                                                         <div className="w-5 h-5 rounded-full border border-slate-600/50" />}
                                                             </div>
-                                                            <div className={`!text-[11px] sm:!text-sm leading-relaxed overflow-x-auto flex-1 ${isCorrectOption ? 'text-white font-medium' : isStudentChoice ? 'text-red-200' : 'text-slate-400'}`}>
-                                                                {q.latexContent ? <Latex>{opt}</Latex> : opt}
-                                                            </div>
+                                                            <span className={`text-xs sm:text-sm leading-relaxed ${isCorrectOption ? 'text-white font-medium' : isStudentChoice ? 'text-red-200' : 'text-slate-400'}`}>{opt}</span>
                                                         </div>
                                                     );
                                                 })}
@@ -525,17 +453,17 @@ export default function TestResultPage() {
 
                                         {/* Fill blank answer */}
                                         {q.type === 'fillblank' && (
-                                            <div className="bg-slate-900/50 rounded-2xl p-4 sm:p-6 ring-1 ring-white/5 space-y-4 overflow-x-auto">
-                                                <div className="grid grid-cols-[80px,1fr] sm:grid-cols-[120px,1fr] gap-2 sm:gap-4 items-center">
-                                                    <span className="text-[10px] text-slate-500 uppercase font-bold tracking-widest shrink-0">Your Answer</span>
-                                                    <span className={`!text-[11px] sm:!text-base font-bold font-mono break-all ${q.isCorrect ? 'text-emerald-400' : 'text-red-400'}`}>
+                                            <div className="bg-slate-900/50 rounded-2xl p-6 border border-white/5 space-y-4">
+                                                <div className="grid grid-cols-[120px,1fr] gap-4 items-center">
+                                                    <span className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Your Answer</span>
+                                                    <span className={`text-sm sm:text-base font-bold font-mono ${q.isCorrect ? 'text-emerald-400' : 'text-red-400'}`}>
                                                         {q.studentAnswer || '(empty)'}
                                                     </span>
                                                 </div>
                                                 {!q.isCorrect && (
-                                                    <div className="grid grid-cols-[80px,1fr] sm:grid-cols-[120px,1fr] gap-2 sm:gap-4 items-center pt-4 shadow-[0_-1px_0_0_rgba(255,255,255,0.05)]">
-                                                        <span className="text-[10px] text-slate-500 uppercase font-bold tracking-widest shrink-0">Correct</span>
-                                                        <span className="!text-[11px] sm:!text-base font-bold font-mono text-emerald-400 break-all">
+                                                    <div className="grid grid-cols-[120px,1fr] gap-4 items-center pt-4 border-t border-white/5">
+                                                        <span className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Correct</span>
+                                                        <span className="text-sm sm:text-base font-bold font-mono text-emerald-400">
                                                             {q.isNumberRange ? `${q.numberRangeMin} - ${q.numberRangeMax}` : q.correctAnswer}
                                                         </span>
                                                     </div>
@@ -545,10 +473,10 @@ export default function TestResultPage() {
 
                                         {/* Broad answer */}
                                         {q.type === 'broad' && (
-                                            <div className="bg-slate-900/50 rounded-2xl p-4 sm:p-6 ring-1 ring-white/5 overflow-x-auto">
-                                                <div className="text-[10px] sm:text-xs text-slate-500 uppercase font-bold mb-2 tracking-widest">Your Answer</div>
-                                                <div className="!text-[11px] sm:!text-base text-slate-300 font-serif italic mb-4 leading-relaxed break-words max-w-full">"{q.studentAnswer || '(empty)'}"</div>
-                                                <div className="inline-flex items-center gap-2 text-[10px] sm:text-xs text-amber-400/80 bg-amber-500/10 px-3 py-1 rounded-lg border border-amber-500/10 font-bold whitespace-normal break-words max-w-full">
+                                            <div className="bg-slate-900/50 rounded-2xl p-6 border border-white/5">
+                                                <div className="text-xs text-slate-500 uppercase font-bold mb-2 tracking-widest">Your Answer</div>
+                                                <div className="text-base text-slate-300 font-serif italic mb-4 leading-relaxed">"{q.studentAnswer || '(empty)'}"</div>
+                                                <div className="inline-flex items-center gap-2 text-xs text-amber-400/80 bg-amber-500/10 px-3 py-1 rounded-lg border border-amber-500/10 font-bold">
                                                     Manually Graded Question
                                                 </div>
                                             </div>
@@ -556,7 +484,7 @@ export default function TestResultPage() {
 
                                         {/* Grace Badge */}
                                         {q.isGraceAwarded && (
-                                            <div className="mt-4 flex items-center gap-2 px-4 py-2 bg-amber-500/10 ring-1 ring-amber-500/20 rounded-xl text-amber-400 text-sm font-bold">
+                                            <div className="mt-4 flex items-center gap-2 px-4 py-2 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-400 text-sm font-bold">
                                                 <Award className="h-4 w-4" />
                                                 Grace Marks Awarded: Full marks given to all students.
                                             </div>
@@ -564,7 +492,7 @@ export default function TestResultPage() {
 
                                         {/* Solution & Explanation */}
                                         {(q.solutionText || q.solutionImage) && (
-                                            <div className="mt-6 bg-emerald-900/10 ring-1 ring-emerald-500/20 rounded-2xl p-4 sm:p-6 relative overflow-hidden">
+                                            <div className="mt-6 bg-emerald-900/10 border border-emerald-500/20 rounded-2xl p-6 relative overflow-hidden">
                                                 <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500/50"></div>
                                                 <div className="flex items-center gap-2 mb-3">
                                                     <div className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400">
@@ -574,21 +502,20 @@ export default function TestResultPage() {
                                                 </div>
 
                                                 {q.solutionText && (
-                                                    <div className="!text-[11px] sm:!text-sm text-slate-300 prose prose-sm prose-invert max-w-none leading-relaxed mb-4 overflow-x-auto w-full">
+                                                    <div className="text-sm text-slate-300 prose prose-invert max-w-none leading-relaxed mb-4">
                                                         <Latex>{q.solutionText}</Latex>
                                                     </div>
                                                 )}
 
                                                 {q.solutionImage && (
-                                                    <div className="bg-black/40 rounded-xl p-3 inline-block ring-1 ring-white/10">
+                                                    <div className="bg-black/40 rounded-xl p-3 inline-block border border-white/10">
                                                         <img src={q.solutionImage} alt="Solution info" className="max-w-full max-h-80 rounded-lg" />
                                                     </div>
                                                 )}
                                             </div>
                                         )}
                                     </div>
-                                );
-                            })}
+                                ))}
                             </div>
                         )}
                     </div>
@@ -598,7 +525,7 @@ export default function TestResultPage() {
                 <div className="text-center pt-6 pb-12">
                     <button
                         onClick={() => router.push('/student/online-test')}
-                        className="px-8 py-3 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white rounded-xl text-sm font-bold transition-all ring-1 ring-transparent hover:ring-white/10 flex items-center justify-center gap-2 mx-auto"
+                        className="px-8 py-3 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white rounded-xl text-sm font-bold transition-all border border-transparent hover:border-white/10 flex items-center justify-center gap-2 mx-auto"
                     >
                         <ArrowLeft className="h-4 w-4" /> Back to all tests
                     </button>

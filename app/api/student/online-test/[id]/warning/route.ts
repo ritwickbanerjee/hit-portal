@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
 import connectDB from '@/lib/db';
 import StudentTestAttempt from '@/models/StudentTestAttempt';
@@ -16,6 +16,38 @@ async function getStudentFromToken(req: NextRequest) {
         return { phoneNumber: (payload.phoneNumber || payload.userId) as string };
     } catch {
         return null;
+    }
+}
+
+export async function GET(
+    req: NextRequest,
+    props: { params: Promise<{ id: string }> }
+) {
+    try {
+        const student = await getStudentFromToken(req);
+        if (!student) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        await connectDB();
+        const { id: testId } = await props.params;
+
+        const attempt = await StudentTestAttempt.findOne({
+            testId,
+            studentPhone: student.phoneNumber
+        });
+
+        if (!attempt) {
+            return NextResponse.json({ count: 0 });
+        }
+
+        return NextResponse.json({
+            count: attempt.warningCount || 0
+        });
+
+    } catch (error: any) {
+        console.error('Error fetching warning count:', error);
+        return NextResponse.json({ count: 0 });
     }
 }
 
