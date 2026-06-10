@@ -31,6 +31,10 @@ const ConfigSchema = new mongoose.Schema({
     activePlatform: {
         type: String,
         default: 'vercel'
+    },
+    routineMakerAuthorizedEmails: {
+        type: [String],
+        default: ['ritwick92@gmail.com']
     }
 }, { timestamps: true });
 

@@ -1,0 +1,46 @@
+import { NextRequest, NextResponse } from 'next/server';
+import connectDB from '@/lib/db';
+import Routine from '@/models/Routine';
+import Config from '@/models/Config';
+
+export const runtime = 'nodejs';
+
+async function isAuthorized(req: NextRequest) {
+    const email = req.headers.get('x-user-email') || '';
+    if (!email) return false;
+    await connectDB();
+    const config = await Config.findOne({ key: 'data' });
+    const authorized: string[] = config?.routineMakerAuthorizedEmails || ['ritwick92@gmail.com'];
+    return authorized.map((e: string) => e.toLowerCase()).includes(email.toLowerCase());
+}
+
+// POST: Duplicate a routine
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    if (!(await isAuthorized(req))) {
+        return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
+
+    try {
+        const { id } = await params;
+        const original = await Routine.findById(id);
+        if (!original) return NextResponse.json({ error: 'Routine not found' }, { status: 404 });
+
+        const email = req.headers.get('x-user-email') || '';
+        const body = await req.json().catch(() => ({}));
+
+        const duplicate = await Routine.create({
+            name: body.name || `${original.name} (Copy)`,
+            description: original.description,
+            createdBy: email,
+            grid: original.grid,
+            faculties: original.faculties,
+            mappingRules: original.mappingRules,
+            lockedCells: [],
+            isArchived: false,
+        });
+
+        return NextResponse.json(duplicate, { status: 201 });
+    } catch (error: any) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+}

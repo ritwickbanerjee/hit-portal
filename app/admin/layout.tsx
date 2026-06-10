@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
     Users, ClipboardList, CheckSquare, FileText,
-    Upload, BarChart, BookOpen, LogOut, Menu, X, GraduationCap, Laptop, CalendarDays
+    Upload, BarChart, BookOpen, LogOut, Menu, X, GraduationCap, Laptop, CalendarDays, LayoutGrid
 } from 'lucide-react';
 import InstallPWA from '@/components/InstallPWA';
 import ActiveDeploymentToggle from '@/components/ActiveDeploymentToggle';
@@ -13,6 +13,7 @@ import ActiveDeploymentToggle from '@/components/ActiveDeploymentToggle';
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [routineMakerAccess, setRoutineMakerAccess] = useState(false);
     const router = useRouter();
     const pathname = usePathname();
     const [user, setUser] = useState<any>(null);
@@ -123,11 +124,26 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         }
     };
 
+    // Check routine maker access
+    useEffect(() => {
+        if (user?.email) {
+            const headers: any = {};
+            if (user.email) headers['X-User-Email'] = user.email;
+            const isGA = typeof window !== 'undefined' && localStorage.getItem('globalAdminActive') === 'true';
+            if (isGA) headers['X-Global-Admin-Key'] = 'globaladmin_25';
+            fetch('/api/admin/routine-maker/access?check=true', { headers })
+                .then(r => r.json())
+                .then(data => { if (data.hasAccess) setRoutineMakerAccess(true); })
+                .catch(() => {});
+        }
+    }, [user]);
+
     const navigation = [
         { name: 'Student & Course Management', href: '/admin/dashboard', icon: Users },
         { name: 'Mark Daily Attendance', href: '/admin/attendance', icon: CheckSquare },
         { name: 'Track Attendance', href: '/admin/reports', icon: ClipboardList },
         { name: 'My Routine', href: '/admin/routine', icon: CalendarDays },
+        ...(routineMakerAccess ? [{ name: 'Routine Maker', href: '/admin/routine-maker', icon: LayoutGrid }] : []),
         { name: 'Question Bank', href: '/admin/questions', icon: FileText },
         { name: 'Assignments', href: '/admin/assignments', icon: Upload },
         { name: 'Assignment Submissions', href: '/admin/submissions', icon: FileText },

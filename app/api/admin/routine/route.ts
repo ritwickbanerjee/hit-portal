@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import connectDB from '@/lib/db';
+import PublishedRoutine from '@/models/PublishedRoutine';
 import Papa from 'papaparse';
 
 export async function GET(req: NextRequest) {
@@ -10,6 +12,23 @@ export async function GET(req: NextRequest) {
     }
 
     try {
+        // First, try to read from MongoDB (published from Routine Maker)
+        await connectDB();
+        const published = await PublishedRoutine.findOne({ facultyCode });
+
+        if (published) {
+            const routineObj = published.routine instanceof Map
+                ? Object.fromEntries(published.routine)
+                : published.routine;
+
+            return NextResponse.json({
+                faculty: facultyCode,
+                timeSlots: published.timeSlots,
+                routine: routineObj,
+            });
+        }
+
+        // Fallback: Fetch from Google Sheets (backward compatibility)
         const spreadsheetId = '1YwzrTT_OpbPBq3aEncB7WhYYidryYDcEvpUSiWdjI-o';
         const url = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:csv&sheet=${facultyCode}`;
 
