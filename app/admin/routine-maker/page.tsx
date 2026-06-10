@@ -10,7 +10,7 @@ import {
     GridState, FacultyData, checkConstraints, ConstraintViolation, Slot
 } from './constraintUtils';
 import { 
-    exportMasterCSV, exportDeptCourseCSV, exportLoadMatrixCSV, exportFacultyCSVs
+    exportMasterCSV, exportDeptCourseCSV, exportLoadMatrixCSV, exportFacultyExcel
 } from './exportUtils';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
@@ -970,8 +970,8 @@ export default function RoutineMakerPage() {
                             <button onClick={() => { exportLoadMatrixCSV(grid, faculties, mappingRules); setExportOpen(false); }} className="w-full text-left px-4 py-3 text-sm rounded hover:bg-gray-800 transition-colors flex items-center gap-3">
                                 <span className="p-1.5 bg-green-500/20 text-green-400 rounded"><Download className="w-4 h-4" /></span> Load Matrix CSV
                             </button>
-                            <button onClick={() => { exportFacultyCSVs(grid, faculties); setExportOpen(false); }} className="w-full text-left px-4 py-3 text-sm rounded hover:bg-gray-800 transition-colors flex items-center gap-3">
-                                <span className="p-1.5 bg-amber-500/20 text-amber-400 rounded"><Download className="w-4 h-4" /></span> Faculty CSVs
+                            <button onClick={() => { exportFacultyExcel(grid, faculties); setExportOpen(false); }} className="w-full text-left px-4 py-3 text-sm rounded hover:bg-gray-800 transition-colors flex items-center gap-3">
+                                <span className="p-1.5 bg-amber-500/20 text-amber-400 rounded"><Download className="w-4 h-4" /></span> Faculty Excel (Tabs)
                             </button>
                         </div>
                     </div>
