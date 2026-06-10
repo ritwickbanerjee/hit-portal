@@ -8,10 +8,24 @@ const COLORS = ["#FFDAB9", "#E6E6FA", "#E0FFFF", "#F0FFF0", "#FFFACD", "#F5DEB3"
 
 function processInfo(slot: any): string {
     if (!slot) return '';
-    let info = `${slot.type}/${slot.course}/${slot.dept}/${slot.room}`.replace(/\/+$/, '');
-    if (!info.startsWith('T') && !info.startsWith('L')) {
-        info = 'L/' + info;
+    let rawStr = '';
+    if (slot.course.startsWith('CYBER') || slot.course.startsWith('CC301')) {
+        rawStr = slot.course;
+    } else {
+        rawStr = `${slot.course}${slot.dept ? '/' + slot.dept : ''}${slot.room ? '/' + slot.room : ''}`;
     }
+    
+    let info = rawStr.trim();
+    if (slot.type === 'T1' || slot.type === 'T2') {
+        info = `${slot.type}/${info}`;
+    } else if (slot.type === 'P') {
+        info = `P/${info}`;
+    } else if (slot.type === 'L') {
+        info = `L/${info}`;
+    } else {
+        info = `L/${info}`;
+    }
+
     const parts = info.split('/');
     if (parts.length >= 4) {
         const before = parts.slice(0, 3).join('/') + '/';
@@ -197,126 +211,57 @@ export function exportLoadMatrixCSV(grid: GridState, faculties: FacultyData[], m
     downloadCSV(Papa.unparse(rows), 'Load_Matrix.csv');
 }
 
-export function exportFacultyPDFs(grid: GridState, faculties: FacultyData[]) {
-    // Generate a printable HTML representation matching the "Split by Faculty" output
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-
-    let html = `
-    <html>
-    <head>
-        <title>Faculty Routines</title>
-        <style>
-            @page { size: landscape; margin: 10mm; }
-            body { font-family: Arial, sans-serif; font-size: 10px; margin: 0; padding: 0; }
-            .page { page-break-after: always; margin-bottom: 20px; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 10px; table-layout: fixed; }
-            th, td { border: 1px solid #000; padding: 4px; text-align: center; word-wrap: break-word; vertical-align: middle; }
-            th { background-color: #f0f0f0; font-weight: bold; }
-            .faculty-title { font-size: 14px; font-weight: bold; margin-bottom: 10px; text-align: center; }
-            .day-col { width: 60px; font-weight: bold; background-color: #f0f0f0; }
-            .slot { white-space: pre-wrap; }
-        </style>
-    </head>
-    <body>
-    `;
+export function exportFacultyCSVs(grid: GridState, faculties: FacultyData[]) {
+    const rows: string[][] = [];
+    const summary: any[][] = [];
+    
+    summary.push(['Faculty Code', 'Lecture Count', 'T1 Count', 'Total Load']);
 
     faculties.forEach(fac => {
         let lCount = 0;
         let t1Count = 0;
 
-        // Gather slots and check for T1/T2 pairs
-        const matchData: any[] = [];
-        const printGrid: any[][] = [];
+        rows.push([`Faculty: ${fac.code}`]);
+        rows.push(['Day / Time', ...TIME_LABELS]);
 
         DAYS.forEach((day, dIdx) => {
-            const dayRow = Array(9).fill('');
+            const dayRow = [DAY_MARKS[dIdx]];
             const daySlots = grid[day] || [];
             
             for (let p = 0; p < 9; p++) {
-                // Find all slots for this faculty at this day & period
                 const periodSlots = daySlots.map(r => r.slots[p]).filter(s => s && s.faculty === fac.code);
                 if (periodSlots.length > 0) {
                     const slot = periodSlots[0];
-                    if (!slot) continue;
+                    if (!slot) {
+                        dayRow.push('');
+                        continue;
+                    }
 
                     const info = processInfo(slot);
-                    dayRow[p] = { text: info, bg: '' };
+                    dayRow.push(info);
 
-                    if (slot.type === 'T1' || slot.type === 'T2') {
-                        const key = slot.course.replace(/[^A-Za-z0-9]/g, '');
-                        matchData.push({
-                            tag: slot.type,
-                            key: key,
-                            r: dIdx,
-                            c: p
-                        });
-                        if (slot.type === 'T1') t1Count++;
-                    } else {
+                    if (slot.type === 'T1') {
+                        t1Count++;
+                    } else if (slot.type !== 'T2') {
                         lCount++;
                     }
                 } else {
-                    dayRow[p] = { text: '', bg: '' };
+                    dayRow.push('');
                 }
             }
-            printGrid.push(dayRow);
+            rows.push(dayRow);
         });
 
-        // Highlight T1/T2 pairs
-        const used = new Set();
-        let colorIndex = 0;
-
-        matchData.forEach((t1, i) => {
-            if (t1.tag === 'T1' && !used.has(i)) {
-                const t2Index = matchData.findIndex((t2, j) => 
-                    j !== i && t2.tag === 'T2' && t1.key === t2.key && !used.has(j)
-                );
-                if (t2Index !== -1) {
-                    const t2 = matchData[t2Index];
-                    const color = COLORS[colorIndex % COLORS.length];
-                    printGrid[t1.r][t1.c].bg = color;
-                    printGrid[t2.r][t2.c].bg = color;
-                    used.add(i);
-                    used.add(t2Index);
-                    colorIndex++;
-                }
-            }
-        });
-
-        html += `
-        <div class="page">
-            <div class="faculty-title">Routine for ${fac.code}</div>
-            <table>
-                <thead>
-                    <tr>
-                        <th class="day-col">Day / Time</th>
-                        ${TIME_LABELS.map(t => `<th>${t}</th>`).join('')}
-                    </tr>
-                </thead>
-                <tbody>
-                    ${DAYS.map((day, dIdx) => `
-                        <tr>
-                            <td class="day-col">${DAY_MARKS[dIdx]}</td>
-                            ${printGrid[dIdx].map(cell => `<td class="slot" style="background-color: ${cell.bg || 'transparent'};">${cell.text}</td>`).join('')}
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-            <div><strong>Summary:</strong> Lecture Count: ${lCount} | T1 Count: ${t1Count} | Total Load: ${lCount + t1Count}</div>
-        </div>
-        `;
+        summary.push([fac.code, lCount, t1Count, lCount + t1Count]);
+        rows.push([]);
+        rows.push([]);
     });
 
-    html += `
-        <script>
-            window.onload = function() { window.print(); window.close(); }
-        </script>
-    </body>
-    </html>
-    `;
+    // Add summary at the end
+    rows.push(['SUMMARY']);
+    summary.forEach(sumRow => rows.push(sumRow));
 
-    printWindow.document.write(html);
-    printWindow.document.close();
+    downloadCSV(Papa.unparse(rows), 'Faculty_Routines.csv');
 }
 
 function downloadCSV(csv: string, filename: string) {

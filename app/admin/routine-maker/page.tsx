@@ -10,7 +10,7 @@ import {
     GridState, FacultyData, checkConstraints, ConstraintViolation, Slot
 } from './constraintUtils';
 import { 
-    exportMasterCSV, exportDeptCourseCSV, exportLoadMatrixCSV, exportFacultyPDFs
+    exportMasterCSV, exportDeptCourseCSV, exportLoadMatrixCSV, exportFacultyCSVs
 } from './exportUtils';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
@@ -534,7 +534,7 @@ export default function RoutineMakerPage() {
                                     <button onClick={() => { exportMasterCSV(grid); setExportOpen(false); }} className="w-full text-left px-4 py-3 text-sm hover:bg-gray-700">Master CSV</button>
                                     <button onClick={() => { exportDeptCourseCSV(grid); setExportOpen(false); }} className="w-full text-left px-4 py-3 text-sm hover:bg-gray-700">Dept & Course View</button>
                                     <button onClick={() => { exportLoadMatrixCSV(grid, faculties, mappingRules); setExportOpen(false); }} className="w-full text-left px-4 py-3 text-sm hover:bg-gray-700">Load Matrix CSV</button>
-                                    <button onClick={() => { exportFacultyPDFs(grid, faculties); setExportOpen(false); }} className="w-full text-left px-4 py-3 text-sm hover:bg-gray-700">Faculty PDFs (Print)</button>
+                                    <button onClick={() => { exportFacultyCSVs(grid, faculties); setExportOpen(false); }} className="w-full text-left px-4 py-3 text-sm hover:bg-gray-700">Faculty CSVs</button>
                                 </div>
                             )}
                         </div>

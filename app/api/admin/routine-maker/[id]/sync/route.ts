@@ -67,34 +67,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         const routine = await Routine.findById(id);
         if (!routine) return NextResponse.json({ error: 'Routine not found' }, { status: 404 });
 
-        // Fetch from Google Sheets
+        // Fetch from Google Sheets using export endpoint to avoid gviz mangling
         const spreadsheetId = '1s7RsxAqylY-7vjZZfGz5VGlsTMNwW49HdxG82Jbc20M';
-        const url = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:csv&sheet=Working%20ODD%20SEM%2026-27`;
+        const url = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv&gid=1100974876`;
 
         const response = await fetch(url);
         if (!response.ok) throw new Error('Failed to fetch from Google Sheets');
 
         const csvText = await response.text();
         const parsed = Papa.parse(csvText, { header: false });
-        
-        // Google Sheets sometimes exports the entire sheet as 1 row with \n separated values per column
-        const rawData = parsed.data as string[][];
-        let lines: string[][] = [];
-        
-        if (rawData.length === 1 || (rawData.length > 0 && rawData[0].some(col => col && col.includes('\n')))) {
-            const cols = rawData[0];
-            const numRows = Math.max(...cols.map(c => c ? c.split('\n').length : 0));
-            for (let r = 0; r < numRows; r++) {
-                const row = [];
-                for (let c = 0; c < cols.length; c++) {
-                    const colLines = cols[c] ? cols[c].split('\n') : [];
-                    row.push(colLines[r] || '');
-                }
-                lines.push(row);
-            }
-        } else {
-            lines = rawData;
-        }
+        const lines = parsed.data as string[][];
 
         const grid: any = {};
         DAYS.forEach(day => grid[day] = []);
