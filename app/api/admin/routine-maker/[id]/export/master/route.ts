@@ -13,7 +13,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     try {
         await connectDB();
         const { id } = await params;
-        const routine = await Routine.findById(id);
+        const routine = await Routine.findById(id).lean();
         
         if (!routine) {
             return new NextResponse('Routine not found', { status: 404 });

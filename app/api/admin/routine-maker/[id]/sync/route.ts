@@ -176,6 +176,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
         routine.grid = grid;
         routine.faculties = newFaculties;
+        if (routine.mappingRules) {
+            routine.mappingRules = routine.mappingRules.filter((r: any) => r && r.startsWith && r.startsWith.trim() !== '');
+        }
         await routine.save();
 
         return NextResponse.json({ message: 'Synced successfully', grid, faculties: newFaculties });
