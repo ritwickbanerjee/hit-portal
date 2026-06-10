@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
     Plus, X, Save, Upload, Copy, Download, Settings, Users, AlertTriangle, CheckCircle2, LayoutGrid, FileSpreadsheet,
-    Lock, Unlock, Shield, Trash2, Printer, Play, History, RefreshCw, ChevronRight, ChevronLeft, ArrowLeft
+    Lock, Unlock, Shield, Trash2, Printer, Play, History, RefreshCw, ChevronRight, ChevronLeft, ArrowLeft, ExternalLink
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { 
