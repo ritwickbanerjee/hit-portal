@@ -150,6 +150,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         const existingFaculties = routine.faculties || [];
         const newFaculties: any[] = [];
 
+        const FACULTY_COLORS: Record<string, string> = {
+            'NF': '#ff00ff',
+            'SB': '#00ffff',
+            'SR': '#fa8072',
+            'AP': '#cc0000',
+            'SD': '#cccccc',
+            'SK': '#00ff00',
+            'MS': '#ffff00',
+            'SC': '#ff0000',
+            'VB': '#800080',
+            'MP': '#ff1493',
+            'RB': '#d8bfd8',
+            'DC': '#ffa500',
+            'SDS': '#1e90ff',
+            'SG': '#90ee90',
+        };
+
         const PRESET_COLORS = [
             '#E6194B', '#3CB44B', '#9A6324', '#4363D8', '#F58231',
             '#911EB4', '#008080', '#F032E6', '#808000', '#000075',
@@ -157,14 +174,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         ];
 
         sortedCodes.forEach((code, idx) => {
+            let color = FACULTY_COLORS[code as keyof typeof FACULTY_COLORS] || PRESET_COLORS[idx % PRESET_COLORS.length];
             const existing = existingFaculties.find((f: any) => f.code === code);
             if (existing) {
+                existing.color = color; // Force update color to match screenshot
                 newFaculties.push(existing);
             } else {
                 newFaculties.push({
                     code,
                     name: code,
-                    color: PRESET_COLORS[idx % PRESET_COLORS.length],
+                    color,
                     availability: {
                         Monday: Array(9).fill(true), Tuesday: Array(9).fill(true),
                         Wednesday: Array(9).fill(true), Thursday: Array(9).fill(true),
