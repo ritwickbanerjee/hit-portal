@@ -10,7 +10,7 @@ import {
     GridState, FacultyData, checkConstraints, ConstraintViolation, Slot
 } from './constraintUtils';
 import { 
-    exportMasterCSV, exportDeptCourseCSV, exportLoadMatrixCSV, exportFacultyExcel
+    exportMasterCSV, exportDeptCourseCSV, exportLoadMatrixExcel, exportFacultyExcel
 } from './exportUtils';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
@@ -31,6 +31,12 @@ const DEFAULT_RULES = [
     { startsWith: 'MATH4', mapsTo: '8L' },
     { startsWith: 'CBS', mapsTo: '3P' },
     { startsWith: 'P/MTH2252', mapsTo: '4P' },
+];
+
+const FACULTY_COLORS_14 = [
+    '#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6',
+    '#ec4899', '#06b6d4', '#f97316', '#84cc16', '#6366f1',
+    '#14b8a6', '#e11d48', '#a855f7', '#22d3ee'
 ];
 
 export default function RoutineMakerPage() {
@@ -56,6 +62,8 @@ export default function RoutineMakerPage() {
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
     const [engineExpanded, setEngineExpanded] = useState(true);
     const [glowingViolations, setGlowingViolations] = useState<string[]>([]);
+    const [swapAnimation, setSwapAnimation] = useState<{ day: string, pIdx: number, rowId: string }[]>([]);
+    const [actionLog, setActionLog] = useState<{msg: string, time: Date}[]>([]);
     
     const [exportOpen, setExportOpen] = useState(false);
     
@@ -70,6 +78,10 @@ export default function RoutineMakerPage() {
     
     const gridRef = useRef<HTMLDivElement>(null);
     const topScrollRef = useRef<HTMLDivElement>(null);
+
+    const logAction = (msg: string) => {
+        setActionLog(prev => [{msg, time: new Date()}, ...prev].slice(0, 5));
+    };
 
     // Initial Load
     useEffect(() => {
@@ -280,10 +292,11 @@ export default function RoutineMakerPage() {
 
     const handleUndo = useCallback(() => {
         if (historyIndex > 0) {
-            const newIdx = historyIndex - 1;
-            setGrid(JSON.parse(history[newIdx]));
-            setHistoryIndex(newIdx);
+            const newIndex = historyIndex - 1;
+            setGrid(JSON.parse(history[newIndex]));
+            setHistoryIndex(newIndex);
             setHasUnsavedChanges(true);
+            setActionLog(prev => prev.slice(1));
         }
     }, [history, historyIndex]);
 
@@ -312,24 +325,31 @@ export default function RoutineMakerPage() {
             row.slots[pIdx] = slotData;
             setGrid(newGrid);
             pushHistory(newGrid);
+            
+            if (slotData) {
+                logAction(`Assigned ${slotData.faculty} to ${day} P${pIdx + 1}`);
+            } else {
+                logAction(`Cleared cell on ${day} P${pIdx + 1}`);
+            }
         }
     };
 
     const addRow = (day: string) => {
         const newGrid = { ...grid };
-        newGrid[day] = [...(newGrid[day]||[]), { id: Math.random().toString(36).substr(2,9), slots: Array(9).fill(null) }];
+        newGrid[day].push({ id: Math.random().toString(36).substr(2, 9), slots: Array(9).fill(null) });
         setGrid(newGrid);
         pushHistory(newGrid);
+        logAction(`Added parallel row to ${day}`);
     };
 
     const removeRow = (day: string, rowId: string) => {
         const newGrid = { ...grid };
-        newGrid[day] = newGrid[day].filter(r => r.id !== rowId);
-        if (newGrid[day].length === 0) {
-            newGrid[day].push({ id: Math.random().toString(36).substr(2,9), slots: Array(9).fill(null) });
+        if (newGrid[day].length > 1) {
+            newGrid[day] = newGrid[day].filter(r => r.id !== rowId);
+            setGrid(newGrid);
+            pushHistory(newGrid);
+            logAction(`Removed parallel row from ${day}`);
         }
-        setGrid(newGrid);
-        pushHistory(newGrid);
     };
 
     const handleDragStart = (e: React.DragEvent | React.TouchEvent, day: string, rowId: string, pIdx: number, slot: Slot) => {
@@ -363,6 +383,14 @@ export default function RoutineMakerPage() {
                 targetRow.slots[targetPIdx] = srcSlot;
                 setGrid(newGrid);
                 pushHistory(newGrid);
+                logAction(`Swapped cells between ${srcDay} P${srcPIdx+1} and ${targetDay} P${targetPIdx+1}`);
+                
+                // Animation
+                setSwapAnimation([
+                    { day: srcDay, rowId: srcRowId, pIdx: srcPIdx },
+                    { day: targetDay, rowId: targetRowId, pIdx: targetPIdx }
+                ]);
+                setTimeout(() => setSwapAnimation([]), 600);
             }
         } catch (e) {}
     };
@@ -443,6 +471,19 @@ export default function RoutineMakerPage() {
     // RENDER COMPONENTS
     return (
         <div className="h-[calc(100vh)] bg-gray-950 text-white flex flex-col font-sans overflow-hidden" onClick={() => setContextMenu(null)}>
+            <style dangerouslySetInnerHTML={{__html: `
+                @keyframes swapFlash {
+                    0% { background-color: rgba(34, 197, 94, 0.4); transform: scale(0.95); }
+                    50% { background-color: rgba(34, 197, 94, 0.8); transform: scale(1.02); }
+                    100% { background-color: transparent; transform: scale(1); }
+                }
+                .swapping {
+                    animation: swapFlash 0.6s ease-out;
+                    border-radius: 4px;
+                    z-index: 10;
+                }
+            `}} />
+            
             {/* TOP BAR */}
             <header className="bg-gray-900 border-b border-gray-800 p-2 md:p-4 flex flex-wrap justify-between items-center z-10 sticky top-0 shrink-0 gap-2">
                 <div className="flex items-center gap-2 md:gap-4 w-full md:w-auto">
@@ -618,13 +659,15 @@ export default function RoutineMakerPage() {
 
                                                     return (
                                                         <div key={day} className={`flex relative ${bgTint} ${dIdx > 0 ? 'border-t-[3px] border-t-indigo-500/40' : ''}`}>
-                                                            <div className="w-14 md:w-24 shrink-0 p-1 md:p-3 flex flex-col items-center justify-center border-r border-gray-800 bg-black/20 relative sticky left-0 z-10">
-                                                                <span className="font-bold text-[9px] md:text-sm tracking-widest -rotate-90 uppercase text-gray-400 md:mt-6 whitespace-nowrap">{day.slice(0,3)}</span>
-                                                                {!selectedFacultyFilter && (
-                                                                    <button onClick={() => addRow(day)} className="mt-auto p-1 bg-gray-800 hover:bg-gray-700 rounded tooltip opacity-50 hover:opacity-100" title="Add Parallel Row">
-                                                                        <Plus className="w-3 h-3 md:w-4 md:h-4" />
-                                                                    </button>
-                                                                )}
+                                                            <div className="w-14 md:w-24 shrink-0 p-1 md:p-3 flex flex-col items-center justify-start border-r border-gray-800 bg-black/20 relative sticky left-0 z-10">
+                                                                <div className="sticky top-[40vh] transform flex flex-col items-center gap-4">
+                                                                    <span className="font-bold text-[9px] md:text-sm tracking-widest -rotate-90 uppercase text-gray-400 whitespace-nowrap mt-10 md:mt-16">{day.slice(0,3)}</span>
+                                                                    {!selectedFacultyFilter && (
+                                                                        <button onClick={() => addRow(day)} className="p-1 bg-gray-800 hover:bg-gray-700 rounded tooltip opacity-50 hover:opacity-100" title="Add Parallel Row">
+                                                                            <Plus className="w-3 h-3 md:w-4 md:h-4" />
+                                                                        </button>
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                             
                                                             <div className="flex-1 flex flex-col divide-y divide-gray-800/50">
@@ -634,11 +677,12 @@ export default function RoutineMakerPage() {
                                                                             const locked = !selectedFacultyFilter && isLocked(day, row.id, pIdx);
                                                                             const facColor = slot ? getFacColor(slot.faculty) : '';
                                                                             const glowing = slot && isCellGlowing(day, pIdx, slot.faculty, slot.room);
+                                                                            const isSwapping = swapAnimation.some(a => a.day === day && a.rowId === row.id && a.pIdx === pIdx);
                                                                             
                                                                             return (
                                                                                 <div 
                                                                                     key={pIdx}
-                                                                                    className={`min-h-[50px] md:min-h-[85px] p-0.5 md:p-1 relative transition-all`}
+                                                                                    className={`min-h-[50px] md:min-h-[85px] p-0.5 md:p-1 relative transition-all ${isSwapping ? 'swapping' : ''}`}
                                                                                     onDragOver={(e) => e.preventDefault()}
                                                                                     onDrop={(e) => handleDrop(e, day, row.id, pIdx)}
                                                                                     onContextMenu={(e) => handleContextMenu(e, day, row.id, pIdx)}
@@ -693,9 +737,9 @@ export default function RoutineMakerPage() {
                                                                         
                                                                         {/* Row delete button */}
                                                                         {!selectedFacultyFilter && (
-                                                                            <div className="absolute right-full mr-1 md:mr-2 inset-y-0 flex items-center opacity-0 group-hover:opacity-100">
-                                                                                <button onClick={() => removeRow(day, row.id)} className="p-0.5 md:p-1 bg-red-500/20 text-red-400 hover:bg-red-500/40 rounded-full">
-                                                                                    <Trash2 className="w-3 h-3" />
+                                                                            <div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 z-10">
+                                                                                <button onClick={() => removeRow(day, row.id)} className="p-1 bg-red-500/80 text-white hover:bg-red-500 hover:scale-110 shadow shadow-black/50 rounded-full transition-all">
+                                                                                    <Trash2 className="w-3 h-3 md:w-4 md:h-4" />
                                                                                 </button>
                                                                             </div>
                                                                         )}
@@ -740,7 +784,19 @@ export default function RoutineMakerPage() {
                                                     const newF = [...faculties];
                                                     newF[idx].name = e.target.value;
                                                     setFaculties(newF); setHasUnsavedChanges(true);
-                                                }} className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm w-full outline-none mb-4" />
+                                                }} className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm w-full outline-none mb-2" />
+                                                <div className="flex gap-2 mb-4">
+                                                    <input value={fac.designation || ''} placeholder="Designation" onChange={(e) => {
+                                                        const newF = [...faculties];
+                                                        newF[idx].designation = e.target.value;
+                                                        setFaculties(newF); setHasUnsavedChanges(true);
+                                                    }} className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm flex-1 min-w-0 outline-none" />
+                                                    <input value={fac.employeeCode || ''} placeholder="Emp. Code" onChange={(e) => {
+                                                        const newF = [...faculties];
+                                                        newF[idx].employeeCode = e.target.value;
+                                                        setFaculties(newF); setHasUnsavedChanges(true);
+                                                    }} className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm w-24 shrink-0 outline-none" />
+                                                </div>
                                                 
                                                 {/* Mini Availability Matrix (Days=Rows, Periods=Cols) */}
                                                 <div className="text-xs text-gray-400 mb-2 font-semibold">Availability</div>
@@ -765,11 +821,21 @@ export default function RoutineMakerPage() {
                                             </div>
                                         ))}
                                         <button onClick={() => {
-                                            setFaculties([...faculties, { code: 'NEW', name: '', color: '#3b82f6', availability: {} }]);
+                                            const newColor = FACULTY_COLORS_14[faculties.length % 14];
+                                            setFaculties([...faculties, { code: 'NEW', name: '', color: newColor, availability: {} }]);
                                             setHasUnsavedChanges(true);
                                         }} className="min-h-[200px] border-2 border-dashed border-gray-700 hover:border-gray-500 rounded-lg flex flex-col items-center justify-center p-6 text-gray-500 hover:text-gray-300 transition-colors">
                                             <Plus className="w-8 h-8 mb-2" />
                                             <span>Add Faculty</span>
+                                        </button>
+                                    </div>
+                                    <div className="mt-6 flex justify-end">
+                                        <button onClick={() => {
+                                            const newF = faculties.map((f, i) => ({...f, color: FACULTY_COLORS_14[i % 14]}));
+                                            setFaculties(newF);
+                                            setHasUnsavedChanges(true);
+                                        }} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded text-sm font-medium transition-colors">
+                                            Auto-Assign 14 Unique Colors
                                         </button>
                                     </div>
                                 </div>
@@ -922,6 +988,27 @@ export default function RoutineMakerPage() {
                                 })
                             )}
                         </div>
+
+                        {/* Recent Changes Log */}
+                        <div className={`border-t border-gray-800 bg-gray-950/50 flex flex-col shrink-0 overflow-hidden transition-all duration-300 ${engineExpanded ? 'h-48' : 'h-0 border-transparent'}`}>
+                            <div className="px-3 py-2 border-b border-gray-800 flex justify-between items-center">
+                                <h3 className="text-xs font-bold text-gray-400 flex items-center gap-1.5 uppercase tracking-wider">
+                                    <History className="w-3 h-3" /> Recent Changes
+                                </h3>
+                            </div>
+                            <div className="flex-1 overflow-auto p-2 custom-scrollbar space-y-1.5">
+                                {actionLog.length === 0 ? (
+                                    <div className="text-center text-[10px] text-gray-600 italic py-4">No recent changes</div>
+                                ) : (
+                                    actionLog.map((log, i) => (
+                                        <div key={i} className="text-[10px] md:text-xs text-gray-400 bg-gray-900/50 rounded px-2 py-1.5 border border-gray-800/50 flex items-start gap-2">
+                                            <span className="text-gray-600 shrink-0 mt-0.5">{log.time.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'})}</span>
+                                            <span className="leading-tight">{log.msg}</span>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
                     </div>
                 )}
             </div>
@@ -1015,8 +1102,8 @@ export default function RoutineMakerPage() {
                             <button onClick={() => { exportDeptCourseCSV(grid); setExportOpen(false); }} className="w-full text-left px-4 py-3 text-sm rounded hover:bg-gray-800 transition-colors flex items-center gap-3">
                                 <span className="p-1.5 bg-purple-500/20 text-purple-400 rounded"><Download className="w-4 h-4" /></span> Dept & Course Excel
                             </button>
-                            <button onClick={() => { exportLoadMatrixCSV(grid, faculties, mappingRules); setExportOpen(false); }} className="w-full text-left px-4 py-3 text-sm rounded hover:bg-gray-800 transition-colors flex items-center gap-3">
-                                <span className="p-1.5 bg-green-500/20 text-green-400 rounded"><Download className="w-4 h-4" /></span> Load Matrix CSV
+                            <button onClick={() => { exportLoadMatrixExcel(grid, faculties, mappingRules); setExportOpen(false); }} className="w-full text-left px-4 py-3 text-sm rounded hover:bg-gray-800 transition-colors flex items-center gap-3">
+                                <span className="p-1.5 bg-green-500/20 text-green-400 rounded"><Download className="w-4 h-4" /></span> Load Matrix Excel
                             </button>
                             <button onClick={() => { exportFacultyExcel(grid, faculties); setExportOpen(false); }} className="w-full text-left px-4 py-3 text-sm rounded hover:bg-gray-800 transition-colors flex items-center gap-3">
                                 <span className="p-1.5 bg-amber-500/20 text-amber-400 rounded"><Download className="w-4 h-4" /></span> Faculty Excel (Tabs)

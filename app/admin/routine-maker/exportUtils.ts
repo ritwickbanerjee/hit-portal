@@ -204,120 +204,144 @@ export async function exportDeptCourseCSV(grid: GridState) {
    Row 3: header → Col B = empty, Col C = empty, Col D = empty, Col E..AW = time slot labels for 45 slots
    Row 4..N: faculty rows → Col B = faculty code, Col E..AW = mapped load codes, Col AX..BG = stats
    ======================================================================== */
-export function exportLoadMatrixCSV(grid: GridState, faculties: FacultyData[], mappingRules: { startsWith: string, mapsTo: string }[]) {
-    // Build header row matching Sheet2
-    // Columns: A(0), B(1)="Faculty", C(2)="", D(3)="", E(4)..AW(48) = 45 time slot headers
-    // Then AX(49)="Total Slots", AY(50)="Calculated Load", AZ(51)="T1 Count", BA(52)="P Count",
-    //       BB(53)="", BC(54)="Total Classes", BD(55)="Total Load", BE(56)="Lecture+Tutorial", BF(57)="Higher Sem Only", BG(58)="M1+M2"
-    
-    const rows: any[][] = [];
-    
-    // Row 1 and 2: empty / title rows matching sheet
-    rows.push([]); // Row 1
-    rows.push([]); // Row 2
+export async function exportLoadMatrixExcel(grid: GridState, faculties: FacultyData[], mappingRules: { startsWith: string, mapsTo: string }[]) {
+    const ExcelJS = await import('exceljs');
+    const Workbook = ExcelJS.Workbook || ExcelJS.default?.Workbook;
+    const workbook = new Workbook();
+    const sheet = workbook.addWorksheet('Load Matrix');
 
-    // Row 3: Header
-    const headerRow: any[] = new Array(59).fill('');
-    headerRow[1] = 'Faculty List';
-    // Generate 45 slot headers: Mon P1..P9, Tue P1..P9, ..., Fri P1..P9
-    const dayAbbrevs = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+    // Headers setup based on screenshot
+    // Col 1: S.No (empty or index)
+    // Col 2: Faculty Full Name
+    // Col 3: (Abbrv)
+    // Col 4: Designation
+    // Col 5: Employee Code
+    // Col 6-14: MONDAY (9 periods)
+    // Col 15-23: TUESDAY
+    // Col 24-32: WEDNESDAY
+    // Col 33-41: THURSDAY
+    // Col 42-50: FRIDAY
+
+    // Row 1: FACULTY ENGAGEMENT OF MATHEMATICS FOR THE SESSION 2025-26 EVEN SEMESTER
+    sheet.mergeCells('F1:AX1');
+    sheet.getCell('F1').value = 'FACULTY ENGAGEMENT OF MATHEMATICS FOR THE SESSION 2025-26 EVEN SEMESTER';
+    sheet.getCell('F1').font = { bold: true };
+    sheet.getCell('F1').alignment = { horizontal: 'center', vertical: 'middle' };
+
+    // Row 2: Empty
+    
+    // Row 3: Main Headers
+    sheet.getCell('B3').value = 'Faculty Full Name';
+    sheet.getCell('C3').value = '(Abbrv)';
+    sheet.getCell('D3').value = 'Designation';
+    sheet.getCell('E3').value = 'Employee Code';
+    sheet.getRow(3).font = { bold: true };
+    sheet.getRow(3).alignment = { horizontal: 'center', vertical: 'middle' };
+
+    const daysUpper = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'];
+    for (let d = 0; d < 5; d++) {
+        const startCol = 6 + d * 9;
+        const endCol = startCol + 8;
+        sheet.mergeCells(3, startCol, 3, endCol);
+        sheet.getCell(3, startCol).value = daysUpper[d];
+        sheet.getCell(3, startCol).font = { bold: true };
+        sheet.getCell(3, startCol).alignment = { horizontal: 'center', vertical: 'middle' };
+    }
+
+    // Row 4: Period Numbers
+    for (let i = 1; i <= 5; i++) {
+        sheet.getCell(4, i).value = i === 1 ? '' : sheet.getCell(3, i).value;
+    }
     for (let d = 0; d < 5; d++) {
         for (let p = 0; p < 9; p++) {
-            headerRow[4 + d * 9 + p] = `${dayAbbrevs[d]} P${p + 1}`;
+            const col = 6 + d * 9 + p;
+            sheet.getCell(4, col).value = p + 1;
+            sheet.getCell(4, col).font = { bold: true };
+            sheet.getCell(4, col).alignment = { horizontal: 'center', vertical: 'middle' };
         }
     }
-    headerRow[49] = 'Total Slots';
-    headerRow[50] = 'Calculated Load';
-    headerRow[51] = 'T1 Count';
-    headerRow[52] = 'P Count';
-    headerRow[53] = '';
-    headerRow[54] = 'Total Classes';
-    headerRow[55] = 'Total Load';
-    headerRow[56] = 'Lecture+Tutorial';
-    headerRow[57] = 'Higher Sem Only';
-    headerRow[58] = 'M1+M2';
-    rows.push(headerRow);
 
-    faculties.forEach(fac => {
-        const row: any[] = new Array(59).fill('');
-        row[1] = fac.code; // B
+    // Borders for headers
+    for (let r = 3; r <= 4; r++) {
+        for (let c = 1; c <= 50; c++) {
+            sheet.getCell(r, c).border = {
+                top: { style: 'thin' }, left: { style: 'thin' },
+                bottom: { style: 'thin' }, right: { style: 'thin' }
+            };
+        }
+    }
 
-        let totalSlots = 0;
-        let loadCount = 0;
-        let pureLCount = 0;
-        let t1Count = 0;
-        let pCount = 0;
-        let l1Count = 0;
-        let m12 = 0;
+    // Data Rows
+    let rowIndex = 5;
+    faculties.forEach((fac, idx) => {
+        const row = sheet.getRow(rowIndex);
+        row.getCell(1).value = idx + 1;
+        row.getCell(2).value = fac.name || '';
+        row.getCell(3).value = fac.code;
+        row.getCell(4).value = fac.designation || '';
+        row.getCell(5).value = fac.employeeCode || '';
 
-        let slotIdx = 4; // E is col index 4
-
+        // Fill slots
+        let slotIdx = 6;
         DAYS.forEach(day => {
             for (let p = 0; p < 9; p++) {
-                // Find all slots for this faculty at this day & period
                 const periodSlots = (grid[day] || []).map(r => r.slots[p]).filter(s => s && s.faculty === fac.code);
                 
                 if (periodSlots.length > 0) {
-                    const slot = periodSlots[0]; // Take first match if parallel
-                    if (!slot) { slotIdx++; continue; }
-                    let rawStr = `${slot.course}`;
-                    if (slot.type === 'T1' || slot.type === 'T2') rawStr = `${slot.type}/${slot.course}`;
-                    if (slot.type === 'P') rawStr = `P/${slot.course}`;
+                    const slot = periodSlots[0];
+                    if (slot) {
+                        let rawStr = `${slot.course}`;
+                        if (slot.type === 'T1' || slot.type === 'T2') rawStr = `${slot.type}/${slot.course}`;
+                        if (slot.type === 'P') rawStr = `P/${slot.course}`;
 
-                    // Apply mapping rules
-                    let mapped = '';
-                    for (const rule of mappingRules) {
-                        if (rawStr.startsWith(rule.startsWith)) {
-                            mapped = rule.mapsTo;
-                            break;
+                        let mapped = '';
+                        for (const rule of mappingRules) {
+                            if (rawStr.startsWith(rule.startsWith) && rule.startsWith !== '') {
+                                mapped = rule.mapsTo;
+                                break;
+                            }
                         }
-                    }
 
-                    if (!mapped) mapped = '1L'; // Fallback
+                        // Use rawStr if no rule matched and default is blank, or use '1L' if default rule exists.
+                        // Actually, if rules exist but no match, default is blank if we modify default rule assumption
+                        if (!mapped) {
+                            const hasDefaultRule = mappingRules.some(r => r.startsWith === '');
+                            if (hasDefaultRule) {
+                                mapped = mappingRules.find(r => r.startsWith === '')!.mapsTo;
+                            }
+                        }
 
-                    row[slotIdx] = mapped;
-                    totalSlots++;
-
-                    // Count logic matching AppScript exactly
-                    if (['2L', '4L', '6L', '8L', 'M1', 'M2'].includes(mapped)) {
-                        loadCount += 1;
-                        pureLCount += 1;
+                        row.getCell(slotIdx).value = mapped;
+                        row.getCell(slotIdx).font = { bold: true };
                     }
-                    if (mapped === '1L') {
-                        loadCount += 1;
-                        l1Count++;
-                    }
-                    if (mapped === '4P' || mapped === '3P') {
-                        loadCount += 0.5;
-                        pCount++;
-                    }
-                    if (mapped === '2T') t1Count++;
-                    if (['M1', 'M2'].includes(mapped)) m12++;
                 }
+                row.getCell(slotIdx).alignment = { horizontal: 'center', vertical: 'middle' };
                 slotIdx++;
             }
         });
 
-        const totalClasses = pureLCount + l1Count + t1Count + pCount;
-        const totalLoad = loadCount + t1Count;
-        const lecturePlusTutorial = l1Count + t1Count;
-        const higherSemOnly = totalLoad - lecturePlusTutorial - m12;
-
-        row[49] = totalSlots;       // AX
-        row[50] = loadCount;        // AY
-        row[51] = t1Count;          // AZ
-        row[52] = pCount;           // BA
-        row[53] = '';               // BB (empty)
-        row[54] = totalClasses;     // BC
-        row[55] = totalLoad;        // BD
-        row[56] = lecturePlusTutorial; // BE
-        row[57] = higherSemOnly;    // BF
-        row[58] = m12;             // BG
-
-        rows.push(row);
+        // Set borders for data row
+        for (let c = 1; c <= 50; c++) {
+            row.getCell(c).border = {
+                top: { style: 'thin' }, left: { style: 'thin' },
+                bottom: { style: 'thin' }, right: { style: 'thin' }
+            };
+        }
+        rowIndex++;
     });
 
-    downloadCSV(Papa.unparse(rows), 'Load_Matrix.csv');
+    // Column Widths
+    sheet.getColumn(1).width = 5;
+    sheet.getColumn(2).width = 25;
+    sheet.getColumn(3).width = 10;
+    sheet.getColumn(4).width = 20;
+    sheet.getColumn(5).width = 15;
+    for (let c = 6; c <= 50; c++) {
+        sheet.getColumn(c).width = 4;
+    }
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    saveBlob(new Blob([buffer]), 'Load_Matrix.xlsx');
 }
 
 /* ========================================================================

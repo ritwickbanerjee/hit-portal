@@ -17,6 +17,8 @@ export type FacultyData = {
     code: string;
     name: string;
     color: string;
+    designation?: string;
+    employeeCode?: string;
     availability: Record<string, boolean[]>; // day -> boolean[9]
 };
 
