@@ -76,7 +76,25 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
         const csvText = await response.text();
         const parsed = Papa.parse(csvText, { header: false });
-        const lines: string[][] = parsed.data as string[][];
+        
+        // Google Sheets sometimes exports the entire sheet as 1 row with \n separated values per column
+        const rawData = parsed.data as string[][];
+        let lines: string[][] = [];
+        
+        if (rawData.length === 1 || (rawData.length > 0 && rawData[0].some(col => col && col.includes('\n')))) {
+            const cols = rawData[0];
+            const numRows = Math.max(...cols.map(c => c ? c.split('\n').length : 0));
+            for (let r = 0; r < numRows; r++) {
+                const row = [];
+                for (let c = 0; c < cols.length; c++) {
+                    const colLines = cols[c] ? cols[c].split('\n') : [];
+                    row.push(colLines[r] || '');
+                }
+                lines.push(row);
+            }
+        } else {
+            lines = rawData;
+        }
 
         const grid: any = {};
         DAYS.forEach(day => grid[day] = []);

@@ -57,6 +57,8 @@ export default function RoutineMakerPage() {
     const [engineExpanded, setEngineExpanded] = useState(true);
     const [glowingViolations, setGlowingViolations] = useState<string[]>([]);
     
+    const [exportOpen, setExportOpen] = useState(false);
+    
     // History (Undo/Redo)
     const [history, setHistory] = useState<string[]>([]);
     const [historyIndex, setHistoryIndex] = useState(-1);
@@ -444,8 +446,8 @@ export default function RoutineMakerPage() {
             {/* TOP BAR */}
             <header className="bg-gray-900 border-b border-gray-800 p-2 md:p-4 flex flex-wrap justify-between items-center z-10 sticky top-0 shrink-0 gap-2">
                 <div className="flex items-center gap-2 md:gap-4 w-full md:w-auto">
-                    <button className="md:hidden p-1 bg-gray-800 rounded hover:bg-gray-700" onClick={() => window.history.back()}>
-                        <ArrowLeft className="w-5 h-5" />
+                    <button className="p-1.5 bg-gray-800 rounded hover:bg-gray-700 tooltip" title="Back to Admin Dashboard" onClick={() => window.location.href = '/admin/dashboard'}>
+                        <ArrowLeft className="w-4 h-4 md:w-5 md:h-5" />
                     </button>
                     <LayoutGrid className="w-5 h-5 md:w-6 md:h-6 text-indigo-400 shrink-0" />
                     <h1 className="text-base md:text-lg font-bold flex items-center gap-2 truncate">
@@ -521,15 +523,20 @@ export default function RoutineMakerPage() {
                         
                         {/* EXPORT SUITE */}
                         <div className="flex items-center group relative z-50">
-                            <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs md:text-sm bg-gray-800 rounded hover:bg-gray-700 whitespace-nowrap">
+                            <button 
+                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs md:text-sm bg-gray-800 rounded hover:bg-gray-700 whitespace-nowrap"
+                                onClick={() => setExportOpen(!exportOpen)}
+                            >
                                 <Download className="w-3 h-3 md:w-4 md:h-4" /> Export
                             </button>
-                            <div className="absolute top-full right-0 mt-1 w-48 bg-gray-800 border border-gray-700 rounded shadow-xl hidden group-hover:block z-[60]">
-                                <button onClick={() => exportMasterCSV(grid)} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-700">Master CSV</button>
-                                <button onClick={() => exportDeptCourseCSV(grid)} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-700">Dept & Course View</button>
-                                <button onClick={() => exportLoadMatrixCSV(grid, faculties, mappingRules)} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-700">Load Matrix CSV</button>
-                                <button onClick={() => exportFacultyPDFs(grid, faculties)} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-700">Faculty PDFs (Print)</button>
-                            </div>
+                            {exportOpen && (
+                                <div className="absolute top-full right-0 mt-1 w-48 bg-gray-800 border border-gray-700 rounded shadow-xl z-[60]">
+                                    <button onClick={() => { exportMasterCSV(grid); setExportOpen(false); }} className="w-full text-left px-4 py-3 text-sm hover:bg-gray-700">Master CSV</button>
+                                    <button onClick={() => { exportDeptCourseCSV(grid); setExportOpen(false); }} className="w-full text-left px-4 py-3 text-sm hover:bg-gray-700">Dept & Course View</button>
+                                    <button onClick={() => { exportLoadMatrixCSV(grid, faculties, mappingRules); setExportOpen(false); }} className="w-full text-left px-4 py-3 text-sm hover:bg-gray-700">Load Matrix CSV</button>
+                                    <button onClick={() => { exportFacultyPDFs(grid, faculties); setExportOpen(false); }} className="w-full text-left px-4 py-3 text-sm hover:bg-gray-700">Faculty PDFs (Print)</button>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -693,7 +700,7 @@ export default function RoutineMakerPage() {
                                                                         })}
                                                                         
                                                                         {/* Row delete button */}
-                                                                        {rIdx > 0 && !selectedFacultyFilter && (
+                                                                        {!selectedFacultyFilter && (
                                                                             <div className="absolute right-full mr-1 md:mr-2 inset-y-0 flex items-center opacity-0 group-hover:opacity-100">
                                                                                 <button onClick={() => removeRow(day, row.id)} className="p-0.5 md:p-1 bg-red-500/20 text-red-400 hover:bg-red-500/40 rounded-full">
                                                                                     <Trash2 className="w-3 h-3" />
@@ -827,20 +834,22 @@ export default function RoutineMakerPage() {
                 {/* RIGHT SIDEBAR: CONSTRAINTS */}
                 {activeTab === 'grid' && (
                     <div className={`${engineExpanded ? 'w-64 md:w-80' : 'w-10'} transition-all duration-300 bg-gray-900 border-l border-gray-800 flex flex-col shrink-0 overflow-hidden relative`}>
-                        {/* Toggle Button */}
-                        <button 
-                            onClick={() => setEngineExpanded(!engineExpanded)}
-                            className="absolute top-4 -left-3 bg-gray-800 border border-gray-700 rounded-full p-1 z-10 hover:bg-gray-700 text-gray-400 hover:text-white"
-                        >
-                            {engineExpanded ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-                        </button>
-
-                        <div className={`p-3 md:p-4 border-b border-gray-800 bg-gray-950/50 ${engineExpanded ? '' : 'invisible'}`}>
-                            <h2 className="font-bold flex items-center gap-2 whitespace-nowrap">
-                                <AlertTriangle className={`w-4 h-4 md:w-5 md:h-5 ${violations.length > 0 ? 'text-amber-500' : 'text-green-500'}`} />
-                                Live Engine
-                            </h2>
-                            <div className="text-xs text-gray-400 mt-1 whitespace-nowrap">{violations.length} active flags</div>
+                        <div className={`p-3 md:p-4 border-b border-gray-800 bg-gray-950/50 flex justify-between items-center h-14 ${engineExpanded ? '' : ''}`}>
+                            <div className={`flex flex-col ${engineExpanded ? '' : 'hidden'}`}>
+                                <h2 className="font-bold flex items-center gap-2 whitespace-nowrap">
+                                    <AlertTriangle className={`w-4 h-4 md:w-5 md:h-5 ${violations.length > 0 ? 'text-amber-500' : 'text-green-500'}`} />
+                                    Live Engine
+                                </h2>
+                                <div className="text-xs text-gray-400 mt-0.5 whitespace-nowrap">{violations.length} active flags</div>
+                            </div>
+                            
+                            <button 
+                                onClick={() => setEngineExpanded(!engineExpanded)}
+                                className={`bg-gray-800 border border-gray-700 rounded-full p-1.5 hover:bg-gray-700 text-gray-400 hover:text-white ${engineExpanded ? '' : 'absolute right-1 top-3'}`}
+                                title={engineExpanded ? "Minimize Live Engine" : "Expand Live Engine"}
+                            >
+                                {engineExpanded ? <ChevronRight className="w-4 h-4" /> : <AlertTriangle className={`w-4 h-4 ${violations.length > 0 ? 'text-amber-500' : 'text-gray-400'}`} />}
+                            </button>
                         </div>
                         
                         <div className={`flex-1 overflow-auto p-2 md:p-4 space-y-2 md:space-y-3 custom-scrollbar ${engineExpanded ? '' : 'invisible'}`}>
