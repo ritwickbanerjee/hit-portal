@@ -52,6 +52,11 @@ export async function middleware(req: NextRequest) {
             return NextResponse.next();
         }
 
+        // Allow public access to the master export API for Google Sheets Apps Script integration
+        if (req.nextUrl.pathname.match(/^\/api\/admin\/routine-maker\/[^\/]+\/export\/master$/)) {
+            return NextResponse.next();
+        }
+
         // 2. Check for the token in cookies OR headers
         let token = req.cookies.get('auth_token')?.value;
 
