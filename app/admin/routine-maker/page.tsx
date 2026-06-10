@@ -1108,6 +1108,31 @@ export default function RoutineMakerPage() {
                             <button onClick={() => { exportFacultyExcel(grid, faculties); setExportOpen(false); }} className="w-full text-left px-4 py-3 text-sm rounded hover:bg-gray-800 transition-colors flex items-center gap-3">
                                 <span className="p-1.5 bg-amber-500/20 text-amber-400 rounded"><Download className="w-4 h-4" /></span> Faculty Excel (Tabs)
                             </button>
+                            
+                            {currentRoutineId && (
+                                <div className="mt-4 p-3 bg-indigo-900/20 border border-indigo-800 rounded text-xs">
+                                    <div className="font-bold text-indigo-400 mb-1 flex items-center gap-1.5">
+                                        Google Sheets Apps Script URL:
+                                    </div>
+                                    <div className="text-gray-400 mb-2">Use this link in the Apps Script prompt to auto-sync this routine:</div>
+                                    <div className="flex gap-2">
+                                        <input 
+                                            readOnly
+                                            value={`${typeof window !== 'undefined' ? window.location.origin : ''}/api/admin/routine-maker/${currentRoutineId}/export/master`}
+                                            className="bg-black/50 border border-indigo-900 rounded p-1.5 w-full text-indigo-200"
+                                        />
+                                        <button 
+                                            onClick={() => {
+                                                navigator.clipboard.writeText(`${window.location.origin}/api/admin/routine-maker/${currentRoutineId}/export/master`);
+                                                toast.success("URL Copied!");
+                                            }}
+                                            className="shrink-0 bg-indigo-600 hover:bg-indigo-500 px-3 rounded text-white font-bold"
+                                        >
+                                            Copy
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
