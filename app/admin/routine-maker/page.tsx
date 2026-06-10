@@ -585,7 +585,7 @@ export default function RoutineMakerPage() {
                                         <div className="min-w-[1000px] lg:min-w-[1200px]">
                                             {/* Header */}
                                             <div className="flex border-b border-gray-800 bg-gray-950 sticky top-0 z-20 shadow-md">
-                                                <div className="w-16 md:w-24 shrink-0 p-2 border-r border-gray-800 flex items-center justify-center font-bold text-gray-500 text-[10px] md:text-xs tracking-wider bg-gray-950">DAY</div>
+                                                <div className="w-14 md:w-24 shrink-0 p-2 border-r border-gray-800 flex items-center justify-center font-bold text-gray-500 text-[10px] md:text-xs tracking-wider bg-gray-950 sticky left-0 z-20">DAY</div>
                                                 <div className="flex-1 grid grid-cols-9 divide-x divide-gray-800">
                                                     {TIME_LABELS.map((t, i) => (
                                                         <div key={i} className="p-1 md:p-2 text-center bg-gray-950">
@@ -597,7 +597,7 @@ export default function RoutineMakerPage() {
                                             </div>
 
                                             {/* Body */}
-                                            <div className="divide-y divide-gray-800 pb-20">
+                                            <div className="pb-20">
                                                 {DAYS.map((day, dIdx) => {
                                                     const isAlternate = dIdx % 2 !== 0;
                                                     const bgTint = isAlternate ? 'bg-gray-800/30' : 'bg-gray-900/50';
@@ -617,9 +617,9 @@ export default function RoutineMakerPage() {
                                                     }
 
                                                     return (
-                                                        <div key={day} className={`flex relative ${bgTint}`}>
-                                                            <div className="w-16 md:w-24 shrink-0 p-1 md:p-3 flex flex-col items-center justify-center border-r border-gray-800 bg-black/20 relative">
-                                                                <span className="font-bold text-[10px] md:text-sm tracking-widest -rotate-90 uppercase text-gray-500 md:mt-6 whitespace-nowrap">{day.slice(0,3)}</span>
+                                                        <div key={day} className={`flex relative ${bgTint} ${dIdx > 0 ? 'border-t-[3px] border-t-indigo-500/40' : ''}`}>
+                                                            <div className="w-14 md:w-24 shrink-0 p-1 md:p-3 flex flex-col items-center justify-center border-r border-gray-800 bg-black/20 relative sticky left-0 z-10">
+                                                                <span className="font-bold text-[9px] md:text-sm tracking-widest -rotate-90 uppercase text-gray-400 md:mt-6 whitespace-nowrap">{day.slice(0,3)}</span>
                                                                 {!selectedFacultyFilter && (
                                                                     <button onClick={() => addRow(day)} className="mt-auto p-1 bg-gray-800 hover:bg-gray-700 rounded tooltip opacity-50 hover:opacity-100" title="Add Parallel Row">
                                                                         <Plus className="w-3 h-3 md:w-4 md:h-4" />
@@ -638,7 +638,7 @@ export default function RoutineMakerPage() {
                                                                             return (
                                                                                 <div 
                                                                                     key={pIdx}
-                                                                                    className={`min-h-[70px] md:min-h-[85px] p-0.5 md:p-1 relative transition-all`}
+                                                                                    className={`min-h-[50px] md:min-h-[85px] p-0.5 md:p-1 relative transition-all`}
                                                                                     onDragOver={(e) => e.preventDefault()}
                                                                                     onDrop={(e) => handleDrop(e, day, row.id, pIdx)}
                                                                                     onContextMenu={(e) => handleContextMenu(e, day, row.id, pIdx)}
@@ -780,8 +780,56 @@ export default function RoutineMakerPage() {
                             <div className="max-w-3xl mx-auto space-y-6">
                                 <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 md:p-6">
                                     <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><Settings className="text-indigo-400"/> Load Matrix Mapping Rules</h2>
-                                    <p className="text-sm text-gray-400 mb-6">Rules are evaluated top to bottom. First match applies. If no match, defaults to 1L.</p>
+                                    <p className="text-sm text-gray-400 mb-4">Rules are evaluated top to bottom. First match applies. If no match, defaults to <span className="font-mono font-bold text-white bg-gray-800 px-1 rounded">1L</span>.</p>
                                     
+                                    {/* Examples / Help Section */}
+                                    <div className="bg-gray-800/60 border border-gray-700/50 rounded-lg p-4 mb-6">
+                                        <h3 className="text-sm font-bold text-indigo-400 mb-3">📖 How Mapping Rules Work</h3>
+                                        <p className="text-xs text-gray-400 mb-3">Each rule matches the <span className="font-mono text-white">"starts with"</span> field against the raw course string from the routine. The raw string is built as: <span className="font-mono text-amber-300">TYPE/COURSE_CODE</span> (e.g., <span className="font-mono text-green-400">T1/MTH1201</span>, <span className="font-mono text-green-400">P/MTH2252</span>, <span className="font-mono text-green-400">MTH2202</span>).</p>
+                                        <div className="text-xs font-bold text-gray-300 mb-2">Example Mappings:</div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                                            <div className="flex items-center gap-2 bg-gray-900/50 rounded px-3 py-2">
+                                                <span className="font-mono text-cyan-400 w-28 shrink-0">MTH1101</span>
+                                                <span className="text-gray-500">→</span>
+                                                <span className="font-mono font-bold text-white">1L</span>
+                                                <span className="text-gray-500 ml-auto">(1st yr Lecture)</span>
+                                            </div>
+                                            <div className="flex items-center gap-2 bg-gray-900/50 rounded px-3 py-2">
+                                                <span className="font-mono text-cyan-400 w-28 shrink-0">MTH1201</span>
+                                                <span className="text-gray-500">→</span>
+                                                <span className="font-mono font-bold text-white">2L</span>
+                                                <span className="text-gray-500 ml-auto">(2nd yr Lecture)</span>
+                                            </div>
+                                            <div className="flex items-center gap-2 bg-gray-900/50 rounded px-3 py-2">
+                                                <span className="font-mono text-cyan-400 w-28 shrink-0">T1/MTH</span>
+                                                <span className="text-gray-500">→</span>
+                                                <span className="font-mono font-bold text-white">2T</span>
+                                                <span className="text-gray-500 ml-auto">(Tutorial group)</span>
+                                            </div>
+                                            <div className="flex items-center gap-2 bg-gray-900/50 rounded px-3 py-2">
+                                                <span className="font-mono text-cyan-400 w-28 shrink-0">P/MTH2252</span>
+                                                <span className="text-gray-500">→</span>
+                                                <span className="font-mono font-bold text-white">4P</span>
+                                                <span className="text-gray-500 ml-auto">(Practical, 0.5 load)</span>
+                                            </div>
+                                            <div className="flex items-center gap-2 bg-gray-900/50 rounded px-3 py-2">
+                                                <span className="font-mono text-cyan-400 w-28 shrink-0">MTH5</span>
+                                                <span className="text-gray-500">→</span>
+                                                <span className="font-mono font-bold text-white">M1</span>
+                                                <span className="text-gray-500 ml-auto">(M.Tech 1st yr)</span>
+                                            </div>
+                                            <div className="flex items-center gap-2 bg-gray-900/50 rounded px-3 py-2">
+                                                <span className="font-mono text-cyan-400 w-28 shrink-0">CBS</span>
+                                                <span className="text-gray-500">→</span>
+                                                <span className="font-mono font-bold text-white">3P</span>
+                                                <span className="text-gray-500 ml-auto">(Practical, 0.5 load)</span>
+                                            </div>
+                                        </div>
+                                        <div className="mt-3 text-[10px] text-gray-500 border-t border-gray-700 pt-2">
+                                            <strong>Load Calculation:</strong> 2L/4L/6L/8L/M1/M2/1L = <span className="text-green-400">+1 load</span> each  •  4P/3P = <span className="text-amber-400">+0.5 load</span> each  •  2T = <span className="text-blue-400">counted as tutorial</span>
+                                        </div>
+                                    </div>
+
                                     <div className="space-y-2 mb-6">
                                         {mappingRules.map((rule, idx) => (
                                             <div key={idx} className="flex items-center gap-2 md:gap-3">
@@ -789,12 +837,12 @@ export default function RoutineMakerPage() {
                                                 <input value={rule.startsWith} onChange={(e) => {
                                                     const nr = [...mappingRules]; nr[idx].startsWith = e.target.value;
                                                     setMappingRules(nr); setHasUnsavedChanges(true);
-                                                }} className="bg-gray-800 border border-gray-700 rounded px-2 md:px-3 py-1.5 flex-1 outline-none font-mono text-sm w-full min-w-0" />
+                                                }} className="bg-gray-800 border border-gray-700 rounded px-2 md:px-3 py-1.5 flex-1 outline-none font-mono text-sm w-full min-w-0" placeholder="e.g. MTH1201 or T1/MTH" />
                                                 <div className="text-xs md:text-sm text-gray-500 shrink-0">→ map</div>
                                                 <input value={rule.mapsTo} onChange={(e) => {
                                                     const nr = [...mappingRules]; nr[idx].mapsTo = e.target.value;
                                                     setMappingRules(nr); setHasUnsavedChanges(true);
-                                                }} className="bg-gray-800 border border-gray-700 rounded px-2 md:px-3 py-1.5 w-16 md:w-24 outline-none font-bold text-center shrink-0" />
+                                                }} className="bg-gray-800 border border-gray-700 rounded px-2 md:px-3 py-1.5 w-16 md:w-24 outline-none font-bold text-center shrink-0" placeholder="e.g. 2L" />
                                                 <button onClick={() => {
                                                     setMappingRules(mappingRules.filter((_, i) => i !== idx)); setHasUnsavedChanges(true);
                                                 }} className="p-1.5 text-gray-500 hover:text-red-400 shrink-0"><Trash2 className="w-4 h-4"/></button>
@@ -802,7 +850,7 @@ export default function RoutineMakerPage() {
                                         ))}
                                     </div>
                                     <button onClick={() => {
-                                        setMappingRules([...mappingRules, { startsWith: 'NEW', mapsTo: '1L' }]); setHasUnsavedChanges(true);
+                                        setMappingRules([...mappingRules, { startsWith: '', mapsTo: '1L' }]); setHasUnsavedChanges(true);
                                     }} className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded text-sm w-full justify-center">
                                         <Plus className="w-4 h-4" /> Add Rule
                                     </button>
@@ -965,7 +1013,7 @@ export default function RoutineMakerPage() {
                                 <span className="p-1.5 bg-blue-500/20 text-blue-400 rounded"><Download className="w-4 h-4" /></span> Master CSV
                             </button>
                             <button onClick={() => { exportDeptCourseCSV(grid); setExportOpen(false); }} className="w-full text-left px-4 py-3 text-sm rounded hover:bg-gray-800 transition-colors flex items-center gap-3">
-                                <span className="p-1.5 bg-purple-500/20 text-purple-400 rounded"><Download className="w-4 h-4" /></span> Dept & Course View
+                                <span className="p-1.5 bg-purple-500/20 text-purple-400 rounded"><Download className="w-4 h-4" /></span> Dept & Course Excel
                             </button>
                             <button onClick={() => { exportLoadMatrixCSV(grid, faculties, mappingRules); setExportOpen(false); }} className="w-full text-left px-4 py-3 text-sm rounded hover:bg-gray-800 transition-colors flex items-center gap-3">
                                 <span className="p-1.5 bg-green-500/20 text-green-400 rounded"><Download className="w-4 h-4" /></span> Load Matrix CSV

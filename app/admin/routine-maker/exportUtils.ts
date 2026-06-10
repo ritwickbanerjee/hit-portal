@@ -4,7 +4,6 @@ import Papa from 'papaparse';
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 const DAY_MARKS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'];
 const TIME_LABELS = ['9:00 AM - 10:00 AM', '10:00 AM - 11:00 AM', '11:00 AM - 12:00 PM', '12:00 PM - 1:00 PM', '1:00 PM - 2:00 PM', '2:00 PM - 3:00 PM', '3:00 PM - 4:00 PM', '4:00 PM - 5:00 PM', '5:00 PM - 6:00 PM'];
-const COLORS = ["#FFDAB9", "#E6E6FA", "#E0FFFF", "#F0FFF0", "#FFFACD", "#F5DEB3", "#D8BFD8", "#F5F5DC"];
 
 function processInfo(slot: any): string {
     if (!slot) return '';
@@ -79,66 +78,175 @@ export function exportMasterCSV(grid: GridState) {
     downloadCSV(Papa.unparse(rows), 'Master_Routine.csv');
 }
 
-export function exportDeptCourseCSV(grid: GridState) {
-    const data: any[] = [];
-    
+/* ========================================================================
+   DEPT & COURSE VIEW — Excel export with merging + alternating colors
+   Mirrors the AppScript generateDeptCourseMapping exactly
+   ======================================================================== */
+export async function exportDeptCourseCSV(grid: GridState) {
+    const ExcelJS = await import('exceljs');
+    const Workbook = ExcelJS.Workbook || ExcelJS.default?.Workbook;
+    const workbook = new Workbook();
+    const sheet = workbook.addWorksheet('Dept-Course View');
+
+    // Gather data
+    const flatData: string[][] = [];
     DAYS.forEach(day => {
         const dayRows = grid[day] || [];
         dayRows.forEach(row => {
             row.slots.forEach((slot, idx) => {
                 if (!slot || !slot.faculty) return;
-                data.push({
-                    Department: slot.dept,
-                    Course: slot.course,
-                    Faculty: slot.faculty,
-                    Day: day,
-                    TimeSlot: TIME_LABELS[idx],
-                    ClassType: slot.type,
-                    Room: slot.room,
-                    RawString: `${slot.type}/${slot.course}/${slot.dept}/${slot.room}`
-                });
+                
+                let rawStr = `${slot.type}/${slot.course}/${slot.dept}/${slot.room}`;
+                flatData.push([
+                    slot.dept || '',
+                    slot.course || '',
+                    slot.faculty,
+                    day,
+                    TIME_LABELS[idx],
+                    slot.type,
+                    slot.room || '',
+                    rawStr
+                ]);
             });
         });
     });
 
-    data.sort((a, b) => {
-        if (a.Department !== b.Department) return a.Department.localeCompare(b.Department);
-        if (a.Course !== b.Course) return a.Course.localeCompare(b.Course);
+    // Sort by Department then Course
+    flatData.sort((a, b) => {
+        const deptA = a[0].toLowerCase(), deptB = b[0].toLowerCase();
+        if (deptA < deptB) return -1;
+        if (deptA > deptB) return 1;
+        const courseA = a[1].toLowerCase(), courseB = b[1].toLowerCase();
+        if (courseA < courseB) return -1;
+        if (courseA > courseB) return 1;
         return 0;
     });
 
-    downloadCSV(Papa.unparse(data), 'Dept_Course_View.csv');
+    const headers = ['Department', 'Course', 'Faculty', 'Day', 'Time Slot', 'Class Type', 'Room', 'Raw Detail String'];
+
+    // Write header
+    const headerRow = sheet.getRow(1);
+    headerRow.values = headers;
+    headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    for (let c = 1; c <= 8; c++) {
+        headerRow.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4A86E8' } };
+        headerRow.getCell(c).border = { top: { style: 'thin', color: { argb: 'FFCCCCCC' } }, left: { style: 'thin', color: { argb: 'FFCCCCCC' } }, bottom: { style: 'thin', color: { argb: 'FFCCCCCC' } }, right: { style: 'thin', color: { argb: 'FFCCCCCC' } } };
+    }
+
+    // Write data with alternating dept colors
+    let currentDept = '';
+    let colorToggle = false;
+    const color1 = 'FFFFFFFF'; // white
+    const color2 = 'FFF1F8FF'; // light blue
+
+    flatData.forEach((rowData, i) => {
+        if (rowData[0] !== currentDept) {
+            currentDept = rowData[0];
+            colorToggle = !colorToggle;
+        }
+        const excelRow = sheet.getRow(i + 2);
+        excelRow.values = rowData;
+        const bgColor = colorToggle ? color1 : color2;
+        for (let c = 1; c <= 8; c++) {
+            excelRow.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } };
+            excelRow.getCell(c).border = { top: { style: 'thin', color: { argb: 'FFCCCCCC' } }, left: { style: 'thin', color: { argb: 'FFCCCCCC' } }, bottom: { style: 'thin', color: { argb: 'FFCCCCCC' } }, right: { style: 'thin', color: { argb: 'FFCCCCCC' } } };
+        }
+    });
+
+    // Merge Department column (Col 1)
+    let startR = 2;
+    for (let r = 2; r <= flatData.length + 2; r++) {
+        const isEnd = r === flatData.length + 2;
+        const currVal = isEnd ? null : flatData[r - 2][0];
+        const prevVal = flatData[startR - 2][0];
+        if (isEnd || currVal !== prevVal) {
+            if (r - startR > 1) {
+                sheet.mergeCells(startR, 1, r - 1, 1);
+                sheet.getCell(startR, 1).alignment = { vertical: 'middle', horizontal: 'center' };
+            }
+            startR = r;
+        }
+    }
+
+    // Merge Course column (Col 2) within same dept
+    startR = 2;
+    for (let r = 2; r <= flatData.length + 2; r++) {
+        const isEnd = r === flatData.length + 2;
+        const currKey = isEnd ? null : flatData[r - 2][0] + '|' + flatData[r - 2][1];
+        const prevKey = flatData[startR - 2][0] + '|' + flatData[startR - 2][1];
+        if (isEnd || currKey !== prevKey) {
+            if (r - startR > 1) {
+                sheet.mergeCells(startR, 2, r - 1, 2);
+                sheet.getCell(startR, 2).alignment = { vertical: 'middle', horizontal: 'center' };
+            }
+            startR = r;
+        }
+    }
+
+    // Auto-width columns
+    sheet.columns = [
+        { width: 16 }, { width: 16 }, { width: 10 }, { width: 14 },
+        { width: 24 }, { width: 12 }, { width: 10 }, { width: 30 }
+    ];
+
+    // Freeze header
+    sheet.views = [{ state: 'frozen', ySplit: 1 }];
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    saveBlob(new Blob([buffer]), 'Dept_Course_View.xlsx');
 }
 
+/* ========================================================================
+   LOAD MATRIX CSV — Matches Sheet2 of the AppScript fillLoadMatrix format exactly.
+   
+   Row 1: empty header row
+   Row 2: empty
+   Row 3: header → Col B = empty, Col C = empty, Col D = empty, Col E..AW = time slot labels for 45 slots
+   Row 4..N: faculty rows → Col B = faculty code, Col E..AW = mapped load codes, Col AX..BG = stats
+   ======================================================================== */
 export function exportLoadMatrixCSV(grid: GridState, faculties: FacultyData[], mappingRules: { startsWith: string, mapsTo: string }[]) {
-    const rows: any[] = [];
+    // Build header row matching Sheet2
+    // Columns: A(0), B(1)="Faculty", C(2)="", D(3)="", E(4)..AW(48) = 45 time slot headers
+    // Then AX(49)="Total Slots", AY(50)="Calculated Load", AZ(51)="T1 Count", BA(52)="P Count",
+    //       BB(53)="", BC(54)="Total Classes", BD(55)="Total Load", BE(56)="Lecture+Tutorial", BF(57)="Higher Sem Only", BG(58)="M1+M2"
     
-    // Create header row
-    const header = Array(60).fill('');
-    header[1] = 'Faculty List';
-    for (let i = 0; i < 45; i++) header[4 + i] = `Slot ${i + 1}`; // E to AW is 4 to 48 (45 cols)
-    header[49] = 'Total Slots'; // AX
-    header[50] = 'Calculated Load'; // AY
-    header[51] = 'T1 Count'; // AZ
-    header[52] = 'P Count'; // BA
-    header[53] = ''; // BB
-    header[54] = 'BC'; // BC
-    header[55] = 'BD'; // BD
-    header[56] = 'BE'; // BE
-    header[57] = 'BF'; // BF
-    header[58] = 'BG'; // BG
+    const rows: any[][] = [];
+    
+    // Row 1 and 2: empty / title rows matching sheet
+    rows.push([]); // Row 1
+    rows.push([]); // Row 2
 
-    rows.push(header);
+    // Row 3: Header
+    const headerRow: any[] = new Array(59).fill('');
+    headerRow[1] = 'Faculty List';
+    // Generate 45 slot headers: Mon P1..P9, Tue P1..P9, ..., Fri P1..P9
+    const dayAbbrevs = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+    for (let d = 0; d < 5; d++) {
+        for (let p = 0; p < 9; p++) {
+            headerRow[4 + d * 9 + p] = `${dayAbbrevs[d]} P${p + 1}`;
+        }
+    }
+    headerRow[49] = 'Total Slots';
+    headerRow[50] = 'Calculated Load';
+    headerRow[51] = 'T1 Count';
+    headerRow[52] = 'P Count';
+    headerRow[53] = '';
+    headerRow[54] = 'Total Classes';
+    headerRow[55] = 'Total Load';
+    headerRow[56] = 'Lecture+Tutorial';
+    headerRow[57] = 'Higher Sem Only';
+    headerRow[58] = 'M1+M2';
+    rows.push(headerRow);
 
     faculties.forEach(fac => {
-        const row = Array(60).fill('');
+        const row: any[] = new Array(59).fill('');
         row[1] = fac.code; // B
 
         let totalSlots = 0;
         let loadCount = 0;
         let pureLCount = 0;
         let t1Count = 0;
-        let p3Count = 0;
+        let pCount = 0;
         let l1Count = 0;
         let m12 = 0;
 
@@ -151,21 +259,17 @@ export function exportLoadMatrixCSV(grid: GridState, faculties: FacultyData[], m
                 
                 if (periodSlots.length > 0) {
                     const slot = periodSlots[0]; // Take first match if parallel
-                    if (!slot) continue;
+                    if (!slot) { slotIdx++; continue; }
                     let rawStr = `${slot.course}`;
                     if (slot.type === 'T1' || slot.type === 'T2') rawStr = `${slot.type}/${slot.course}`;
                     if (slot.type === 'P') rawStr = `P/${slot.course}`;
 
                     // Apply mapping rules
                     let mapped = '';
-                    if (rawStr.startsWith('MTH2252')) {
-                        mapped = '4P';
-                    } else {
-                        for (const rule of mappingRules) {
-                            if (rawStr.startsWith(rule.startsWith)) {
-                                mapped = rule.mapsTo;
-                                break;
-                            }
+                    for (const rule of mappingRules) {
+                        if (rawStr.startsWith(rule.startsWith)) {
+                            mapped = rule.mapsTo;
+                            break;
                         }
                     }
 
@@ -174,36 +278,41 @@ export function exportLoadMatrixCSV(grid: GridState, faculties: FacultyData[], m
                     row[slotIdx] = mapped;
                     totalSlots++;
 
-                    if (['2L','4L','6L','8L','M1','M2'].includes(mapped)) {
+                    // Count logic matching AppScript exactly
+                    if (['2L', '4L', '6L', '8L', 'M1', 'M2'].includes(mapped)) {
                         loadCount += 1;
-                        pureLCount += 1; 
+                        pureLCount += 1;
+                    }
+                    if (mapped === '1L') {
+                        loadCount += 1;
+                        l1Count++;
                     }
                     if (mapped === '4P' || mapped === '3P') {
                         loadCount += 0.5;
-                        p3Count++;
+                        pCount++;
                     }
                     if (mapped === '2T') t1Count++;
-                    if (mapped === '2L') l1Count++;
-                    if (['M1','M2'].includes(mapped)) m12++;
+                    if (['M1', 'M2'].includes(mapped)) m12++;
                 }
                 slotIdx++;
             }
         });
 
-        const bc = pureLCount + t1Count + p3Count;
-        const bd = loadCount + t1Count;
-        const be = l1Count + t1Count;
-        const bf = bd - be - m12;
+        const totalClasses = pureLCount + l1Count + t1Count + pCount;
+        const totalLoad = loadCount + t1Count;
+        const lecturePlusTutorial = l1Count + t1Count;
+        const higherSemOnly = totalLoad - lecturePlusTutorial - m12;
 
-        row[49] = totalSlots; // AX
-        row[50] = loadCount;  // AY
-        row[51] = t1Count;    // AZ
-        row[52] = p3Count;    // BA
-        row[54] = bc;         // BC
-        row[55] = bd;         // BD
-        row[56] = be;         // BE
-        row[57] = bf;         // BF
-        row[58] = m12;        // BG
+        row[49] = totalSlots;       // AX
+        row[50] = loadCount;        // AY
+        row[51] = t1Count;          // AZ
+        row[52] = pCount;           // BA
+        row[53] = '';               // BB (empty)
+        row[54] = totalClasses;     // BC
+        row[55] = totalLoad;        // BD
+        row[56] = lecturePlusTutorial; // BE
+        row[57] = higherSemOnly;    // BF
+        row[58] = m12;             // BG
 
         rows.push(row);
     });
@@ -211,15 +320,18 @@ export function exportLoadMatrixCSV(grid: GridState, faculties: FacultyData[], m
     downloadCSV(Papa.unparse(rows), 'Load_Matrix.csv');
 }
 
+/* ========================================================================
+   FACULTY EXCEL — One worksheet tab per faculty with exact template format,
+   T1/T2 color highlighting, headers, footers, and stats.
+   ======================================================================== */
 export async function exportFacultyExcel(grid: GridState, faculties: FacultyData[]) {
-    // Dynamically import to keep bundle small
-    const ExcelJS = (await import('exceljs')).default;
-    const { saveAs } = await import('file-saver');
-
-    const workbook = new ExcelJS.Workbook();
+    // Dynamic import — handle both ESM default and named exports
+    const ExcelJS = await import('exceljs');
+    const Workbook = ExcelJS.Workbook || ExcelJS.default?.Workbook;
+    const workbook = new Workbook();
     
-    // The exact COLORS used in the user's app script
-    const COLORS = [
+    // Pastel COLORS for T1/T2 pair highlighting
+    const PAIR_COLORS = [
       "FFDAB9", "E6E6FA", "E0FFFF", "F0FFF0",
       "FFFACD", "F5DEB3", "D8BFD8", "F5F5DC"
     ];
@@ -242,6 +354,7 @@ export async function exportFacultyExcel(grid: GridState, faculties: FacultyData
             { width: 22 }, // K: P9
         ];
 
+        // Row 1: Institution name + Faculty code
         sheet.mergeCells('A1:H1');
         sheet.getCell('A1').value = 'Heritage Institute of Technology';
         sheet.getCell('A1').font = { bold: true, size: 14 };
@@ -252,13 +365,14 @@ export async function exportFacultyExcel(grid: GridState, faculties: FacultyData
         sheet.getCell('I1').font = { bold: true, size: 12 };
         sheet.getCell('I1').alignment = { horizontal: 'right' };
 
+        // Row 2: TIME TABLE + stats placeholder
         sheet.mergeCells('A2:H2');
         sheet.getCell('A2').value = 'TIME TABLE';
         sheet.getCell('A2').font = { bold: true, size: 12 };
         sheet.getCell('A2').alignment = { horizontal: 'center' };
+        sheet.mergeCells('I2:K2');
 
-        sheet.mergeCells('I2:K2'); // Will fill stats here later
-
+        // Row 3: B.Tech/M.Tech/MCA + SESSION
         sheet.mergeCells('A3:I3');
         sheet.getCell('A3').value = 'B.Tech/M.Tech/MCA';
         sheet.getCell('A3').font = { bold: true };
@@ -267,6 +381,7 @@ export async function exportFacultyExcel(grid: GridState, faculties: FacultyData
         sheet.getCell('J3').font = { bold: true };
         sheet.getCell('J3').alignment = { horizontal: 'right' };
 
+        // Row 4: Time slot headers
         const headerRow = sheet.getRow(4);
         headerRow.values = ['DAY', '', ...TIME_LABELS];
         headerRow.font = { bold: true };
@@ -276,7 +391,7 @@ export async function exportFacultyExcel(grid: GridState, faculties: FacultyData
         }
 
         let rowIndex = 5;
-        const matchData: any[] = [];
+        const matchData: { tag: string; key: string; cell: any }[] = [];
         let lCount = 0;
         let t1Count = 0;
 
@@ -285,20 +400,19 @@ export async function exportFacultyExcel(grid: GridState, faculties: FacultyData
             
             const row1 = sheet.getRow(rowIndex);
             const row2 = sheet.getRow(rowIndex + 1);
-            
-            // Set row heights to accommodate wrapText
             row1.height = 35;
             row2.height = 35;
 
+            // Day label (merged vertically)
             row1.getCell(1).value = DAY_MARKS[dIdx].substring(0, 3);
             sheet.mergeCells(`A${rowIndex}:A${rowIndex + 1}`);
             sheet.getCell(`A${rowIndex}`).alignment = { vertical: 'middle', horizontal: 'center', textRotation: 90 };
             sheet.getCell(`A${rowIndex}`).font = { bold: true };
 
+            // Group labels
             row1.getCell(2).value = 'Gr. 1';
             row1.getCell(2).alignment = { vertical: 'middle', horizontal: 'center' };
             row1.getCell(2).font = { bold: true };
-            
             row2.getCell(2).value = 'Gr. 2';
             row2.getCell(2).alignment = { vertical: 'middle', horizontal: 'center' };
             row2.getCell(2).font = { bold: true };
@@ -307,6 +421,7 @@ export async function exportFacultyExcel(grid: GridState, faculties: FacultyData
                 const periodSlots = dayRows.map(r => r.slots[p]).filter(s => s && s.faculty === fac.code);
                 
                 if (periodSlots.length > 0) {
+                    // Gr. 1 slot
                     const slot1 = periodSlots[0];
                     if (slot1) {
                         const info1 = processInfo(slot1);
@@ -315,14 +430,14 @@ export async function exportFacultyExcel(grid: GridState, faculties: FacultyData
                         cell1.alignment = { wrapText: true, horizontal: 'center', vertical: 'middle' };
 
                         if (slot1.type === 'T1' || slot1.type === 'T2') {
-                            const key = slot1.course.replace(/[^A-Za-z0-9]/g, '');
-                            matchData.push({ tag: slot1.type, key: key, cell: cell1 });
+                            matchData.push({ tag: slot1.type, key: slot1.course.replace(/[^A-Za-z0-9]/g, ''), cell: cell1 });
                             if (slot1.type === 'T1') t1Count++;
                         } else {
                             lCount++;
                         }
                     }
 
+                    // Gr. 2 slot
                     if (periodSlots.length > 1) {
                         const slot2 = periodSlots[1];
                         if (slot2) {
@@ -332,8 +447,7 @@ export async function exportFacultyExcel(grid: GridState, faculties: FacultyData
                             cell2.alignment = { wrapText: true, horizontal: 'center', vertical: 'middle' };
 
                             if (slot2.type === 'T1' || slot2.type === 'T2') {
-                                const key = slot2.course.replace(/[^A-Za-z0-9]/g, '');
-                                matchData.push({ tag: slot2.type, key: key, cell: cell2 });
+                                matchData.push({ tag: slot2.type, key: slot2.course.replace(/[^A-Za-z0-9]/g, ''), cell: cell2 });
                                 if (slot2.type === 'T1') t1Count++;
                             } else {
                                 lCount++;
@@ -343,6 +457,7 @@ export async function exportFacultyExcel(grid: GridState, faculties: FacultyData
                 }
             }
 
+            // Borders for both rows
             for (let c = 1; c <= 11; c++) {
                 row1.getCell(c).border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
                 row2.getCell(c).border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
@@ -353,7 +468,6 @@ export async function exportFacultyExcel(grid: GridState, faculties: FacultyData
 
         // Footers
         rowIndex++; 
-        
         sheet.mergeCells(`A${rowIndex}:K${rowIndex}`);
         sheet.getCell(`A${rowIndex}`).value = 'To be Effective from 20.07.2026';
         sheet.getCell(`A${rowIndex}`).font = { bold: true };
@@ -369,18 +483,17 @@ export async function exportFacultyExcel(grid: GridState, faculties: FacultyData
         sheet.getCell(`A${rowIndex}`).font = { bold: true };
         rowIndex += 2;
 
+        // Signature line
         sheet.getCell(`C${rowIndex}`).value = 'Member';
         sheet.getCell(`F${rowIndex}`).value = 'HOD';
         sheet.getCell(`J${rowIndex}`).value = 'Principal';
-        sheet.getCell(`C${rowIndex}`).font = { bold: true };
-        sheet.getCell(`F${rowIndex}`).font = { bold: true };
-        sheet.getCell(`J${rowIndex}`).font = { bold: true };
-        sheet.getCell(`C${rowIndex}`).alignment = { horizontal: 'center' };
-        sheet.getCell(`F${rowIndex}`).alignment = { horizontal: 'center' };
-        sheet.getCell(`J${rowIndex}`).alignment = { horizontal: 'right' };
+        ['C', 'F', 'J'].forEach(col => {
+            sheet.getCell(`${col}${rowIndex}`).font = { bold: true };
+            sheet.getCell(`${col}${rowIndex}`).alignment = { horizontal: 'center' };
+        });
 
-        // Highlight T1/T2 pairs
-        const used = new Set();
+        // T1/T2 pair color highlighting
+        const used = new Set<number>();
         let colorIndex = 0;
 
         matchData.forEach((t1, i) => {
@@ -390,7 +503,7 @@ export async function exportFacultyExcel(grid: GridState, faculties: FacultyData
                 );
                 if (t2Index !== -1) {
                     const t2 = matchData[t2Index];
-                    const colorHex = COLORS[colorIndex % COLORS.length];
+                    const colorHex = PAIR_COLORS[colorIndex % PAIR_COLORS.length];
                     t1.cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + colorHex } };
                     t2.cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + colorHex } };
                     used.add(i);
@@ -400,15 +513,19 @@ export async function exportFacultyExcel(grid: GridState, faculties: FacultyData
             }
         });
         
+        // Stats in header row 2
         sheet.getCell('I2').value = `L: ${lCount}  |  T1: ${t1Count}  |  Total Load: ${lCount + t1Count}`;
         sheet.getCell('I2').font = { bold: true, size: 10, italic: true };
         sheet.getCell('I2').alignment = { horizontal: 'right' };
     });
 
     const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(new Blob([buffer]), 'Faculty_Routines.xlsx');
+    saveBlob(new Blob([buffer]), 'Faculty_Routines.xlsx');
 }
 
+/* ========================================================================
+   UTILITIES
+   ======================================================================== */
 function downloadCSV(csv: string, filename: string) {
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
@@ -419,4 +536,16 @@ function downloadCSV(csv: string, filename: string) {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+}
+
+function saveBlob(blob: Blob, filename: string) {
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
 }
