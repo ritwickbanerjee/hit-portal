@@ -1131,6 +1131,17 @@ export default function RoutineMakerPage() {
                                             Copy
                                         </button>
                                     </div>
+                                    <div className="mt-3">
+                                        <a 
+                                            href="https://docs.google.com/spreadsheets/d/1KwiRB4aGNhrSstNtuCuHUUQC_Zh2Ja1QIfP1zIHHDFM/edit?gid=0#gid=0" 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            className="block w-full text-center py-2 bg-green-600 hover:bg-green-500 rounded text-white font-semibold transition-colors flex items-center justify-center gap-2"
+                                        >
+                                            <ExternalLink className="w-4 h-4" />
+                                            Open Master Google Sheet
+                                        </a>
+                                    </div>
                                 </div>
                             )}
                         </div>
