@@ -525,18 +525,10 @@ export default function RoutineMakerPage() {
                         <div className="flex items-center group relative z-50">
                             <button 
                                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs md:text-sm bg-gray-800 rounded hover:bg-gray-700 whitespace-nowrap"
-                                onClick={() => setExportOpen(!exportOpen)}
+                                onClick={() => setExportOpen(true)}
                             >
                                 <Download className="w-3 h-3 md:w-4 md:h-4" /> Export
                             </button>
-                            {exportOpen && (
-                                <div className="absolute top-full right-0 mt-1 w-48 bg-gray-800 border border-gray-700 rounded shadow-xl z-[60]">
-                                    <button onClick={() => { exportMasterCSV(grid); setExportOpen(false); }} className="w-full text-left px-4 py-3 text-sm hover:bg-gray-700">Master CSV</button>
-                                    <button onClick={() => { exportDeptCourseCSV(grid); setExportOpen(false); }} className="w-full text-left px-4 py-3 text-sm hover:bg-gray-700">Dept & Course View</button>
-                                    <button onClick={() => { exportLoadMatrixCSV(grid, faculties, mappingRules); setExportOpen(false); }} className="w-full text-left px-4 py-3 text-sm hover:bg-gray-700">Load Matrix CSV</button>
-                                    <button onClick={() => { exportFacultyCSVs(grid, faculties); setExportOpen(false); }} className="w-full text-left px-4 py-3 text-sm hover:bg-gray-700">Faculty CSVs</button>
-                                </div>
-                            )}
                         </div>
                     </div>
 
@@ -953,6 +945,34 @@ export default function RoutineMakerPage() {
                                     setCellModal(null);
                                 }}
                             />
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* EXPORT MODAL */}
+            {exportOpen && (
+                <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4">
+                    <div className="bg-gray-900 border border-gray-700 rounded-lg shadow-2xl w-full max-w-sm flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+                        <div className="flex justify-between items-center p-4 border-b border-gray-800 bg-gray-950">
+                            <h3 className="font-bold flex items-center gap-2"><Download className="w-4 h-4 text-indigo-400" /> Export Options</h3>
+                            <button onClick={() => setExportOpen(false)} className="text-gray-500 hover:text-white transition-colors">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div className="p-2 flex flex-col gap-1">
+                            <button onClick={() => { exportMasterCSV(grid); setExportOpen(false); }} className="w-full text-left px-4 py-3 text-sm rounded hover:bg-gray-800 transition-colors flex items-center gap-3">
+                                <span className="p-1.5 bg-blue-500/20 text-blue-400 rounded"><Download className="w-4 h-4" /></span> Master CSV
+                            </button>
+                            <button onClick={() => { exportDeptCourseCSV(grid); setExportOpen(false); }} className="w-full text-left px-4 py-3 text-sm rounded hover:bg-gray-800 transition-colors flex items-center gap-3">
+                                <span className="p-1.5 bg-purple-500/20 text-purple-400 rounded"><Download className="w-4 h-4" /></span> Dept & Course View
+                            </button>
+                            <button onClick={() => { exportLoadMatrixCSV(grid, faculties, mappingRules); setExportOpen(false); }} className="w-full text-left px-4 py-3 text-sm rounded hover:bg-gray-800 transition-colors flex items-center gap-3">
+                                <span className="p-1.5 bg-green-500/20 text-green-400 rounded"><Download className="w-4 h-4" /></span> Load Matrix CSV
+                            </button>
+                            <button onClick={() => { exportFacultyCSVs(grid, faculties); setExportOpen(false); }} className="w-full text-left px-4 py-3 text-sm rounded hover:bg-gray-800 transition-colors flex items-center gap-3">
+                                <span className="p-1.5 bg-amber-500/20 text-amber-400 rounded"><Download className="w-4 h-4" /></span> Faculty CSVs
+                            </button>
                         </div>
                     </div>
                 </div>
