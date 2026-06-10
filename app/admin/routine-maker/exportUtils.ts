@@ -137,6 +137,7 @@ export function exportLoadMatrixCSV(grid: GridState, faculties: FacultyData[], m
                 
                 if (periodSlots.length > 0) {
                     const slot = periodSlots[0]; // Take first match if parallel
+                    if (!slot) continue;
                     let rawStr = `${slot.course}`;
                     if (slot.type === 'T1' || slot.type === 'T2') rawStr = `${slot.type}/${slot.course}`;
                     if (slot.type === 'P') rawStr = `P/${slot.course}`;
