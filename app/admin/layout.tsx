@@ -178,7 +178,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             )}
 
             {/* Sidebar */}
-            <div className={`fixed inset-y-0 left-0 z-40 w-64 bg-slate-900/95 backdrop-blur-xl border-r border-white/5 transform transition-transform duration-300 ease-out md:sticky md:top-4 md:h-[calc(100vh-2rem)] md:ml-4 md:mb-4 md:rounded-2xl md:border md:border-white/5 md:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full shadow-2xl'}`}>
+            <div className={`fixed inset-y-0 left-0 z-40 w-64 bg-slate-900/95 backdrop-blur-xl border-r border-white/5 transform transition-transform duration-300 ease-out md:sticky md:top-4 md:h-[calc(100vh-2rem)] md:ml-4 md:mb-4 md:rounded-2xl md:border md:border-white/5 md:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full shadow-2xl'} ${pathname === '/admin/routine-maker' ? 'hidden' : ''}`}>
                 <div className="flex flex-col h-full">
                     {/* Logo Area */}
                     <div className="flex h-20 shrink-0 items-center px-6 border-b border-white/5 bg-gradient-to-r from-slate-900 to-slate-800/50">

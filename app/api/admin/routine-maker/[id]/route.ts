@@ -65,9 +65,9 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     try {
         const { id } = await params;
-        const routine = await Routine.findByIdAndUpdate(id, { isArchived: true }, { new: true });
+        const routine = await Routine.findByIdAndDelete(id);
         if (!routine) return NextResponse.json({ error: 'Routine not found' }, { status: 404 });
-        return NextResponse.json({ message: 'Routine archived' });
+        return NextResponse.json({ message: 'Routine deleted successfully' });
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
