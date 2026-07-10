@@ -338,7 +338,9 @@ export default function MagicPPTPage() {
     });
 </script>
 `;
-            const cleanHtml = sanitizeForIframe(fullText) + wysiwygScript;
+            // Append closing tags in case the stream was truncated, so the script can still run
+            const safeSuffix = `\\n">\\n</style>\\n</div>\\n`;
+            const cleanHtml = sanitizeForIframe(fullText) + safeSuffix + wysiwygScript;
             setGeneratedHtml(cleanHtml);
             toast.success('Presentation generated successfully!');
         } catch (e: any) {
@@ -422,7 +424,9 @@ export default function MagicPPTPage() {
     });
 </script>
 `;
-            const cleanHtml = sanitizeForIframe(fullText) + wysiwygScript;
+            // Append closing tags in case the stream was truncated, so the script can still run
+            const safeSuffix = `\\n">\\n</style>\\n</div>\\n`;
+            const cleanHtml = sanitizeForIframe(fullText) + safeSuffix + wysiwygScript;
             setGeneratedHtml(cleanHtml);
             setModificationNotes('');
             toast.success('Presentation refined successfully!');

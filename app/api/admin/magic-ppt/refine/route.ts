@@ -1,11 +1,10 @@
 import { NextRequest } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { incrementUsage } from '@/lib/gemini';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
-export const runtime = 'nodejs';
-export const maxDuration = 120;
+export const runtime = 'edge';
+// Edge runtime allows longer streaming without hitting the strict 10s/15s nodejs serverless limits on Hobby tier
 
 export async function POST(req: NextRequest) {
     try {
@@ -55,7 +54,13 @@ Now apply the requested changes strictly to the Target Slide, and return the com
 
         const result = await model.generateContentStream(userPrompt);
 
-        await incrementUsage(estimatedTokens).catch(() => {});
+        // Track usage (fire and forget)
+        const baseUrl = req.nextUrl.origin || 'http://localhost:3000';
+        fetch(`${baseUrl}/api/admin/magic-ppt/usage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tokens: estimatedTokens })
+        }).catch(() => {});
 
         const encoder = new TextEncoder();
         const stream = new ReadableStream({
