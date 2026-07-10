@@ -237,8 +237,8 @@ export default function MagicPPTPage() {
         // Check for potentially oversized content
         const totalChars = form.keyConcepts.length + form.specificDetails.length +
             form.sequenceScreenplay.length + form.practiceQuestions.length + form.additionalInstructions.length;
-        if (totalChars > 8000) {
-            return 'Your content is very long and may exceed the 1500-line HTML limit. Please break your content into smaller parts or reduce the detail level.';
+        if (totalChars > 16000) {
+            return 'Your content is very long and may exceed the 3000-line HTML limit. Please break your content into smaller parts or reduce the detail level.';
         }
         return null;
     };
@@ -673,7 +673,7 @@ export default function MagicPPTPage() {
                                 <div className="mt-6 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
                                     <p className="text-xs text-amber-400/80">
                                         <strong>Tip:</strong> Keep content focused for best results. If your topic is large,
-                                        break it into parts to stay under the 1500-line limit.
+                                        break it into parts to stay under the 3000-line limit.
                                     </p>
                                 </div>
                             </div>

@@ -25,9 +25,10 @@ CRITICAL RULES:
 1. Apply ONLY the requested changes. Do NOT rewrite unrelated parts.
 2. Return the COMPLETE modified HTML file (not just the changed parts).
 3. Do NOT use requestFullscreen() or any fullscreen API — the presentation runs in an iframe.
-4. Keep the output under 1500 lines.
-5. Ensure no text or content overflows or gets cut off.
-6. Output ONLY the raw HTML code. No markdown code fences. No explanation text.
+4. Keep the output under 3000 lines.
+5. Ensure no text or content overflows or gets cut off. Navigation buttons must not overlap content.
+6. STRICT TEXT FORMATTING: Do NOT break lines artificially or use flex/grid for inline text that disrupts natural reading.
+7. Output ONLY the raw HTML code. No markdown code fences. No explanation text.
 
 REQUESTED CHANGES:
 ${instructions}

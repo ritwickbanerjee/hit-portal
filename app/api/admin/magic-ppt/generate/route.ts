@@ -179,11 +179,14 @@ You are building a **premium interactive HTML presentation** to teach **${form.t
 
 ## CRITICAL CONSTRAINTS
 
-1. **OUTPUT MUST BE A SINGLE .html FILE under 1500 lines.** If the content requires more, focus on the most important concepts and trim practice questions.
+1. **OUTPUT MUST BE A SINGLE .html FILE under 3000 lines.** If the content requires more, focus on the most important concepts and trim practice questions.
 2. **DO NOT use requestFullscreen() or any fullscreen API calls.** The presentation will be embedded in an iframe. Remove ALL fullscreen logic.
-3. **DO NOT let any text, animation, or content overflow or get cut off** on the sides or bottom of the slide area. Use proper overflow handling, text wrapping, and safe padding (at least 40px on all sides).
-4. **CDNs only. No frameworks. Single file output.**
-5. Output ONLY the raw HTML code. No markdown code fences. No explanation text before or after. Just the HTML.
+3. **DO NOT let any text, animation, or content overflow or get cut off** on the sides or bottom of the slide area. Use proper overflow handling (`overflow-y: auto` if needed), text wrapping, and safe padding.
+4. **NAVIGATION OVERLAP:** The bottom of the slide (where Next/Previous buttons are) MUST NOT overlap with the content. Ensure your slide content container has at least `padding-bottom: 120px;` so the bottom controls are strictly separate from the educational content.
+5. **TEXT FORMATTING (STRICT):** DO NOT break lines artificially or use fancy flex/grid for inline text that makes sentences hard to read. Text must flow naturally in standard `<p>` or `<li>` tags. A line of text should NEVER be broken into two rows arbitrarily.
+6. **PREMIUM MATH QUALITY:** As this is for Math teachers, use high-quality typography. Wrap math in KaTeX `\\[ \\]` for display and `\\( \\)` for inline. Use `\\begin{bmatrix}` for matrices, aligning columns beautifully. Use elegant theorem boxes for definitions/formulas.
+7. **CDNs only. No frameworks. Single file output.**
+8. Output ONLY the raw HTML code. No markdown code fences. No explanation text before or after. Just the HTML.
 
 ---
 
@@ -278,17 +281,19 @@ ${form.additionalInstructions || 'None.'}
 Single \`.html\` file. CDNs only. No frameworks. No fullscreen API calls.
 
 **Final checklist:**
-- [ ] All content stays within the 1600x850 slide area with safe padding (40px+)
-- [ ] No text or animation gets cut off on any edge
+- [ ] All content stays within the 1600x850 slide area with safe padding (40px on sides, 120px on bottom)
+- [ ] No text or animation gets cut off on any edge (bottom matrix is fully visible)
+- [ ] Next/Previous buttons NEVER overlap with the main content
+- [ ] Text flows naturally and is NOT broken artificially into multiple columns/rows
 - [ ] No requestFullscreen() calls anywhere
 - [ ] Keyboard ← → navigation works
 - [ ] On-screen Prev/Next buttons work
 - [ ] Progress bar and slide counter present
-- [ ] KaTeX renders math on every slide transition
+- [ ] KaTeX renders math on every slide transition with premium formatting (matrices, aligned equations)
 - [ ] resize() called on load and resize
 - [ ] All buttons are touch-friendly (min 60px height)
 - [ ] Animations are smooth and purposeful
-- [ ] Under 1500 lines total
+- [ ] Under 3000 lines total
 - [ ] Output is ONLY the HTML code, nothing else`;
 }
 
