@@ -54,13 +54,7 @@ Now apply the requested changes strictly to the Target Slide, and return the com
 
         const result = await model.generateContentStream(userPrompt);
 
-        // Track usage (fire and forget)
-        const baseUrl = req.nextUrl.origin || 'http://localhost:3000';
-        fetch(`${baseUrl}/api/admin/magic-ppt/usage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ tokens: estimatedTokens })
-        }).catch(() => {});
+        // Usage tracking removed to prevent Edge runtime hanging
 
         const encoder = new TextEncoder();
         const stream = new ReadableStream({

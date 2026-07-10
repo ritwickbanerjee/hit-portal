@@ -325,13 +325,7 @@ export async function POST(req: NextRequest) {
 
         const result = await model.generateContentStream(masterPrompt);
 
-        // Track usage (fire and forget to local API)
-        const baseUrl = req.nextUrl.origin || 'http://localhost:3000';
-        fetch(`${baseUrl}/api/admin/magic-ppt/usage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ tokens: estimatedTokens })
-        }).catch(() => {});
+        // Usage tracking removed to prevent Edge runtime hanging
 
         // Create a streaming response
         const encoder = new TextEncoder();
