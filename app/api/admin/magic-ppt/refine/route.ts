@@ -88,7 +88,17 @@ Now apply the requested changes strictly to the Target Slide, and return the com
         });
     } catch (error: any) {
         console.error('Magic PPT Refine Error:', error);
-        return new Response(JSON.stringify({ error: error.message || 'Refinement failed' }), {
+        
+        let errorDetails = 'Refinement failed';
+        if (error?.message) {
+            errorDetails = error.message;
+        } else if (typeof error === 'object') {
+            try { errorDetails = JSON.stringify(error); } catch(e){}
+        } else {
+            errorDetails = String(error);
+        }
+
+        return new Response(JSON.stringify({ error: `Debug Error: ${errorDetails}` }), {
             status: 500,
             headers: { 'Content-Type': 'application/json' },
         });

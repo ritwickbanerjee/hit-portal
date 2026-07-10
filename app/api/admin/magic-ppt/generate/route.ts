@@ -357,7 +357,17 @@ export async function POST(req: NextRequest) {
         });
     } catch (error: any) {
         console.error('Magic PPT Generate Error:', error);
-        return new Response(JSON.stringify({ error: error.message || 'Generation failed' }), {
+        
+        let errorDetails = 'Generation failed';
+        if (error?.message) {
+            errorDetails = error.message;
+        } else if (typeof error === 'object') {
+            try { errorDetails = JSON.stringify(error); } catch(e){}
+        } else {
+            errorDetails = String(error);
+        }
+
+        return new Response(JSON.stringify({ error: `Debug Error: ${errorDetails}` }), {
             status: 500,
             headers: { 'Content-Type': 'application/json' },
         });
