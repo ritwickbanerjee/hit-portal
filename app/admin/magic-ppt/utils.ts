@@ -159,15 +159,15 @@ ${form.practiceQuestions}
 `
         : '';
 
-    return \`# Master Prompt: \${form.topicName} — State-of-the-art Interactive HTML Presentation
+    return `# Master Prompt: ${form.topicName} — State-of-the-art Interactive HTML Presentation
 
 ---
 
 ## IDENTITY & MISSION
 
-You are an elite web developer and pedagogic expert building a **visually spectacular, state-of-the-art interactive HTML presentation** to teach **\${form.topicName}** to \${form.targetAudience} students. The presentation is for \${form.presentationPurpose}. 
+You are an elite web developer and pedagogic expert building a **visually spectacular, state-of-the-art interactive HTML presentation** to teach **${form.topicName}** to ${form.targetAudience} students. The presentation is for ${form.presentationPurpose}. 
 
-You have **EXTREME CREATIVE FREEDOM**. Use modern web design trends: Glassmorphism, Neon/Glow effects, deep shadows, smooth cubic-bezier transitions, staggered reveals. Every animation must be purposeful and cinematic — building intuition step by step, never revealing a formula before the student has *seen* why it must be true. Colors must be high-contrast and vivid against the dark background. Target approximately \${form.slideCount} slides total.
+You have **EXTREME CREATIVE FREEDOM**. Use modern web design trends: Glassmorphism, Neon/Glow effects, deep shadows, smooth cubic-bezier transitions, staggered reveals. Every animation must be purposeful and cinematic — building intuition step by step, never revealing a formula before the student has *seen* why it must be true. Colors must be high-contrast and vivid against the dark background. Target approximately ${form.slideCount} slides total.
 
 ---
 
@@ -178,51 +178,51 @@ You have **EXTREME CREATIVE FREEDOM**. Use modern web design trends: Glassmorphi
 3. **DO NOT let any text, animation, or content overflow or get cut off** on the sides or bottom of the slide area. Use proper overflow handling (\`overflow-y: auto\` if needed), text wrapping, and safe padding.
 4. **NAVIGATION OVERLAP:** The bottom of the slide (where Next/Previous buttons are) MUST NOT overlap with the content. Ensure your slide content container has at least \`padding-bottom: 120px;\` so the bottom controls are strictly separate from the educational content.
 5. **TEXT FORMATTING (STRICT):** DO NOT break lines artificially or use fancy flex/grid for inline text that makes sentences hard to read. Text must flow naturally in standard \`<p>\` or \`<li>\` tags. A line of text should NEVER be broken into two rows arbitrarily. 
-6. **PREMIUM MATH QUALITY:** As this is for Math teachers, use high-quality typography. Wrap math in KaTeX \\\`\\\\[ \\\\]\\\` for display and \\\`\\\\( \\\\)\\\` for inline. Use \\\`\\\\begin{bmatrix}\\\` for matrices, aligning columns beautifully. Use elegant theorem boxes with glow effects for definitions/formulas.
-7. **DYNAMIC KATEX RENDERING:** If you use JavaScript to reveal hints, solutions, or dynamically inject text, you MUST call \\\`if (window.renderMathInElement) window.renderMathInElement(document.body);\\\` immediately after the DOM update. Never leave raw LaTeX on the screen.
+6. **PREMIUM MATH QUALITY:** As this is for Math teachers, use high-quality typography. Wrap math in KaTeX \`\\[ \\]\` for display and \`\\( \\)\` for inline. Use \`\\begin{bmatrix}\` for matrices, aligning columns beautifully. Use elegant theorem boxes with glow effects for definitions/formulas.
+7. **DYNAMIC KATEX RENDERING:** If you use JavaScript to reveal hints, solutions, or dynamically inject text, you MUST call \`if (window.renderMathInElement) window.renderMathInElement(document.body);\` immediately after the DOM update. Never leave raw LaTeX on the screen.
 8. **CDNs only.** You may use GSAP (via CDN) if you want cinematic animations, or just stick to highly advanced CSS animations.
-9. Output ONLY the raw HTML code inside a single \\\`\\\`\\\`html code fence. No explanation text before or after. Just the code.
+9. Output ONLY the raw HTML code inside a single \`\`\`html code fence. No explanation text before or after. Just the code.
 
 ---
 
 ## COLOR PALETTE
 
-\\\`\\\`\\\`css
-\${colorPalette}
-\\\`\\\`\\\`
+\`\`\`css
+${colorPalette}
+\`\`\`
 
 ---
 
 ## TECHNICAL ARCHITECTURE
 
 ### Container & Scaling
-\\\`\\\`\\\`javascript
+\`\`\`javascript
 function resize() {
     const app = document.getElementById('app');
     const s = Math.min(window.innerWidth/1600, window.innerHeight/850) * 0.98;
-    app.style.transform = \\\`scale(\\\${s})\\\`;
-    app.style.left = \\\`\\\${(window.innerWidth - 1600*s)/2}px\\\`;
-    app.style.top  = \\\`\\\${(window.innerHeight - 850*s)/2}px\\\`;
+    app.style.transform = \`scale(\${s})\`;
+    app.style.left = \`\${(window.innerWidth - 1600*s)/2}px\`;
+    app.style.top  = \`\${(window.innerHeight - 850*s)/2}px\`;
     app.style.position = 'absolute';
 }
 window.addEventListener('resize', resize);
 window.addEventListener('load', resize);
-\\\`\\\`\\\`
+\`\`\`
 
-\\\`\\\`\\\`css
+\`\`\`css
 body { background: var(--bg); margin:0; overflow:hidden;
-       font-family:'\${font}',sans-serif; color:var(--text); }
+       font-family:'${font}',sans-serif; color:var(--text); }
 #app  { width:1600px; height:850px; position:absolute;
         background:var(--bg); overflow:hidden; transform-origin:top left; }
-\\\`\\\`\\\`
+\`\`\`
 
 ### CDNs
-\\\`\\\`\\\`html
-<link href="https://fonts.googleapis.com/css2?family=\${fontUrl}&display=swap" rel="stylesheet">
+\`\`\`html
+<link href="https://fonts.googleapis.com/css2?family=${fontUrl}&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
-\\\`\\\`\\\`
+\`\`\`
 
 ### Slide Navigation
 Implement beautiful keyboard arrow keys (Left/Right) and sleek on-screen Prev/Next buttons. Show a modern, animated progress bar at the bottom.
@@ -231,47 +231,47 @@ Implement beautiful keyboard arrow keys (Left/Right) and sleek on-screen Prev/Ne
 
 ## OBJECT VISUAL DESIGN
 
-\${objectDesc[form.objectRepresentation] || objectDesc['Colored tiles']}
+${objectDesc[form.objectRepresentation] || objectDesc['Colored tiles']}
 
 ---
 
 ## ANIMATION REQUIREMENTS
 
-\${animDesc[form.animationLevel] || animDesc['Moderate']}
+${animDesc[form.animationLevel] || animDesc['Moderate']}
 
 ---
 
 ## INTERACTIVITY
 
-\${interactiveDesc}
+${interactiveDesc}
 
 ---
 
 ## CONTENT: KEY CONCEPTS TO DEMONSTRATE
 
-\${form.keyConcepts}
+${form.keyConcepts}
 
 ---
 
 ## SPECIFIC DETAILS TO INCLUDE
 
-\${form.specificDetails || 'Use your best pedagogical judgment for examples and edge cases. Make them visually stunning.'}
+${form.specificDetails || 'Use your best pedagogical judgment for examples and edge cases. Make them visually stunning.'}
 
 ---
 
 ## SEQUENCE & SCREENPLAY
 
-\${form.sequenceScreenplay || 'Follow a natural pedagogical progression: start with intuition-building examples, then reveal patterns, then formalize with formulas, then practice.'}
+${form.sequenceScreenplay || 'Follow a natural pedagogical progression: start with intuition-building examples, then reveal patterns, then formalize with formulas, then practice.'}
 
-\${practiceSection}
+${practiceSection}
 
 ## ADDITIONAL INSTRUCTIONS
 
-\${form.additionalInstructions || 'Be extremely creative and professional.'}
+${form.additionalInstructions || 'Be extremely creative and professional.'}
 
 ---
 
 ## FINAL OUTPUT INSTRUCTIONS
 
-Ensure the code is a full, valid HTML document. Do not output anything except the HTML code inside a \\\`\\\`\\\`html block.\`;
+Ensure the code is a full, valid HTML document. Do not output anything except the HTML code inside a \`\`\`html block.`;
 }
