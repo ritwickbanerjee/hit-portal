@@ -131,17 +131,14 @@ export default function MagicPPTPage() {
         localStorage.setItem('magic_ppt_form_draft', JSON.stringify(form));
     }, [form]);
 
-    // Sanitize HTML
+    // We no longer strip scripts because the presentation needs its own JS to change slides and render KaTeX.
     const sanitizeForIframe = (html: string) => {
-        return html
-            .replace(/<script\b[\s\S]*?<\/script>/gi, '') // Remove existing scripts safely
-            .replace(/on\w+="[^"]*"/gi, '') // Remove inline handlers
-            .replace(/javascript:/gi, '');
+        return html;
     };
 
     // WYSIWYG Injection
     const getWysiwygScript = () => `
-<script>
+<script id="magic-ppt-editor-script">
     // WYSIWYG Editing Logic
     const makeEditable = () => {
         document.querySelectorAll('h1, h2, h3, h4, h5, h6, p, li').forEach(el => {
@@ -193,8 +190,9 @@ export default function MagicPPTPage() {
             return;
         }
 
-        // Clean any code fences if they accidentally pasted them
+        // Remove any previously injected editor script
         let cleanCode = pastedCode.trim();
+        cleanCode = cleanCode.replace(/<script id="magic-ppt-editor-script"[\s\S]*?<\/script>/gi, '');
         if (cleanCode.startsWith('\`\`\`html')) cleanCode = cleanCode.substring(7);
         if (cleanCode.startsWith('\`\`\`')) cleanCode = cleanCode.substring(3);
         if (cleanCode.endsWith('\`\`\`')) cleanCode = cleanCode.substring(0, cleanCode.length - 3);

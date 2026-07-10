@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Download, ChevronLeft, Type, Code, MousePointer2 } from 'lucide-react';
+import { Download, ChevronLeft, ChevronRight, Type, Code, MousePointer2, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 interface SelectedElement {
@@ -13,10 +13,11 @@ interface SelectedElement {
 export default function MagicPPTEditor() {
     const [iframeHtml, setIframeHtml] = useState('');
     const [selectedElement, setSelectedElement] = useState<SelectedElement | null>(null);
+    const [isPanelOpen, setIsPanelOpen] = useState(true);
     const iframeRef = useRef<HTMLIFrameElement>(null);
 
     const visualEditorScript = `
-<script>
+<script id="magic-ppt-editor-script">
     document.addEventListener('click', (e) => {
         let target = e.target;
         
@@ -89,9 +90,9 @@ export default function MagicPPTEditor() {
     useEffect(() => {
         const draft = localStorage.getItem('magic_ppt_draft');
         if (draft) {
-            // Strip any existing script to avoid duplicates, then append the new one
-            const clean = draft.replace(/<script\b[\s\S]*?<\/script>/gi, '');
-            setIframeHtml(draft.includes('ELEMENT_SELECTED') ? draft : clean + visualEditorScript);
+            // Strip ONLY the previously injected editor script, keep all other native presentation scripts!
+            const clean = draft.replace(/<script id="magic-ppt-editor-script"[\s\S]*?<\/script>/gi, '');
+            setIframeHtml(clean + visualEditorScript);
         } else {
             toast.error('No presentation draft found.');
         }
@@ -140,7 +141,7 @@ export default function MagicPPTEditor() {
         
         try {
             // Strip our visual editor script before downloading
-            const finalHtml = draft.replace(/<script\b[^<]*ELEMENT_SELECTED[\s\S]*?<\/script>/gi, '');
+            const finalHtml = draft.replace(/<script id="magic-ppt-editor-script"[\s\S]*?<\/script>/gi, '');
             const blob = new Blob([finalHtml], { type: 'text/html' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -191,49 +192,60 @@ export default function MagicPPTEditor() {
             {/* ── SPLIT VIEW ── */}
             <main className="flex-1 flex w-full h-[calc(100vh-56px)]">
                 {/* Left: Property Inspector */}
-                <div className="w-[380px] shrink-0 h-full flex flex-col border-r border-white/10 bg-slate-900/50">
-                    <div className="h-12 shrink-0 flex items-center px-4 border-b border-white/5 bg-slate-900/80">
-                        <Type className="w-4 h-4 text-indigo-400 mr-2" />
-                        <span className="text-sm font-semibold text-slate-200">Properties</span>
-                    </div>
-                    
-                    <div className="flex-1 p-5 overflow-y-auto">
-                        {!selectedElement ? (
-                            <div className="h-full flex flex-col items-center justify-center text-center px-4 text-slate-500">
-                                <div className="w-16 h-16 rounded-full bg-slate-800/50 flex items-center justify-center mb-4 border border-white/5">
-                                    <MousePointer2 className="w-6 h-6 text-indigo-400/50" />
-                                </div>
-                                <p className="text-sm">Click on any text or mathematical equation in the preview to edit it here.</p>
-                            </div>
-                        ) : (
-                            <div className="space-y-4 animate-in fade-in slide-in-from-left-4 duration-300">
-                                <div>
-                                    <div className="flex items-center justify-between mb-2">
-                                        <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                                            Edit Text Content
-                                        </label>
-                                        <span className="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400 border border-white/5">
-                                            &lt;{selectedElement.tagName.toLowerCase()}&gt;
-                                        </span>
+                {isPanelOpen && (
+                    <div className="w-[380px] shrink-0 h-full flex flex-col border-r border-white/10 bg-slate-900/50 transition-all duration-300">
+                        <div className="h-12 shrink-0 flex items-center px-4 border-b border-white/5 bg-slate-900/80">
+                            <Type className="w-4 h-4 text-indigo-400 mr-2" />
+                            <span className="text-sm font-semibold text-slate-200">Properties</span>
+                            <div className="flex-1" />
+                            <button onClick={() => setIsPanelOpen(false)} className="text-slate-400 hover:text-white transition-colors" title="Close Panel">
+                                <PanelLeftClose className="w-4 h-4" />
+                            </button>
+                        </div>
+                        
+                        <div className="flex-1 p-5 overflow-y-auto">
+                            {!selectedElement ? (
+                                <div className="h-full flex flex-col items-center justify-center text-center px-4 text-slate-500">
+                                    <div className="w-16 h-16 rounded-full bg-slate-800/50 flex items-center justify-center mb-4 border border-white/5">
+                                        <MousePointer2 className="w-6 h-6 text-indigo-400/50" />
                                     </div>
-                                    <textarea
-                                        value={selectedElement.text}
-                                        onChange={(e) => handleTextChange(e.target.value)}
-                                        className="w-full h-64 bg-slate-950 border border-slate-700 rounded-xl p-3 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 custom-scrollbar shadow-inner"
-                                        placeholder="Enter text..."
-                                    />
-                                    <p className="text-[11px] text-slate-500 mt-2 leading-relaxed">
-                                        <strong>Tip:</strong> You can use standard HTML tags like <code className="text-indigo-300">&lt;strong&gt;</code> or <code className="text-indigo-300">&lt;br&gt;</code> here. For math, wrap equations in <code className="text-indigo-300">\\( \\)</code> for inline and <code className="text-indigo-300">\\[ \\]</code> for block equations.
-                                    </p>
+                                    <p className="text-sm">Click on any text or mathematical equation in the preview to edit it here.</p>
                                 </div>
-                            </div>
-                        )}
+                            ) : (
+                                <div className="space-y-4 animate-in fade-in slide-in-from-left-4 duration-300">
+                                    <div>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                                                Edit Text Content
+                                            </label>
+                                            <span className="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400 border border-white/5">
+                                                &lt;{selectedElement.tagName.toLowerCase()}&gt;
+                                            </span>
+                                        </div>
+                                        <textarea
+                                            value={selectedElement.text}
+                                            onChange={(e) => handleTextChange(e.target.value)}
+                                            className="w-full h-64 bg-slate-950 border border-slate-700 rounded-xl p-3 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 custom-scrollbar shadow-inner"
+                                            placeholder="Enter text..."
+                                        />
+                                        <p className="text-[11px] text-slate-500 mt-2 leading-relaxed">
+                                            <strong>Tip:</strong> You can use standard HTML tags like <code className="text-indigo-300">&lt;strong&gt;</code> or <code className="text-indigo-300">&lt;br&gt;</code> here. For math, wrap equations in <code className="text-indigo-300">\( \)</code> for inline and <code className="text-indigo-300">\[ \]</code> for block equations.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
-                </div>
+                )}
 
                 {/* Right: Live Preview */}
-                <div className="flex-1 h-full flex flex-col bg-black relative">
-                    <div className="h-10 shrink-0 bg-slate-900/60 flex items-center px-4 border-b border-white/10 z-10 shadow-sm">
+                <div className="flex-1 h-full flex flex-col bg-black relative transition-all duration-300">
+                    <div className="h-10 shrink-0 bg-slate-900/60 flex items-center px-4 border-b border-white/10 z-10 shadow-sm gap-2">
+                        {!isPanelOpen && (
+                            <button onClick={() => setIsPanelOpen(true)} className="text-slate-400 hover:text-white transition-colors" title="Open Panel">
+                                <PanelLeftOpen className="w-4 h-4" />
+                            </button>
+                        )}
                         <span className="text-xs font-medium text-slate-400 flex items-center gap-2">
                             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                             Live Preview (Click anywhere to inspect)
