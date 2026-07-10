@@ -220,7 +220,7 @@ export default function MagicPPTPage() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = \`magic_ppt_prompt_\${form.topicName.replace(/\\s+/g, '_')}.txt\`;
+        a.download = `magic_ppt_prompt_${form.topicName.replace(/\s+/g, '_')}.txt`;
         a.click();
         URL.revokeObjectURL(url);
 

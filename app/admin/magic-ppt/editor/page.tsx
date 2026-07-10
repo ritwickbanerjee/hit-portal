@@ -90,7 +90,7 @@ export default function MagicPPTEditor() {
         const draft = localStorage.getItem('magic_ppt_draft');
         if (draft) {
             // Strip any existing script to avoid duplicates, then append the new one
-            const clean = draft.replace(/<script\\b[^<]*(?:(?!<\\/script>)<[^<]*)*<\\/script>/gi, '');
+            const clean = draft.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
             setIframeHtml(draft.includes('ELEMENT_SELECTED') ? draft : clean + visualEditorScript);
         } else {
             toast.error('No presentation draft found.');
@@ -140,7 +140,7 @@ export default function MagicPPTEditor() {
         
         try {
             // Strip our visual editor script before downloading
-            const finalHtml = draft.replace(/<script\\b[^<]*ELEMENT_SELECTED[\\s\\S]*?<\\/script>/gi, '');
+            const finalHtml = draft.replace(/<script\b[^<]*ELEMENT_SELECTED[\s\S]*?<\/script>/gi, '');
             const blob = new Blob([finalHtml], { type: 'text/html' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
