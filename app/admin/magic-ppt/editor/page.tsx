@@ -90,7 +90,7 @@ export default function MagicPPTEditor() {
         const draft = localStorage.getItem('magic_ppt_draft');
         if (draft) {
             // Strip any existing script to avoid duplicates, then append the new one
-            const clean = draft.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+            const clean = draft.replace(/<script\b[\s\S]*?<\/script>/gi, '');
             setIframeHtml(draft.includes('ELEMENT_SELECTED') ? draft : clean + visualEditorScript);
         } else {
             toast.error('No presentation draft found.');

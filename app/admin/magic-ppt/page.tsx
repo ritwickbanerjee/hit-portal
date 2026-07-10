@@ -134,7 +134,7 @@ export default function MagicPPTPage() {
     // Sanitize HTML
     const sanitizeForIframe = (html: string) => {
         return html
-            .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // Remove existing scripts
+            .replace(/<script\b[\s\S]*?<\/script>/gi, '') // Remove existing scripts safely
             .replace(/on\w+="[^"]*"/gi, '') // Remove inline handlers
             .replace(/javascript:/gi, '');
     };
