@@ -10,7 +10,7 @@ export const maxDuration = 120;
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const { existingHtml, instructions } = body;
+        const { existingHtml, instructions, targetSlide } = body;
 
         if (!existingHtml || !instructions) {
             return new Response(JSON.stringify({ error: 'Existing HTML and instructions are required' }), {
@@ -19,36 +19,41 @@ export async function POST(req: NextRequest) {
             });
         }
 
-        const prompt = `You are an expert HTML presentation editor. You have an existing interactive HTML presentation below.
+        const systemInstruction = `You are a STRICT, expert HTML presentation editor.
+Your ONLY job is to modify the existing HTML exactly as instructed.
 
 CRITICAL RULES:
-1. Apply ONLY the requested changes. Do NOT rewrite unrelated parts.
+1. Apply ONLY the requested changes. Do NOT rewrite unrelated parts of the presentation.
 2. Return the COMPLETE modified HTML file (not just the changed parts).
 3. Do NOT use requestFullscreen() or any fullscreen API — the presentation runs in an iframe.
 4. Keep the output under 3000 lines.
 5. Ensure no text or content overflows or gets cut off. Navigation buttons must not overlap content.
 6. STRICT TEXT FORMATTING: Do NOT break lines artificially or use flex/grid for inline text that disrupts natural reading.
-7. Output ONLY the raw HTML code. No markdown code fences. No explanation text.
+7. TARGET SLIDE: If the user specifies a particular slide number, you MUST ONLY change that slide. Do not touch the others.
+8. Output ONLY the raw HTML code. No markdown code fences. No explanation text.`;
 
+        const userPrompt = `TARGET SLIDE TO MODIFY: ${targetSlide || 'All'}
+        
 REQUESTED CHANGES:
 ${instructions}
 
 EXISTING HTML CODE:
 ${existingHtml}
 
-Now apply the requested changes and return the complete modified HTML file. Output ONLY the HTML code.`;
+Now apply the requested changes strictly to the Target Slide, and return the complete modified HTML file. Output ONLY the HTML code.`;
 
-        const estimatedTokens = Math.ceil(prompt.length / 4) + 2000;
+        const estimatedTokens = Math.ceil((systemInstruction.length + userPrompt.length) / 4) + 2000;
 
         const model = genAI.getGenerativeModel({
             model: 'gemini-2.5-flash',
+            systemInstruction: systemInstruction,
             generationConfig: {
                 maxOutputTokens: 65536,
-                temperature: 0.4,
+                temperature: 0.2, // Low temperature for strict adherence
             },
         });
 
-        const result = await model.generateContentStream(prompt);
+        const result = await model.generateContentStream(userPrompt);
 
         await incrementUsage(estimatedTokens).catch(() => {});
 

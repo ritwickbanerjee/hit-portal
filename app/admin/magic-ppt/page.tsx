@@ -176,6 +176,7 @@ export default function MagicPPTPage() {
     const [elapsedTime, setElapsedTime] = useState(0);
     const [isFullPreview, setIsFullPreview] = useState(false);
     const [modificationNotes, setModificationNotes] = useState('');
+    const [targetSlide, setTargetSlide] = useState('All');
     const [playfulMsg, setPlayfulMsg] = useState(PLAYFUL_MESSAGES[0]);
     const [streamedText, setStreamedText] = useState('');
 
@@ -221,7 +222,20 @@ export default function MagicPPTPage() {
     };
 
     useEffect(() => {
-        return () => stopTimer();
+        const handleMessage = (event: MessageEvent) => {
+            if (event.data?.type === 'HTML_UPDATE' && event.data.html) {
+                // Update without triggering re-render of iframe to prevent cursor loss
+                // We use a ref for the latest HTML if we just want to save it, 
+                // but setting state is fine as long as we don't pass it back to srcDoc if it's the exact same.
+                // To avoid iframe reload loop, we just keep it in state for the Download button.
+                setGeneratedHtml(event.data.html);
+            }
+        };
+        window.addEventListener('message', handleMessage);
+        return () => {
+            stopTimer();
+            window.removeEventListener('message', handleMessage);
+        };
     }, []);
 
     const formatTime = (s: number) => {
@@ -279,7 +293,52 @@ export default function MagicPPTPage() {
                 setStreamedText(fullText);
             }
 
-            const cleanHtml = sanitizeForIframe(fullText);
+            const wysiwygScript = `
+<script>
+    // WYSIWYG Editing Logic
+    const makeEditable = () => {
+        document.querySelectorAll('h1, h2, h3, h4, h5, h6, p, li').forEach(el => {
+            if (!el.hasAttribute('contenteditable')) {
+                el.setAttribute('contenteditable', 'true');
+                el.style.outline = 'none';
+                el.style.cursor = 'text';
+            }
+        });
+        
+        // Handle KaTeX specifically
+        document.querySelectorAll('.katex-display, .katex').forEach(el => {
+            if (!el.hasAttribute('contenteditable')) {
+                el.setAttribute('contenteditable', 'true');
+                el.style.outline = '1px dashed #5ba3a0';
+                el.style.cursor = 'text';
+                el.title = "Click to edit LaTeX";
+                
+                el.addEventListener('focus', function() {
+                    const annotation = el.querySelector('annotation');
+                    if (annotation) {
+                        el.dataset.originalHtml = el.innerHTML;
+                        el.textContent = annotation.textContent; // Show raw latex
+                    }
+                });
+                el.addEventListener('blur', function() {
+                    if (el.dataset.originalHtml !== undefined) {
+                        if (window.renderMathInElement) window.renderMathInElement(el.parentElement);
+                        delete el.dataset.originalHtml;
+                    }
+                });
+            }
+        });
+    };
+
+    window.addEventListener('load', makeEditable);
+    
+    // Listen for manual edits and send to parent
+    document.addEventListener('input', () => {
+        window.parent.postMessage({ type: 'HTML_UPDATE', html: document.documentElement.outerHTML }, '*');
+    });
+</script>
+`;
+            const cleanHtml = sanitizeForIframe(fullText) + wysiwygScript;
             setGeneratedHtml(cleanHtml);
             toast.success('Presentation generated successfully!');
         } catch (e: any) {
@@ -312,6 +371,7 @@ export default function MagicPPTPage() {
                 body: JSON.stringify({
                     existingHtml: generatedHtml,
                     instructions: modificationNotes,
+                    targetSlide: targetSlide,
                 }),
             });
 
@@ -334,7 +394,35 @@ export default function MagicPPTPage() {
                 setStreamedText(fullText);
             }
 
-            const cleanHtml = sanitizeForIframe(fullText);
+            const wysiwygScript = `
+<script>
+    const makeEditable = () => {
+        document.querySelectorAll('h1, h2, h3, h4, h5, h6, p, li').forEach(el => {
+            if (!el.hasAttribute('contenteditable')) { el.setAttribute('contenteditable', 'true'); el.style.outline = 'none'; }
+        });
+        document.querySelectorAll('.katex-display, .katex').forEach(el => {
+            if (!el.hasAttribute('contenteditable')) {
+                el.setAttribute('contenteditable', 'true'); el.style.outline = '1px dashed #5ba3a0';
+                el.addEventListener('focus', function() {
+                    const annotation = el.querySelector('annotation');
+                    if (annotation) { el.dataset.originalHtml = el.innerHTML; el.textContent = annotation.textContent; }
+                });
+                el.addEventListener('blur', function() {
+                    if (el.dataset.originalHtml !== undefined) {
+                        if (window.renderMathInElement) window.renderMathInElement(el.parentElement);
+                        delete el.dataset.originalHtml;
+                    }
+                });
+            }
+        });
+    };
+    window.addEventListener('load', makeEditable);
+    document.addEventListener('input', () => {
+        window.parent.postMessage({ type: 'HTML_UPDATE', html: document.documentElement.outerHTML }, '*');
+    });
+</script>
+`;
+            const cleanHtml = sanitizeForIframe(fullText) + wysiwygScript;
             setGeneratedHtml(cleanHtml);
             setModificationNotes('');
             toast.success('Presentation refined successfully!');
@@ -603,6 +691,12 @@ export default function MagicPPTPage() {
                                         placeholder="e.g. Make slide 5 animations faster, change object C color to blue..."
                                         rows={2}
                                     />
+                                    <div className="flex gap-2 items-end">
+                                        <div className="flex-1">
+                                            <Label>Target Slide (e.g. 3, or 'All')</Label>
+                                            <Input value={targetSlide} onChange={v => setTargetSlide(v)} placeholder="All" />
+                                        </div>
+                                    </div>
                                     <button
                                         onClick={handleRefine}
                                         disabled={isWorking}

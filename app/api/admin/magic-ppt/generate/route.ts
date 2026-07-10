@@ -181,12 +181,13 @@ You are building a **premium interactive HTML presentation** to teach **${form.t
 
 1. **OUTPUT MUST BE A SINGLE .html FILE under 3000 lines.** If the content requires more, focus on the most important concepts and trim practice questions.
 2. **DO NOT use requestFullscreen() or any fullscreen API calls.** The presentation will be embedded in an iframe. Remove ALL fullscreen logic.
-3. **DO NOT let any text, animation, or content overflow or get cut off** on the sides or bottom of the slide area. Use proper overflow handling (`overflow-y: auto` if needed), text wrapping, and safe padding.
-4. **NAVIGATION OVERLAP:** The bottom of the slide (where Next/Previous buttons are) MUST NOT overlap with the content. Ensure your slide content container has at least `padding-bottom: 120px;` so the bottom controls are strictly separate from the educational content.
-5. **TEXT FORMATTING (STRICT):** DO NOT break lines artificially or use fancy flex/grid for inline text that makes sentences hard to read. Text must flow naturally in standard `<p>` or `<li>` tags. A line of text should NEVER be broken into two rows arbitrarily.
-6. **PREMIUM MATH QUALITY:** As this is for Math teachers, use high-quality typography. Wrap math in KaTeX `\\[ \\]` for display and `\\( \\)` for inline. Use `\\begin{bmatrix}` for matrices, aligning columns beautifully. Use elegant theorem boxes for definitions/formulas.
-7. **CDNs only. No frameworks. Single file output.**
-8. Output ONLY the raw HTML code. No markdown code fences. No explanation text before or after. Just the HTML.
+3. **DO NOT let any text, animation, or content overflow or get cut off** on the sides or bottom of the slide area. Use proper overflow handling (\`overflow-y: auto\` if needed), text wrapping, and safe padding.
+4. **NAVIGATION OVERLAP:** The bottom of the slide (where Next/Previous buttons are) MUST NOT overlap with the content. Ensure your slide content container has at least \`padding-bottom: 120px;\` so the bottom controls are strictly separate from the educational content.
+5. **TEXT FORMATTING (STRICT):** DO NOT break lines artificially or use fancy flex/grid for inline text that makes sentences hard to read. Text must flow naturally in standard \`<p>\` or \`<li>\` tags. A line of text should NEVER be broken into two rows arbitrarily.
+6. **PREMIUM MATH QUALITY:** As this is for Math teachers, use high-quality typography. Wrap math in KaTeX \`\\[ \\]\` for display and \`\\( \\)\` for inline. Use \`\\begin{bmatrix}\` for matrices, aligning columns beautifully. Use elegant theorem boxes for definitions/formulas.
+7. **DYNAMIC KATEX RENDERING:** If you use JavaScript to reveal hints, solutions, or dynamically inject text, you MUST call \`if (window.renderMathInElement) window.renderMathInElement(document.body);\` immediately after the DOM update. Never leave raw LaTeX on the screen.
+8. **CDNs only. No frameworks. Single file output.**
+9. Output ONLY the raw HTML code. No markdown code fences. No explanation text before or after. Just the HTML.
 
 ---
 
@@ -290,6 +291,7 @@ Single \`.html\` file. CDNs only. No frameworks. No fullscreen API calls.
 - [ ] On-screen Prev/Next buttons work
 - [ ] Progress bar and slide counter present
 - [ ] KaTeX renders math on every slide transition with premium formatting (matrices, aligned equations)
+- [ ] DYNAMIC KATEX: \`renderMathInElement(document.body)\` is explicitly called inside any JS functions that reveal hints/solutions
 - [ ] resize() called on load and resize
 - [ ] All buttons are touch-friendly (min 60px height)
 - [ ] Animations are smooth and purposeful
