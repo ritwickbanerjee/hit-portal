@@ -1,32 +1,115 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Download, ChevronLeft, Save } from 'lucide-react';
+import { Download, ChevronLeft, Type, Code, MousePointer2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
+interface SelectedElement {
+    id: string;
+    text: string;
+    tagName: string;
+}
+
 export default function MagicPPTEditor() {
-    const [editorHtml, setEditorHtml] = useState('');
     const [iframeHtml, setIframeHtml] = useState('');
+    const [selectedElement, setSelectedElement] = useState<SelectedElement | null>(null);
     const iframeRef = useRef<HTMLIFrameElement>(null);
 
-    // Load from local storage
+    const visualEditorScript = `
+<script>
+    document.addEventListener('click', (e) => {
+        let target = e.target;
+        
+        // Skip buttons (navigation)
+        if (target.closest('button')) return;
+
+        // Bubble up to find a suitable text container
+        while (target && target !== document.body && !target.tagName.match(/^(H[1-6]|P|LI|SPAN|DIV)$/)) {
+            target = target.parentElement;
+        }
+        
+        if (!target || target === document.body) return;
+        
+        // If it's a huge structural DIV, ignore it
+        if (target.tagName === 'DIV' && target.innerText.length > 500 && target.children.length > 3) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (!target.dataset.magicId) {
+            target.dataset.magicId = 'magic-' + Math.random().toString(36).substr(2, 9);
+        }
+
+        // Clear old selection
+        document.querySelectorAll('.magic-selected').forEach(el => {
+            el.classList.remove('magic-selected');
+            el.style.outline = 'none';
+        });
+
+        // Highlight new selection
+        target.classList.add('magic-selected');
+        target.style.outline = '3px solid #818cf8';
+        target.style.outlineOffset = '2px';
+        target.style.borderRadius = '4px';
+
+        window.parent.postMessage({
+            type: 'ELEMENT_SELECTED',
+            id: target.dataset.magicId,
+            text: target.innerHTML,
+            tagName: target.tagName
+        }, '*');
+    }, true);
+
+    window.addEventListener('message', (e) => {
+        if (e.data && e.data.type === 'UPDATE_ELEMENT') {
+            const el = document.querySelector('[data-magic-id="' + e.data.id + '"]');
+            if (el) {
+                el.innerHTML = e.data.text;
+                if (window.renderMathInElement) window.renderMathInElement(el);
+                
+                // Cleanup highlights before saving
+                const clone = document.documentElement.cloneNode(true);
+                clone.querySelectorAll('.magic-selected').forEach(node => {
+                    node.classList.remove('magic-selected');
+                    node.style.outline = '';
+                    node.style.outlineOffset = '';
+                    node.style.borderRadius = '';
+                });
+                
+                window.parent.postMessage({
+                    type: 'HTML_UPDATE',
+                    html: clone.outerHTML
+                }, '*');
+            }
+        }
+    });
+</script>
+`;
+
     useEffect(() => {
         const draft = localStorage.getItem('magic_ppt_draft');
         if (draft) {
-            setEditorHtml(draft);
-            setIframeHtml(draft);
+            // Strip any existing script to avoid duplicates, then append the new one
+            const clean = draft.replace(/<script\\b[^<]*(?:(?!<\\/script>)<[^<]*)*<\\/script>/gi, '');
+            setIframeHtml(draft.includes('ELEMENT_SELECTED') ? draft : clean + visualEditorScript);
         } else {
             toast.error('No presentation draft found.');
         }
     }, []);
 
-    // Listen to WYSIWYG changes from the iframe
+    // Listen for messages from iframe
     useEffect(() => {
         const handleMessage = (e: MessageEvent) => {
-            if (e.data && e.data.type === 'HTML_UPDATE' && e.data.html) {
-                // The WYSIWYG editor inside the iframe sent updated HTML
-                setEditorHtml(e.data.html);
-                setIframeHtml(e.data.html);
+            if (!e.data) return;
+            
+            if (e.data.type === 'ELEMENT_SELECTED') {
+                setSelectedElement({
+                    id: e.data.id,
+                    text: e.data.text,
+                    tagName: e.data.tagName
+                });
+            } else if (e.data.type === 'HTML_UPDATE') {
+                // Update local storage in background without reloading iframe
                 localStorage.setItem('magic_ppt_draft', e.data.html);
             }
         };
@@ -35,21 +118,30 @@ export default function MagicPPTEditor() {
         return () => window.removeEventListener('message', handleMessage);
     }, []);
 
-    // 1-second Debounce for manual editor changes
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            if (editorHtml !== iframeHtml) {
-                setIframeHtml(editorHtml);
-                localStorage.setItem('magic_ppt_draft', editorHtml);
-            }
-        }, 1000);
-
-        return () => clearTimeout(timer);
-    }, [editorHtml, iframeHtml]);
+    const handleTextChange = (newText: string) => {
+        if (!selectedElement) return;
+        
+        // Update local state for fast typing
+        setSelectedElement(prev => prev ? { ...prev, text: newText } : null);
+        
+        // Send update to iframe immediately
+        if (iframeRef.current?.contentWindow) {
+            iframeRef.current.contentWindow.postMessage({
+                type: 'UPDATE_ELEMENT',
+                id: selectedElement.id,
+                text: newText
+            }, '*');
+        }
+    };
 
     const handleDownload = () => {
+        const draft = localStorage.getItem('magic_ppt_draft');
+        if (!draft) return;
+        
         try {
-            const blob = new Blob([editorHtml], { type: 'text/html' });
+            // Strip our visual editor script before downloading
+            const finalHtml = draft.replace(/<script\\b[^<]*ELEMENT_SELECTED[\\s\\S]*?<\\/script>/gi, '');
+            const blob = new Blob([finalHtml], { type: 'text/html' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -65,29 +157,26 @@ export default function MagicPPTEditor() {
     };
 
     return (
-        <div className="flex flex-col w-full h-screen bg-[#0a0a0a] text-slate-200 overflow-hidden font-sans">
+        <div className="flex flex-col w-full h-screen bg-slate-950 text-slate-200 overflow-hidden font-sans">
             {/* ── HEADER ── */}
-            <header className="flex-shrink-0 h-14 border-b border-white/10 flex items-center px-4 justify-between bg-slate-900/50">
+            <header className="flex-shrink-0 h-14 border-b border-white/10 flex items-center px-4 justify-between bg-slate-900/80 backdrop-blur-md">
                 <div className="flex items-center gap-4">
                     <button
                         onClick={() => window.close()}
                         className="flex items-center gap-1.5 text-sm font-medium text-slate-400 hover:text-slate-200 transition-colors"
                     >
                         <ChevronLeft className="w-4 h-4" />
-                        Close Editor
+                        Back
                     </button>
                     <div className="h-4 w-px bg-white/10" />
                     <h1 className="text-sm font-semibold text-indigo-400 flex items-center gap-2">
-                        Magic PPT Live Editor
-                        <span className="px-2 py-0.5 rounded bg-indigo-500/10 text-[10px] text-indigo-300 border border-indigo-500/20">
-                            Split View
-                        </span>
+                        Magic PPT Visual Editor
                     </h1>
                 </div>
                 
                 <div className="flex items-center gap-3">
                     <span className="text-[11px] text-slate-500 mr-2">
-                        Autosaved to LocalStorage
+                        Changes auto-save instantly
                     </span>
                     <button
                         onClick={handleDownload}
@@ -101,28 +190,56 @@ export default function MagicPPTEditor() {
 
             {/* ── SPLIT VIEW ── */}
             <main className="flex-1 flex w-full h-[calc(100vh-56px)]">
-                {/* Left: Code Editor */}
-                <div className="w-1/2 h-full flex flex-col border-r border-white/10 bg-[#1e1e1e]">
-                    <div className="h-8 shrink-0 bg-[#2d2d2d] flex items-center px-4 border-b border-white/5">
-                        <span className="text-xs font-mono text-slate-400">Raw HTML (Editable)</span>
-                        <div className="flex-1" />
-                        <span className="text-[10px] text-slate-500">Updates preview in 1s</span>
+                {/* Left: Property Inspector */}
+                <div className="w-[380px] shrink-0 h-full flex flex-col border-r border-white/10 bg-slate-900/50">
+                    <div className="h-12 shrink-0 flex items-center px-4 border-b border-white/5 bg-slate-900/80">
+                        <Type className="w-4 h-4 text-indigo-400 mr-2" />
+                        <span className="text-sm font-semibold text-slate-200">Properties</span>
                     </div>
-                    <textarea
-                        value={editorHtml}
-                        onChange={(e) => setEditorHtml(e.target.value)}
-                        spellCheck="false"
-                        className="flex-1 w-full p-4 bg-transparent text-slate-300 font-mono text-xs leading-relaxed resize-none focus:outline-none custom-scrollbar"
-                        placeholder="<html>..."
-                    />
+                    
+                    <div className="flex-1 p-5 overflow-y-auto">
+                        {!selectedElement ? (
+                            <div className="h-full flex flex-col items-center justify-center text-center px-4 text-slate-500">
+                                <div className="w-16 h-16 rounded-full bg-slate-800/50 flex items-center justify-center mb-4 border border-white/5">
+                                    <MousePointer2 className="w-6 h-6 text-indigo-400/50" />
+                                </div>
+                                <p className="text-sm">Click on any text or mathematical equation in the preview to edit it here.</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-4 animate-in fade-in slide-in-from-left-4 duration-300">
+                                <div>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                                            Edit Text Content
+                                        </label>
+                                        <span className="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400 border border-white/5">
+                                            &lt;{selectedElement.tagName.toLowerCase()}&gt;
+                                        </span>
+                                    </div>
+                                    <textarea
+                                        value={selectedElement.text}
+                                        onChange={(e) => handleTextChange(e.target.value)}
+                                        className="w-full h-64 bg-slate-950 border border-slate-700 rounded-xl p-3 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 custom-scrollbar shadow-inner"
+                                        placeholder="Enter text..."
+                                    />
+                                    <p className="text-[11px] text-slate-500 mt-2 leading-relaxed">
+                                        <strong>Tip:</strong> You can use standard HTML tags like <code className="text-indigo-300">&lt;strong&gt;</code> or <code className="text-indigo-300">&lt;br&gt;</code> here. For math, wrap equations in <code className="text-indigo-300">\\( \\)</code> for inline and <code className="text-indigo-300">\\[ \\]</code> for block equations.
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* Right: Live Preview */}
-                <div className="w-1/2 h-full flex flex-col bg-black relative">
-                    <div className="h-8 shrink-0 bg-slate-900/60 flex items-center px-4 border-b border-white/10">
-                        <span className="text-xs font-medium text-slate-400">Live Preview (Click text to edit)</span>
+                <div className="flex-1 h-full flex flex-col bg-black relative">
+                    <div className="h-10 shrink-0 bg-slate-900/60 flex items-center px-4 border-b border-white/10 z-10 shadow-sm">
+                        <span className="text-xs font-medium text-slate-400 flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                            Live Preview (Click anywhere to inspect)
+                        </span>
                     </div>
-                    <div className="flex-1 relative w-full h-full">
+                    <div className="flex-1 relative w-full h-full bg-[#0a0a0a]">
                         <iframe
                             ref={iframeRef}
                             srcDoc={iframeHtml}
