@@ -301,7 +301,7 @@ Single \`.html\` file. CDNs only. No frameworks. No fullscreen API calls.
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const formData: FormData = body.formData;
+        const formData: any = body.formData;
 
         if (!formData || !formData.topicName) {
             return new Response(JSON.stringify({ error: 'Topic name is required' }), {
