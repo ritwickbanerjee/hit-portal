@@ -29,6 +29,7 @@ interface FormData {
     practiceQuestions: string;
     questionSlideStyle: string;
     additionalInstructions: string;
+    modelChoice: string;
 }
 
 const DEFAULT_FORM: FormData = {
@@ -50,6 +51,7 @@ const DEFAULT_FORM: FormData = {
     practiceQuestions: '',
     questionSlideStyle: 'Blank space below',
     additionalInstructions: '',
+    modelChoice: 'gemini-2.5-flash',
 };
 
 const INTERACTIVE_OPTIONS = [
@@ -374,6 +376,7 @@ export default function MagicPPTPage() {
                     existingHtml: generatedHtml,
                     instructions: modificationNotes,
                     targetSlide: targetSlide,
+                    modelChoice: form.modelChoice,
                 }),
             });
 
@@ -711,6 +714,25 @@ export default function MagicPPTPage() {
                                 </div>
                             )}
 
+                            {/* Model Toggle */}
+                            <div className="flex items-center justify-between px-2 py-1 mb-2 bg-slate-800/50 rounded-lg border border-white/5">
+                                <span className="text-xs text-slate-400 font-medium ml-1">AI Model</span>
+                                <div className="flex bg-slate-900 rounded-md p-1 border border-white/10">
+                                    <button
+                                        onClick={() => update('modelChoice', 'gemini-2.5-flash')}
+                                        className={`px-3 py-1 rounded text-[11px] font-medium transition-all ${form.modelChoice === 'gemini-2.5-flash' ? 'bg-indigo-500 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+                                    >
+                                        Flash (Fast)
+                                    </button>
+                                    <button
+                                        onClick={() => update('modelChoice', 'gemini-2.5-pro')}
+                                        className={`px-3 py-1 rounded text-[11px] font-medium transition-all ${form.modelChoice === 'gemini-2.5-pro' ? 'bg-indigo-500 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+                                    >
+                                        Pro (Smart)
+                                    </button>
+                                </div>
+                            </div>
+
                             <button
                                 onClick={handleGenerate}
                                 disabled={isWorking}
@@ -743,6 +765,16 @@ export default function MagicPPTPage() {
                                         <Minimize2 className="w-3 h-3" /> Exit Fullscreen
                                     </button>
                                 )}
+                                <button
+                                    onClick={() => {
+                                        localStorage.setItem('magic_ppt_draft', generatedHtml);
+                                        window.open('/admin/magic-ppt/editor', '_blank');
+                                    }}
+                                    className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 text-xs font-medium transition-colors ml-2"
+                                >
+                                    <FileCode className="w-3.5 h-3.5" />
+                                    Open in Editor
+                                </button>
                             </div>
 
                             {/* iframe */}

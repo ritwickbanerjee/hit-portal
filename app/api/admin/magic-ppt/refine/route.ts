@@ -9,7 +9,10 @@ export const runtime = 'edge';
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const { existingHtml, instructions, targetSlide } = body;
+        const existingHtml = body.existingHtml;
+        const instructions = body.instructions;
+        const targetSlide = body.targetSlide;
+        const modelChoice = body.modelChoice || 'gemini-2.5-flash';
 
         if (!existingHtml || !instructions) {
             return new Response(JSON.stringify({ error: 'Existing HTML and instructions are required' }), {
@@ -43,8 +46,10 @@ Now apply the requested changes strictly to the Target Slide, and return the com
 
         const estimatedTokens = Math.ceil((systemInstruction.length + userPrompt.length) / 4) + 2000;
 
+        const modelName = modelChoice === 'gemini-2.5-pro' ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
+
         const model = genAI.getGenerativeModel({
-            model: 'gemini-2.5-flash',
+            model: modelName,
             systemInstruction: systemInstruction,
             generationConfig: {
                 maxOutputTokens: 65536,

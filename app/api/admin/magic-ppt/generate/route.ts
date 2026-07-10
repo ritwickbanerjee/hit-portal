@@ -315,8 +315,10 @@ export async function POST(req: NextRequest) {
         // Estimate tokens for tracking
         const estimatedTokens = Math.ceil(masterPrompt.length / 4) + 2000;
 
+        const modelName = formData.modelChoice === 'gemini-2.5-pro' ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
+
         const model = genAI.getGenerativeModel({
-            model: 'gemini-2.5-flash',
+            model: modelName,
             generationConfig: {
                 maxOutputTokens: 65536,
                 temperature: 0.7,
