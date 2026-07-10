@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
     Users, ClipboardList, CheckSquare, FileText,
-    Upload, BarChart, BookOpen, LogOut, Menu, X, GraduationCap, Laptop, CalendarDays, LayoutGrid
+    Upload, BarChart, BookOpen, LogOut, Menu, X, GraduationCap, Laptop, CalendarDays, LayoutGrid, Sparkles
 } from 'lucide-react';
 import InstallPWA from '@/components/InstallPWA';
 import ActiveDeploymentToggle from '@/components/ActiveDeploymentToggle';
@@ -149,6 +149,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         { name: 'Assignment Submissions', href: '/admin/submissions', icon: FileText },
         { name: 'Online Test', href: '/admin/online-test', icon: Laptop },
         { name: 'Study Materials', href: '/admin/resources', icon: BookOpen },
+        { name: 'The Magic PPT', href: '/admin/magic-ppt', icon: Sparkles },
     ];
 
     // Bypass auth check for login and forgot password pages
@@ -178,7 +179,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             )}
 
             {/* Sidebar */}
-            <div className={`fixed inset-y-0 left-0 z-40 w-64 bg-slate-900/95 backdrop-blur-xl border-r border-white/5 transform transition-transform duration-300 ease-out md:sticky md:top-4 md:h-[calc(100vh-2rem)] md:ml-4 md:mb-4 md:rounded-2xl md:border md:border-white/5 md:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full shadow-2xl'} ${pathname === '/admin/routine-maker' ? 'hidden' : ''}`}>
+            <div className={`fixed inset-y-0 left-0 z-40 w-64 bg-slate-900/95 backdrop-blur-xl border-r border-white/5 transform transition-transform duration-300 ease-out md:sticky md:top-4 md:h-[calc(100vh-2rem)] md:ml-4 md:mb-4 md:rounded-2xl md:border md:border-white/5 md:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full shadow-2xl'} ${pathname === '/admin/routine-maker' || pathname === '/admin/magic-ppt' ? 'hidden' : ''}`}>
                 <div className="flex flex-col h-full">
                     {/* Logo Area */}
                     <div className="flex h-20 shrink-0 items-center px-6 border-b border-white/5 bg-gradient-to-r from-slate-900 to-slate-800/50">
@@ -284,9 +285,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     {pathname === '/admin/attendance' ? <InstallPWA type="admin" /> : <div className="w-6" />}
                 </div>
 
-                <main className="flex-1 overflow-y-auto p-4 md:p-8 relative z-10 scroll-smooth">
+                <main className={`flex-1 overflow-y-auto relative z-10 scroll-smooth ${pathname === '/admin/magic-ppt' ? 'p-0' : 'p-4 md:p-8'}`}>
                     {/* Global Header */}
-                    <div className="hidden md:flex justify-between items-center mb-8">
+                    <div className={`${pathname === '/admin/magic-ppt' ? 'hidden' : 'hidden md:flex'} justify-between items-center mb-8`}>
                         <div>
                             <div className="flex items-center gap-4">
                                 <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
