@@ -53,6 +53,11 @@ export default function MagicPPTEditor() {
         target.style.outlineOffset = '2px';
         target.style.borderRadius = '4px';
 
+        // If they click on the background, deselect
+        if (target.id === 'app' || target === document.body) {
+            window.parent.postMessage({ type: 'ELEMENT_DESELECTED' }, '*');
+        }
+
         window.parent.postMessage({
             type: 'ELEMENT_SELECTED',
             id: target.dataset.magicId,
@@ -60,6 +65,16 @@ export default function MagicPPTEditor() {
             tagName: target.tagName
         }, '*');
     }, true);
+
+    // Force presentation scripts (like resize) to initialize
+    // because iframe srcDoc dynamic updates might miss the native window.onload
+    setTimeout(() => {
+        window.dispatchEvent(new Event('resize'));
+        window.dispatchEvent(new Event('load'));
+    }, 100);
+    setTimeout(() => {
+        window.dispatchEvent(new Event('resize'));
+    }, 1000);
 
     window.addEventListener('message', (e) => {
         if (e.data && e.data.type === 'UPDATE_ELEMENT') {

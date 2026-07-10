@@ -176,6 +176,17 @@ export default function MagicPPTPage() {
 
     window.addEventListener('load', makeEditable);
     
+    // Force presentation scripts (like resize and GSAP) to initialize
+    // because iframe srcDoc dynamic updates might miss the native window.onload
+    setTimeout(() => {
+        makeEditable();
+        window.dispatchEvent(new Event('resize'));
+        window.dispatchEvent(new Event('load'));
+    }, 100);
+    setTimeout(() => {
+        window.dispatchEvent(new Event('resize'));
+    }, 1000); // Failsafe for slower loading CDNs
+    
     // Listen for manual edits and send to parent
     document.addEventListener('input', () => {
         window.parent.postMessage({ type: 'HTML_UPDATE', html: document.documentElement.outerHTML }, '*');
