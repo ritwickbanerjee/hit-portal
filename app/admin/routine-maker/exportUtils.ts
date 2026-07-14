@@ -547,6 +547,94 @@ export async function exportFacultyExcel(grid: GridState, faculties: FacultyData
     saveBlob(new Blob([buffer]), 'Faculty_Routines.xlsx');
 }
 
+export async function exportCodeResponsibilityExcel(codeResponsibilities: {course: string, dept: string, faculty: string}[], faculties: FacultyData[]) {
+    const ExcelJS = await import('exceljs');
+    const Workbook = ExcelJS.Workbook || ExcelJS.default?.Workbook;
+    const workbook = new Workbook();
+    const sheet = workbook.addWorksheet('Code Responsibility');
+
+    // Title Row
+    sheet.mergeCells('A1:C1');
+    const titleCell = sheet.getCell('A1');
+    titleCell.value = 'Code Responsibility';
+    titleCell.font = { name: 'Calibri', size: 14, bold: true };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+
+    // Subtitle Row
+    sheet.mergeCells('A2:C2');
+    const subTitleCell = sheet.getCell('A2');
+    subTitleCell.value = 'Odd Semester 2026-27';
+    subTitleCell.font = { name: 'Calibri', size: 12, bold: true };
+    subTitleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+
+    // Header Row (Row 3)
+    sheet.getRow(3).values = ['Faculty', 'Code', 'Stream(s)'];
+    sheet.getRow(3).font = { name: 'Calibri', size: 11, bold: true };
+    ['A3', 'B3', 'C3'].forEach(cell => {
+        sheet.getCell(cell).alignment = { horizontal: 'center', vertical: 'middle' };
+        sheet.getCell(cell).border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+        };
+    });
+
+    // Grouping logic
+    const facultyMap = new Map<string, Map<string, string[]>>(); // Faculty -> Course -> Dept[]
+    
+    codeResponsibilities.forEach(cr => {
+        if (!cr.faculty || !cr.course || !cr.dept) return;
+        if (!facultyMap.has(cr.faculty)) facultyMap.set(cr.faculty, new Map());
+        const courseMap = facultyMap.get(cr.faculty)!;
+        if (!courseMap.has(cr.course)) courseMap.set(cr.course, []);
+        if (!courseMap.get(cr.course)!.includes(cr.dept)) {
+            courseMap.get(cr.course)!.push(cr.dept);
+        }
+    });
+
+    let currentRow = 4;
+
+    facultyMap.forEach((courseMap, facultyCode) => {
+        const startRow = currentRow;
+        let totalRowsForFaculty = 0;
+
+        courseMap.forEach((depts, courseCode) => {
+            const streamsStr = depts.join(', ');
+            const row = sheet.getRow(currentRow);
+            row.getCell(1).value = facultyCode; // Will merge later
+            row.getCell(2).value = courseCode;
+            row.getCell(3).value = streamsStr;
+            
+            [1, 2, 3].forEach(col => {
+                row.getCell(col).alignment = { horizontal: 'center', vertical: 'middle' };
+                row.getCell(col).border = {
+                    top: { style: 'thin' },
+                    left: { style: 'thin' },
+                    bottom: { style: 'thin' },
+                    right: { style: 'thin' }
+                };
+            });
+            
+            currentRow++;
+            totalRowsForFaculty++;
+        });
+
+        // Merge Faculty column
+        if (totalRowsForFaculty > 1) {
+            sheet.mergeCells(`A${startRow}:A${currentRow - 1}`);
+        }
+    });
+
+    // Set Column Widths
+    sheet.getColumn(1).width = 20;
+    sheet.getColumn(2).width = 30;
+    sheet.getColumn(3).width = 40;
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    saveBlob(new Blob([buffer]), 'Code_Responsibility.xlsx');
+}
+
 /* ========================================================================
    UTILITIES
    ======================================================================== */

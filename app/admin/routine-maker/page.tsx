@@ -10,8 +10,11 @@ import {
     GridState, FacultyData, checkConstraints, ConstraintViolation, Slot
 } from './constraintUtils';
 import { 
-    exportMasterCSV, exportDeptCourseCSV, exportLoadMatrixExcel, exportFacultyExcel
+    exportMasterCSV, exportDeptCourseCSV, exportLoadMatrixExcel, exportFacultyExcel, exportCodeResponsibilityExcel
 } from './exportUtils';
+
+import CodeResponsibilityView from './components/CodeResponsibilityView';
+import DepartmentRoutineView from './components/DepartmentRoutineView';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 const PERIODS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -40,7 +43,7 @@ const FACULTY_COLORS_14 = [
 ];
 
 export default function RoutineMakerPage() {
-    const [activeTab, setActiveTab] = useState<'grid'|'faculty'|'rules'|'access'>('grid');
+    const [activeTab, setActiveTab] = useState<'grid'|'faculty'|'rules'|'access'|'codeResp'|'deptView'>('grid');
     const [userEmail, setUserEmail] = useState('');
     const [isSuperAdmin, setIsSuperAdmin] = useState(false);
     
@@ -53,6 +56,7 @@ export default function RoutineMakerPage() {
     const [faculties, setFaculties] = useState<FacultyData[]>([]);
     const [mappingRules, setMappingRules] = useState(DEFAULT_RULES);
     const [lockedCells, setLockedCells] = useState<any[]>([]);
+    const [codeResponsibilities, setCodeResponsibilities] = useState<{course: string, dept: string, faculty: string}[]>([]);
     
     // UI State
     const [selectedFacultyFilter, setSelectedFacultyFilter] = useState<string | null>(null);
@@ -146,6 +150,7 @@ export default function RoutineMakerPage() {
             setFaculties(data.faculties || []);
             setMappingRules(data.mappingRules || DEFAULT_RULES);
             setLockedCells(data.lockedCells || []);
+            setCodeResponsibilities(data.codeResponsibilities || []);
             setHasUnsavedChanges(false);
             setGlowingViolations([]);
             
@@ -555,6 +560,8 @@ export default function RoutineMakerPage() {
                     {/* TABS */}
                     <div className="flex bg-gray-900 border-b border-gray-800 px-2 md:px-4 overflow-x-auto shrink-0 custom-scrollbar">
                         <button className={`px-3 py-2 md:py-3 text-xs md:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === 'grid' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-gray-400 hover:text-gray-200'}`} onClick={() => setActiveTab('grid')}>Grid Editor</button>
+                        <button className={`px-3 py-2 md:py-3 text-xs md:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === 'deptView' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-gray-400 hover:text-gray-200'}`} onClick={() => setActiveTab('deptView')}>Dept View</button>
+                        <button className={`px-3 py-2 md:py-3 text-xs md:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === 'codeResp' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-gray-400 hover:text-gray-200'}`} onClick={() => setActiveTab('codeResp')}>Code Resp.</button>
                         <button className={`px-3 py-2 md:py-3 text-xs md:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === 'faculty' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-gray-400 hover:text-gray-200'}`} onClick={() => setActiveTab('faculty')}>Faculty Manager</button>
                         <button className={`px-3 py-2 md:py-3 text-xs md:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === 'rules' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-gray-400 hover:text-gray-200'}`} onClick={() => setActiveTab('rules')}>Mapping Rules</button>
                         {isSuperAdmin && (
@@ -934,6 +941,27 @@ export default function RoutineMakerPage() {
                             </div>
                         )}
 
+                        {activeTab === 'codeResp' && (
+                            <div className="h-full">
+                                <CodeResponsibilityView 
+                                    grid={grid} 
+                                    faculties={faculties}
+                                    codeResponsibilities={codeResponsibilities}
+                                    onChange={(newCrs) => { setCodeResponsibilities(newCrs); setHasUnsavedChanges(true); }}
+                                    onDownload={() => exportCodeResponsibilityExcel(codeResponsibilities, faculties)}
+                                />
+                            </div>
+                        )}
+
+                        {activeTab === 'deptView' && (
+                            <div className="h-full">
+                                <DepartmentRoutineView 
+                                    grid={grid}
+                                    departments={Array.from(new Set(Object.values(grid).flatMap(dayRows => dayRows.flatMap(row => row.slots.map(s => s?.dept).filter(Boolean))))) as string[]}
+                                />
+                            </div>
+                        )}
+
                     </div>
                 </div>
 
@@ -1148,7 +1176,6 @@ export default function RoutineMakerPage() {
                     </div>
                 </div>
             )}
-
         </div>
     );
 }

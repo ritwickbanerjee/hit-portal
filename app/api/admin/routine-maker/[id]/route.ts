@@ -39,7 +39,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     try {
         const { id } = await params;
         const body = await req.json();
-        const { name, description, grid, faculties, mappingRules, lockedCells } = body;
+        const { name, description, grid, faculties, mappingRules, lockedCells, codeResponsibilities } = body;
 
         const updateData: any = {};
         if (name !== undefined) updateData.name = name;
@@ -48,6 +48,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         if (faculties !== undefined) updateData.faculties = faculties;
         if (mappingRules !== undefined) updateData.mappingRules = mappingRules;
         if (lockedCells !== undefined) updateData.lockedCells = lockedCells;
+        if (codeResponsibilities !== undefined) updateData.codeResponsibilities = codeResponsibilities;
 
         const routine = await Routine.findByIdAndUpdate(id, updateData, { new: true });
         if (!routine) return NextResponse.json({ error: 'Routine not found' }, { status: 404 });

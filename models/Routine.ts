@@ -39,6 +39,12 @@ const LockedCellSchema = new mongoose.Schema({
     periodIndex: { type: Number, required: true },
 }, { _id: false });
 
+const CodeResponsibilitySchema = new mongoose.Schema({
+    course: { type: String, required: true },
+    dept: { type: String, required: true },
+    faculty: { type: String, default: '' },
+}, { _id: false });
+
 const RoutineSchema = new mongoose.Schema({
     name: { type: String, required: true },
     description: { type: String, default: '' },
@@ -58,6 +64,7 @@ const RoutineSchema = new mongoose.Schema({
     faculties: { type: [RoutineFacultySchema], default: [] },
     mappingRules: { type: [MappingRuleSchema], default: [] },
     lockedCells: { type: [LockedCellSchema], default: [] },
+    codeResponsibilities: { type: [CodeResponsibilitySchema], default: [] },
     isArchived: { type: Boolean, default: false },
 }, { timestamps: true });
 
