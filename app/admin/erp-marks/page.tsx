@@ -208,11 +208,15 @@ export default function ErpMarksPage() {
                         </div>
                         <div className="flex items-start gap-2 text-sm text-slate-300">
                             <ChevronRight className="w-4 h-4 mt-0.5 text-amber-400 shrink-0" />
-                            <span>Press <Kbd>Ctrl+Shift+F</Kbd> (Forward Check) — all roll numbers should match the ERP list top to bottom.</span>
+                            <span>Press <Kbd>Ctrl+Shift+F</Kbd> <span className="text-amber-300 font-semibold">(Forward Check)</span> — verifies that every roll number from your Excel sheet is present on the ERP page. Reports any missing ones.</span>
                         </div>
                         <div className="flex items-start gap-2 text-sm text-slate-300">
                             <ChevronRight className="w-4 h-4 mt-0.5 text-amber-400 shrink-0" />
-                            <span>Press <Kbd>Ctrl+Shift+R</Kbd> (Reverse Check) — verify from bottom to top as well.</span>
+                            <span>Press <Kbd>Ctrl+Shift+R</Kbd> <span className="text-amber-300 font-semibold">(Reverse Check)</span> — scans the ERP page for any roll numbers that are <strong className="text-white">NOT</strong> in your Excel sheet (i.e., extra students on ERP). Reports any discrepancies.</span>
+                        </div>
+                        <div className="flex items-start gap-2 text-sm text-slate-300 mt-1 pt-1 border-t border-amber-500/10">
+                            <ChevronRight className="w-4 h-4 mt-0.5 text-red-400 shrink-0" />
+                            <span><Kbd>Esc</Kbd> = <span className="text-red-400 font-semibold">Emergency Stop</span> — press at any time to immediately halt an ongoing auto-fill.</span>
                         </div>
                     </div>
                 </StepCard>
