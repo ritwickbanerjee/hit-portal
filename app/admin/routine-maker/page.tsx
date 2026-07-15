@@ -68,6 +68,8 @@ export default function RoutineMakerPage() {
     const [glowingViolations, setGlowingViolations] = useState<string[]>([]);
     const [swapAnimation, setSwapAnimation] = useState<{ day: string, pIdx: number, rowId: string }[]>([]);
     const [actionLog, setActionLog] = useState<{msg: string, time: Date}[]>([]);
+    const [highlightMissingRoom, setHighlightMissingRoom] = useState(false);
+    const [highlightMissingPair, setHighlightMissingPair] = useState(false);
     
     const [exportOpen, setExportOpen] = useState(false);
     
@@ -487,6 +489,39 @@ export default function RoutineMakerPage() {
                     border-radius: 4px;
                     z-index: 10;
                 }
+                @keyframes intenseGlowAmber {
+                    0%   { box-shadow: 0 0 8px 4px rgba(251,191,36,0.9), 0 0 20px 8px rgba(245,158,11,0.7); }
+                    50%  { box-shadow: 0 0 20px 10px rgba(251,191,36,1), 0 0 40px 16px rgba(245,158,11,0.9); }
+                    100% { box-shadow: 0 0 8px 4px rgba(251,191,36,0.9), 0 0 20px 8px rgba(245,158,11,0.7); }
+                }
+                .glow-amber {
+                    animation: intenseGlowAmber 1s ease-in-out infinite;
+                    border: 2px solid #f59e0b !important;
+                    border-radius: 4px;
+                    z-index: 5;
+                }
+                @keyframes intenseGlowOrange {
+                    0%   { box-shadow: 0 0 8px 4px rgba(249,115,22,0.9), 0 0 20px 8px rgba(234,88,12,0.7); }
+                    50%  { box-shadow: 0 0 22px 12px rgba(249,115,22,1), 0 0 44px 18px rgba(234,88,12,0.9); }
+                    100% { box-shadow: 0 0 8px 4px rgba(249,115,22,0.9), 0 0 20px 8px rgba(234,88,12,0.7); }
+                }
+                .glow-orange {
+                    animation: intenseGlowOrange 1s ease-in-out infinite;
+                    border: 2px solid #f97316 !important;
+                    border-radius: 4px;
+                    z-index: 5;
+                }
+                @keyframes intenseGlowRed {
+                    0%   { box-shadow: 0 0 10px 5px rgba(239,68,68,0.95), 0 0 25px 10px rgba(220,38,38,0.8); }
+                    50%  { box-shadow: 0 0 25px 14px rgba(239,68,68,1),   0 0 50px 20px rgba(220,38,38,1); }
+                    100% { box-shadow: 0 0 10px 5px rgba(239,68,68,0.95), 0 0 25px 10px rgba(220,38,38,0.8); }
+                }
+                .glow-red {
+                    animation: intenseGlowRed 0.8s ease-in-out infinite;
+                    border: 2px solid #ef4444 !important;
+                    border-radius: 4px;
+                    z-index: 5;
+                }
             `}} />
             
             {/* TOP BAR */}
@@ -586,7 +621,7 @@ export default function RoutineMakerPage() {
                         {activeTab === 'grid' && (
                             <div className="flex flex-col gap-3 h-full">
                                 {/* FILTER & STATS BAR */}
-                                <div className="bg-gray-900 rounded-lg p-2 md:p-3 border border-gray-800 shrink-0">
+                                <div className="bg-gray-900 rounded-lg p-2 md:p-3 border border-gray-800 shrink-0 space-y-2">
                                     <div className="flex items-center gap-2 flex-wrap max-h-32 overflow-y-auto custom-scrollbar">
                                         <span className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wider font-semibold">Quick View:</span>
                                         <button 
@@ -610,6 +645,40 @@ export default function RoutineMakerPage() {
                                                 {fac.code} <span className="bg-black/20 px-1 rounded">{facultyLoadMap[fac.code] || 0}</span>
                                             </button>
                                         ))}
+                                    </div>
+                                    {/* AUDIT BUTTONS */}
+                                    <div className="flex items-center gap-2 flex-wrap border-t border-gray-800 pt-2">
+                                        <span className="text-[10px] md:text-xs text-gray-500 uppercase tracking-wider font-semibold">Audit:</span>
+                                        <button
+                                            onClick={() => { setHighlightMissingRoom(v => !v); setHighlightMissingPair(false); }}
+                                            className={`flex items-center gap-1.5 px-2.5 py-1 text-[10px] md:text-xs rounded font-semibold transition-all border ${
+                                                highlightMissingRoom
+                                                    ? 'bg-amber-500 text-black border-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.8)]'
+                                                    : 'bg-gray-800 text-amber-400 border-amber-500/30 hover:bg-amber-500/10'
+                                            }`}
+                                            title="Highlight all class slots where Room Number is missing"
+                                        >
+                                            ⚠ Missing Room
+                                        </button>
+                                        <button
+                                            onClick={() => { setHighlightMissingPair(v => !v); setHighlightMissingRoom(false); }}
+                                            className={`flex items-center gap-1.5 px-2.5 py-1 text-[10px] md:text-xs rounded font-semibold transition-all border ${
+                                                highlightMissingPair
+                                                    ? 'bg-orange-500 text-black border-orange-400 shadow-[0_0_12px_rgba(249,115,22,0.8)]'
+                                                    : 'bg-gray-800 text-orange-400 border-orange-500/30 hover:bg-orange-500/10'
+                                            }`}
+                                            title="Highlight MTH1101/MTH1201/MTH1102 slots where a department is missing a T1 or T2 pair"
+                                        >
+                                            ⚡ T1/T2 Pair Check
+                                        </button>
+                                        {(highlightMissingRoom || highlightMissingPair) && (
+                                            <button
+                                                onClick={() => { setHighlightMissingRoom(false); setHighlightMissingPair(false); }}
+                                                className="px-2 py-1 text-[10px] md:text-xs rounded text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700 border border-gray-700"
+                                            >
+                                                Clear
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
 
@@ -685,6 +754,21 @@ export default function RoutineMakerPage() {
                                                                             const facColor = slot ? getFacColor(slot.faculty) : '';
                                                                             const glowing = slot && isCellGlowing(day, pIdx, slot.faculty, slot.room);
                                                                             const isSwapping = swapAnimation.some(a => a.day === day && a.rowId === row.id && a.pIdx === pIdx);
+
+                                                                            // Missing room audit
+                                                                            const glowMissingRoom = highlightMissingRoom && slot && slot.faculty && (!slot.room || slot.room.trim() === '');
+
+                                                                            // T1/T2 pair audit — compute lazily per cell
+                                                                            const PAIR_COURSES = ['MTH1101', 'MTH1201'];
+                                                                            const glowMissingPair = (() => {
+                                                                                if (!highlightMissingPair || !slot || !PAIR_COURSES.includes(slot.course)) return false;
+                                                                                // For this course+dept, collect all types across entire grid
+                                                                                const types = new Set<string>();
+                                                                                Object.values(grid).forEach(dayRows => dayRows.forEach(r => r.slots.forEach(s => {
+                                                                                    if (s && s.course === slot.course && s.dept === slot.dept) types.add(s.type);
+                                                                                })));
+                                                                                return !(types.has('T1') && types.has('T2'));
+                                                                            })();
                                                                             
                                                                             return (
                                                                                 <div 
@@ -702,7 +786,7 @@ export default function RoutineMakerPage() {
                                                                                             draggable={!locked && !selectedFacultyFilter}
                                                                                             onDragStart={(e) => handleDragStart(e, day, row.id, pIdx, slot)}
                                                                                             onClick={() => { if(!locked && !selectedFacultyFilter) setCellModal({day, rowId: row.id, pIdx}); }}
-                                                                                            className={`w-full h-full p-1 border-l-4 overflow-hidden relative group/cell transition-shadow duration-300 ${!selectedFacultyFilter && !locked ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'} ${glowing ? `ring-2 ring-red-500 animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.7)]` : ''}`}
+                                                                                            className={`w-full h-full p-1 border-l-4 overflow-hidden relative group/cell transition-shadow duration-300 ${!selectedFacultyFilter && !locked ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'} ${glowing ? 'glow-red' : ''} ${glowMissingRoom ? 'glow-amber' : ''} ${glowMissingPair ? 'glow-orange' : ''}`}
                                                                                             style={{
                                                                                                 backgroundColor: `${facColor}15`,
                                                                                                 borderLeftColor: facColor,
