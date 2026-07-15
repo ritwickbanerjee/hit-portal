@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
     Users, ClipboardList, CheckSquare, FileText,
-    Upload, BarChart, BookOpen, LogOut, Menu, X, GraduationCap, Laptop, CalendarDays, LayoutGrid, Sparkles
+    Upload, BarChart, BookOpen, LogOut, Menu, X, GraduationCap, Laptop, CalendarDays, LayoutGrid, Sparkles, ClipboardCheck
 } from 'lucide-react';
 import InstallPWA from '@/components/InstallPWA';
 import ActiveDeploymentToggle from '@/components/ActiveDeploymentToggle';
@@ -150,6 +150,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         { name: 'Online Test', href: '/admin/online-test', icon: Laptop },
         { name: 'Study Materials', href: '/admin/resources', icon: BookOpen },
         { name: 'The Magic PPT', href: '/admin/magic-ppt', icon: Sparkles },
+        { name: 'Uploading Marks in ERP', href: '/admin/erp-marks', icon: ClipboardCheck },
     ];
 
     // Bypass auth check for login and forgot password pages
