@@ -12,7 +12,29 @@ interface Props {
 
 export default function DepartmentRoutineView({ grid, departments }: Props) {
     const [selectedDept, setSelectedDept] = useState<string>('');
-    const [searchCourse, setSearchCourse] = useState<string>('');
+    const [selectedCourse, setSelectedCourse] = useState<string>('');
+
+    // When dept changes, reset course filter
+    const handleDeptChange = (dept: string) => {
+        setSelectedDept(dept);
+        setSelectedCourse('');
+    };
+
+    // Unique courses available in the grid for the selected department
+    const coursesForDept = useMemo(() => {
+        if (!selectedDept) return [];
+        const courses = new Set<string>();
+        Object.values(grid).forEach(dayRows => {
+            dayRows.forEach(row => {
+                row.slots.forEach(slot => {
+                    if (slot && slot.dept === selectedDept && slot.course) {
+                        courses.add(slot.course);
+                    }
+                });
+            });
+        });
+        return Array.from(courses).sort();
+    }, [grid, selectedDept]);
 
     // Generate a 5x9 grid for the selected department
     const deptGrid = useMemo(() => {
@@ -27,7 +49,7 @@ export default function DepartmentRoutineView({ grid, departments }: Props) {
             rows.forEach(row => {
                 row.slots.forEach((slot, pIdx) => {
                     if (slot && slot.dept === selectedDept) {
-                        if (!searchCourse || slot.course.toLowerCase().includes(searchCourse.toLowerCase())) {
+                        if (!selectedCourse || slot.course === selectedCourse) {
                             result[day][pIdx].push(slot);
                         }
                     }
@@ -36,7 +58,7 @@ export default function DepartmentRoutineView({ grid, departments }: Props) {
         });
         
         return result;
-    }, [grid, selectedDept, searchCourse]);
+    }, [grid, selectedDept, selectedCourse]);
 
     return (
         <div className="flex flex-col h-full bg-gray-900 rounded-lg border border-gray-800 overflow-hidden shadow-lg">
@@ -52,7 +74,7 @@ export default function DepartmentRoutineView({ grid, departments }: Props) {
                     
                     <select
                         value={selectedDept}
-                        onChange={e => setSelectedDept(e.target.value)}
+                        onChange={e => handleDeptChange(e.target.value)}
                         className="bg-gray-800 border border-gray-700 text-white rounded px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500 min-w-[150px]"
                     >
                         <option value="">-- Select Department --</option>
@@ -61,14 +83,17 @@ export default function DepartmentRoutineView({ grid, departments }: Props) {
                         ))}
                     </select>
 
-                    <input
-                        type="text"
-                        placeholder="Sub-filter by Course..."
-                        value={searchCourse}
-                        onChange={e => setSearchCourse(e.target.value)}
-                        className="bg-gray-800 border border-gray-700 text-white rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500 w-[200px]"
-                        disabled={!selectedDept}
-                    />
+                    <select
+                        value={selectedCourse}
+                        onChange={e => setSelectedCourse(e.target.value)}
+                        disabled={!selectedDept || coursesForDept.length === 0}
+                        className="bg-gray-800 border border-gray-700 text-white rounded px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500 min-w-[160px] disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                        <option value="">All Courses</option>
+                        {coursesForDept.map(c => (
+                            <option key={c} value={c}>{c}</option>
+                        ))}
+                    </select>
                 </div>
 
                 <button 
