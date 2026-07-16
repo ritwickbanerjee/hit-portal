@@ -410,7 +410,7 @@ export async function exportFacultyExcel(grid: GridState, faculties: FacultyData
         const headerRow = sheet.getRow(4);
         headerRow.values = ['DAY', '', ...TIME_LABELS];
         headerRow.font = { bold: true };
-        headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
+        headerRow.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
         for (let c = 1; c <= 11; c++) {
             headerRow.getCell(c).border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
         }
@@ -528,30 +528,6 @@ export async function exportFacultyExcel(grid: GridState, faculties: FacultyData
                 );
                 if (t2Index !== -1) {
                     const t2 = matchData[t2Index];
-                    const colorHex = PAIR_COLORS[colorIndex % PAIR_COLORS.length];
-                    t1.cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + colorHex } };
-                    t2.cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + colorHex } };
-                    
-                    // Add directional arrow from T2 to T1
-                    const colDiff = Number(t1.cell.col) - Number(t2.cell.col);
-                    const rowDiff = Number(t1.cell.row) - Number(t2.cell.row);
-                    let arrow = '';
-                    
-                    if (rowDiff === 0) {
-                        arrow = colDiff > 0 ? '→' : '←';
-                    } else if (colDiff === 0) {
-                        arrow = rowDiff > 0 ? '↓' : '↑';
-                    } else {
-                        if (rowDiff > 0 && colDiff > 0) arrow = '↘';
-                        else if (rowDiff > 0 && colDiff < 0) arrow = '↙';
-                        else if (rowDiff < 0 && colDiff > 0) arrow = '↗';
-                        else if (rowDiff < 0 && colDiff < 0) arrow = '↖';
-                    }
-                    
-                    if (arrow) {
-                        t2.cell.value = `[ ${arrow} T1 ]\n${t2.cell.value}`;
-                    }
-
                     used.add(i);
                     used.add(t2Index);
                     colorIndex++;
@@ -560,15 +536,10 @@ export async function exportFacultyExcel(grid: GridState, faculties: FacultyData
         });
 
         // ── Dynamic column-width calculation ──────────────────────────────
-        // Walk every data row (rows 4 onward) and measure the longest
-        // line in each cell's text.  Period columns (C–K, index 3–11)
-        // that have no content stay at a narrow minimum width (4.5).
+        // Walk every data row (rows 5 onward) and measure the longest
+        // line in each cell's text. We DO NOT include the header length,
+        // so if a column has no classes, its max measured length is 0.
         const colMaxLen: number[] = new Array(12).fill(0);
-        // Seed with header labels
-        const headerLbls = ['DAY', '', ...TIME_LABELS];
-        headerLbls.forEach((lbl, i) => {
-            colMaxLen[i + 1] = Math.max(colMaxLen[i + 1], lbl.length);
-        });
 
         sheet.eachRow((row, rowNum) => {
             if (rowNum < 5) return; // skip header rows
@@ -592,7 +563,7 @@ export async function exportFacultyExcel(grid: GridState, faculties: FacultyData
                 // Gr column
                 sheet.getColumn(c).width = 5;
             } else {
-                // Period columns: use measured width, min 4.5 for empty, max 24
+                // Period columns: use measured width. If empty, squeeze to 4.5
                 sheet.getColumn(c).width = measured > 0
                     ? Math.min(Math.max(measured, 7), 24)
                     : 4.5;
