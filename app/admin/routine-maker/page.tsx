@@ -12,6 +12,7 @@ import {
 import { 
     exportMasterCSV, exportDeptCourseCSV, exportLoadMatrixExcel, exportFacultyExcel, exportCodeResponsibilityExcel
 } from './exportUtils';
+import { exportFacultyPDF } from './pdfUtils';
 
 import CodeResponsibilityView from './components/CodeResponsibilityView';
 import DepartmentRoutineView from './components/DepartmentRoutineView';
@@ -1219,7 +1220,10 @@ export default function RoutineMakerPage() {
                                 <span className="p-1.5 bg-green-500/20 text-green-400 rounded"><Download className="w-4 h-4" /></span> Load Matrix Excel
                             </button>
                             <button onClick={() => { exportFacultyExcel(grid, faculties); setExportOpen(false); }} className="w-full text-left px-4 py-3 text-sm rounded hover:bg-gray-800 transition-colors flex items-center gap-3">
-                                <span className="p-1.5 bg-amber-500/20 text-amber-400 rounded"><Download className="w-4 h-4" /></span> Faculty Excel (Tabs)
+                                <span className="p-1.5 bg-amber-500/20 text-amber-400 rounded"><Download className="w-4 h-4" /></span> Export Faculty Routines (Excel)
+                            </button>
+                            <button onClick={() => { exportFacultyPDF(grid, faculties); setExportOpen(false); }} className="w-full text-left px-4 py-3 text-sm rounded hover:bg-gray-800 transition-colors flex items-center gap-3">
+                                <span className="p-1.5 bg-red-500/20 text-red-400 rounded"><Download className="w-4 h-4" /></span> Download Faculty Routines (PDF)
                             </button>
                             
                             {currentRoutineId && (

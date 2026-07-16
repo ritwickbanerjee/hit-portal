@@ -1,9 +1,9 @@
 import { GridState, FacultyData } from './constraintUtils';
 import Papa from 'papaparse';
 
-const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-const DAY_MARKS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'];
-const TIME_LABELS = ['9:00 AM - 10:00 AM', '10:00 AM - 11:00 AM', '11:00 AM - 12:00 PM', '12:00 PM - 1:00 PM', '1:00 PM - 2:00 PM', '2:00 PM - 3:00 PM', '3:00 PM - 4:00 PM', '4:00 PM - 5:00 PM', '5:00 PM - 6:00 PM'];
+export const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+export const DAY_MARKS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'];
+export const TIME_LABELS = ['9:00 AM - 10:00 AM', '10:00 AM - 11:00 AM', '11:00 AM - 12:00 PM', '12:00 PM - 1:00 PM', '1:00 PM - 2:00 PM', '2:00 PM - 3:00 PM', '3:00 PM - 4:00 PM', '4:00 PM - 5:00 PM', '5:00 PM - 6:00 PM'];
 
 function processInfo(slot: any): string {
     if (!slot) return '';
@@ -567,10 +567,10 @@ export async function exportFacultyExcel(grid: GridState, faculties: FacultyData
                 // Gr column
                 sheet.getColumn(c).width = 5;
             } else {
-                // Period columns: use measured width. If empty, squeeze to 4.5
+                // Period columns: use measured width. If empty, squeeze to 9.0
                 sheet.getColumn(c).width = measured > 0
                     ? Math.min(Math.max(measured, 7), 24)
-                    : 4.5;
+                    : 9.0;
             }
         }
         

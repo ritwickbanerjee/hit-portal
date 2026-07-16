@@ -1,0 +1,193 @@
+import { TIME_LABELS, DAYS, DAY_MARKS } from './exportUtils';
+import { GridState, FacultyData } from './constraintUtils';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+
+function processInfo(slot: any) {
+    if (!slot) return '';
+    return `${slot.course}\n${slot.type} / ${slot.dept}\n${slot.room || 'TBA'}`;
+}
+
+export async function exportFacultyPDF(grid: GridState, faculties: FacultyData[]) {
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+    
+    const PAIR_COLORS = [
+        [255, 218, 185], [230, 230, 250], [224, 255, 255], [240, 255, 240],
+        [255, 250, 205], [245, 222, 179], [216, 191, 216], [245, 245, 220]
+    ];
+
+    faculties.forEach((fac, facIdx) => {
+        if (facIdx > 0) doc.addPage();
+        
+        // Headers
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text("Heritage Institute of Technology", doc.internal.pageSize.width / 2, 30, { align: 'center' });
+        
+        doc.setFontSize(12);
+        doc.text("TIME TABLE", doc.internal.pageSize.width / 2, 45, { align: 'center' });
+        doc.text("Faculty: " + fac.code, doc.internal.pageSize.width - 40, 45, { align: 'right' });
+        
+        doc.setFontSize(10);
+        doc.text("B.Tech/M.Tech/MCA", 40, 60);
+        doc.text("SESSION: 2025-26", doc.internal.pageSize.width - 40, 60, { align: 'right' });
+        
+        let t1Count = 0;
+        let lCount = 0;
+
+        const body: any[][] = [];
+        const matchDataStore: any[] = []; 
+        
+        DAYS.forEach((day, dIdx) => {
+            const dayRows = grid[day] || [];
+            
+            const r1: any[] = [{ content: DAY_MARKS[dIdx].substring(0, 3), rowSpan: 2, styles: { valign: 'middle', halign: 'center' } }, 'Gr. 1'];
+            const r2: any[] = ['Gr. 2'];
+            
+            for (let p = 0; p < 9; p++) {
+                const periodSlots = dayRows.map(r => r.slots[p]).filter(s => s && s.faculty === fac.code);
+                
+                let cell1 = '';
+                let cell2 = '';
+                
+                if (periodSlots.length > 0) {
+                    const slot1 = periodSlots[0];
+                    if (slot1) {
+                        cell1 = processInfo(slot1);
+                        if (slot1.type === 'T1' || slot1.type === 'T2') {
+                            matchDataStore.push({ rowIdx: body.length, colIdx: p + 2, tag: slot1.type, key: slot1.course.replace(/[^A-Za-z0-9]/g, '') });
+                            if (slot1.type === 'T1') t1Count++;
+                        } else {
+                            lCount++;
+                        }
+                    }
+                    
+                    if (periodSlots.length > 1) {
+                        const slot2 = periodSlots[1];
+                        if (slot2) {
+                            cell2 = processInfo(slot2);
+                            if (slot2.type === 'T1' || slot2.type === 'T2') {
+                                matchDataStore.push({ rowIdx: body.length + 1, colIdx: p + 2, tag: slot2.type, key: slot2.course.replace(/[^A-Za-z0-9]/g, '') });
+                                if (slot2.type === 'T1') t1Count++;
+                            } else {
+                                lCount++;
+                            }
+                        }
+                    }
+                }
+                
+                r1.push(cell1);
+                r2.push(cell2);
+            }
+            body.push(r1);
+            body.push(r2);
+        });
+        
+        doc.setFont("helvetica", "italic");
+        doc.text(`L: ${lCount}  |  T1: ${t1Count}  |  Total Load: ${lCount + t1Count}`, doc.internal.pageSize.width - 40, 75, { align: 'right' });
+        
+        const capturedCoords: any[] = [];
+        let colorCounter = 0;
+        const groupColors: Record<string, number[]> = {};
+
+        autoTable(doc, {
+            startY: 85,
+            head: [['DAY', 'Gr', ...TIME_LABELS]],
+            body: body,
+            theme: 'grid',
+            styles: { fontSize: 8, halign: 'center', valign: 'middle', cellPadding: 2, lineWidth: 0.5, lineColor: [0, 0, 0] },
+            headStyles: { fillColor: [220, 220, 220], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'center', valign: 'middle' },
+            columnStyles: {
+                0: { cellWidth: 25, fontStyle: 'bold' },
+                1: { cellWidth: 30, fontStyle: 'bold' }
+            },
+            willDrawCell: function (data) {
+                if (data.section === 'body') {
+                    let actualColIdx = data.column.index;
+                    if (data.row.index % 2 === 1) {
+                        actualColIdx += 1;
+                    }
+
+                    const matchIdx = matchDataStore.findIndex(m => m.rowIdx === data.row.index && m.colIdx === actualColIdx);
+                    if (matchIdx !== -1) {
+                        const m = matchDataStore[matchIdx];
+                        if (!groupColors[m.key]) {
+                            groupColors[m.key] = PAIR_COLORS[colorCounter % PAIR_COLORS.length];
+                            colorCounter++;
+                        }
+                        data.cell.styles.fillColor = groupColors[m.key] as any;
+                    }
+                }
+            },
+            didDrawCell: function(data) {
+                if (data.section === 'body') {
+                    let actualColIdx = data.column.index;
+                    if (data.row.index % 2 === 1) {
+                        actualColIdx += 1;
+                    }
+                    const matchIdx = matchDataStore.findIndex(m => m.rowIdx === data.row.index && m.colIdx === actualColIdx);
+                    if (matchIdx !== -1) {
+                        capturedCoords.push({
+                            ...matchDataStore[matchIdx],
+                            x: data.cell.x,
+                            y: data.cell.y,
+                            w: data.cell.width,
+                            h: data.cell.height,
+                            page: doc.getCurrentPageInfo().pageNumber
+                        });
+                    }
+                }
+            }
+        });
+
+        // Draw Arrows
+        const usedPairs = new Set();
+        capturedCoords.forEach((t1, i) => {
+            if (t1.tag === 'T1' && !usedPairs.has(i)) {
+                const t2Idx = capturedCoords.findIndex((t2, j) => 
+                    t2.tag === 'T2' && t2.key === t1.key && !usedPairs.has(j)
+                );
+                
+                if (t2Idx !== -1) {
+                    const t2 = capturedCoords[t2Idx];
+                    usedPairs.add(i);
+                    usedPairs.add(t2Idx);
+                    
+                    if (t1.page === t2.page) {
+                        doc.setPage(t1.page);
+                        
+                        // Start/End near the top edge to avoid covering text
+                        const startX = t2.x + t2.w / 2;
+                        const startY = t2.y + 8; 
+                        const endX = t1.x + t1.w / 2;
+                        const endY = t1.y + 8;
+                        
+                        doc.setDrawColor(255, 0, 0); // Red
+                        doc.setLineWidth(1.5);
+                        doc.line(startX, startY, endX, endY);
+                        
+                        // Arrow head
+                        const angle = Math.atan2(endY - startY, endX - startX);
+                        const headlen = 8;
+                        doc.line(endX, endY, endX - headlen * Math.cos(angle - Math.PI / 6), endY - headlen * Math.sin(angle - Math.PI / 6));
+                        doc.line(endX, endY, endX - headlen * Math.cos(angle + Math.PI / 6), endY - headlen * Math.sin(angle + Math.PI / 6));
+                    }
+                }
+            }
+        });
+
+        // Footers
+        const finalY = (doc as any).lastAutoTable.finalY + 30;
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.text("To be Effective from 20.07.2026", 40, finalY);
+        doc.text("A minimum of 75% attendance is mandatory for being eligible to sit for the End-Semester Examination", 40, finalY + 15);
+        doc.text("Students should target 100% attendance", 40, finalY + 30);
+        
+        doc.text("Member", doc.internal.pageSize.width * 0.25, finalY + 70, { align: 'center' });
+        doc.text("HOD", doc.internal.pageSize.width * 0.5, finalY + 70, { align: 'center' });
+        doc.text("Principal", doc.internal.pageSize.width * 0.75, finalY + 70, { align: 'center' });
+    });
+    
+    doc.save('Faculty_Routines.pdf');
+}
