@@ -19,8 +19,11 @@ export async function exportFacultyPDF(grid: GridState, faculties: FacultyData[]
 
     const zip = new JSZip();
 
-    for (let facIdx = 0; facIdx < faculties.length; facIdx++) {
-        const fac = faculties[facIdx];
+    const sortedFaculties = [...faculties].sort((a, b) => (a.seniority ?? 999) - (b.seniority ?? 999));
+
+    for (let facIdx = 0; facIdx < sortedFaculties.length; facIdx++) {
+        const fac = sortedFaculties[facIdx];
+        const rank = facIdx + 1;
         const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
         
         const dispName = getDisplayName(fac.code);
@@ -55,16 +58,14 @@ export async function exportFacultyPDF(grid: GridState, faculties: FacultyData[]
                 let cell1 = '';
                 
                 if (periodSlots.length > 0) {
-                    const slot1 = periodSlots[0]; // just take first
-                    if (slot1) {
-                        cell1 = processInfo(slot1);
-                        if (slot1.type === 'T1' || slot1.type === 'T2') {
-                            matchDataStore.push({ rowIdx: body.length, colIdx: p + 1, tag: slot1.type, key: (slot1.course + slot1.dept).replace(/[^A-Za-z0-9]/g, '') });
-                            if (slot1.type === 'T1') t1Count++;
-                        } else {
-                            lCount++;
-                        }
+                    cell1 = periodSlots.map(s => processInfo(s)).join('\n---\n');
+                    
+                    const tSlot = periodSlots.find(s => s && (s.type === 'T1' || s.type === 'T2'));
+                    if (tSlot) {
+                        matchDataStore.push({ rowIdx: body.length, colIdx: p + 1, tag: tSlot.type, key: tSlot.course.replace(/[^A-Za-z0-9]/g, '') });
                     }
+                    t1Count += periodSlots.filter(s => s && s.type === 'T1').length;
+                    lCount += periodSlots.filter(s => s && s.type !== 'T1' && s.type !== 'T2').length;
                 }
                 
                 r1.push(cell1);
@@ -84,8 +85,8 @@ export async function exportFacultyPDF(grid: GridState, faculties: FacultyData[]
             head: [['DAY', ...TIME_LABELS]],
             body: body,
             theme: 'grid',
-            styles: { fontSize: 8, halign: 'center', valign: 'middle', cellPadding: 2, lineWidth: 0.5, lineColor: [0, 0, 0], minCellHeight: 35 },
-            headStyles: { fillColor: [220, 220, 220], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'center', valign: 'middle' },
+            styles: { fontSize: 9, halign: 'center', valign: 'middle', cellPadding: 2, lineWidth: 0.5, lineColor: [0, 0, 0], minCellHeight: 52 },
+            headStyles: { fillColor: [220, 220, 220], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'center', valign: 'middle', fontSize: 10 },
             columnStyles: {
                 0: { cellWidth: 35, fontStyle: 'bold' }
             },
@@ -188,8 +189,7 @@ export async function exportFacultyPDF(grid: GridState, faculties: FacultyData[]
         doc.text("Principal", doc.internal.pageSize.width * 0.75, finalY + 70, { align: 'center' });
         
         const pdfData = doc.output('arraybuffer');
-        const prefix = fac.seniority ? `${fac.seniority}-` : '';
-        zip.file(`${prefix}${dispName}.pdf`, pdfData);
+        zip.file(`${rank}-${dispName}.pdf`, pdfData);
     }
     
     const content = await zip.generateAsync({ type: 'blob' });
@@ -228,11 +228,25 @@ export async function exportCodeResponsibilityPDF(codeResponsibilities: {course:
         return a.course.localeCompare(b.course);
     });
 
-    let lastFac = '';
-    const tableBody = rows.map(r => {
-        const displayFac = r.faculty === lastFac ? '' : r.faculty;
-        lastFac = r.faculty;
-        return [displayFac, r.course, r.depts.join(', ')];
+    const tableBody: any[] = [];
+    rows.forEach((r, i) => {
+        if (i === 0 || rows[i - 1].faculty !== r.faculty) {
+            let rowSpan = 1;
+            for (let j = i + 1; j < rows.length; j++) {
+                if (rows[j].faculty === r.faculty) rowSpan++;
+                else break;
+            }
+            tableBody.push([
+                { content: r.faculty, rowSpan: rowSpan, styles: { valign: 'middle' } },
+                r.course,
+                r.depts.join(', ')
+            ]);
+        } else {
+            tableBody.push([
+                r.course,
+                r.depts.join(', ')
+            ]);
+        }
     });
 
     doc.setFontSize(14);

@@ -364,10 +364,10 @@ export async function exportFacultyExcel(grid: GridState, faculties: FacultyData
 
     const sortedFaculties = [...faculties].sort((a, b) => (a.seniority ?? 999) - (b.seniority ?? 999));
 
-    sortedFaculties.forEach(fac => {
+    sortedFaculties.forEach((fac, facIdx) => {
         const dispName = getDisplayName(fac.code);
-        const prefix = fac.seniority ? `${fac.seniority}-` : '';
-        const sheet = workbook.addWorksheet(`${prefix}${dispName}`.replace(/[:\\/?*\[\]]/g, '')); // sanitize excel sheet names
+        const rank = facIdx + 1;
+        const sheet = workbook.addWorksheet(`${rank}-${dispName}`.replace(/[:\\/?*\[\]]/g, '')); // sanitize excel sheet names
 
         // Column widths are computed dynamically after data is written (see below)
         // so we just initialise them here with a narrow default
@@ -423,31 +423,29 @@ export async function exportFacultyExcel(grid: GridState, faculties: FacultyData
             const dayRows = grid[day] || [];
             
             const row1 = sheet.getRow(rowIndex);
-            row1.height = 35;
+            row1.height = 52;
 
             // Day label
             row1.getCell(1).value = DAY_MARKS[dIdx].substring(0, 3);
             sheet.getCell(`A${rowIndex}`).alignment = { vertical: 'middle', horizontal: 'center', textRotation: 90 };
-            sheet.getCell(`A${rowIndex}`).font = { bold: true };
+            sheet.getCell(`A${rowIndex}`).font = { bold: true, size: 12 };
 
             for (let p = 0; p < 9; p++) {
                 const periodSlots = dayRows.map(r => r.slots[p]).filter(s => s && s.faculty === fac.code);
                 
                 if (periodSlots.length > 0) {
-                    const slot1 = periodSlots[0]; // take the first one
-                    if (slot1) {
-                        const info1 = processInfo(slot1);
-                        const cell1 = row1.getCell(p + 2);
-                        cell1.value = info1;
-                        cell1.alignment = { wrapText: true, horizontal: 'center', vertical: 'middle' };
+                    const infoTexts = periodSlots.map(s => processInfo(s)).join('\n---\n');
+                    const cell1 = row1.getCell(p + 2);
+                    cell1.value = infoTexts;
+                    cell1.alignment = { wrapText: true, horizontal: 'center', vertical: 'middle' };
+                    cell1.font = { name: 'Calibri', size: 12 };
 
-                        if (slot1.type === 'T1' || slot1.type === 'T2') {
-                            matchData.push({ tag: slot1.type, key: (slot1.course + slot1.dept).replace(/[^A-Za-z0-9]/g, ''), cell: cell1 });
-                            if (slot1.type === 'T1') t1Count++;
-                        } else {
-                            lCount++;
-                        }
+                    const tSlot = periodSlots.find(s => s && (s.type === 'T1' || s.type === 'T2'));
+                    if (tSlot) {
+                        matchData.push({ tag: tSlot.type, key: tSlot.course.replace(/[^A-Za-z0-9]/g, ''), cell: cell1 });
                     }
+                    t1Count += periodSlots.filter(s => s && s.type === 'T1').length;
+                    lCount += periodSlots.filter(s => s && s.type !== 'T1' && s.type !== 'T2').length;
                 }
             }
 
