@@ -363,19 +363,20 @@ export async function exportFacultyExcel(grid: GridState, faculties: FacultyData
     faculties.forEach(fac => {
         const sheet = workbook.addWorksheet(fac.code);
 
-        // Define columns A to K
+        // Column widths are computed dynamically after data is written (see below)
+        // so we just initialise them here with a narrow default
         sheet.columns = [
-            { width: 6 },  // A: DAY
-            { width: 6 },  // B: Gr
-            { width: 22 }, // C: P1
-            { width: 22 }, // D: P2
-            { width: 22 }, // E: P3
-            { width: 22 }, // F: P4
-            { width: 22 }, // G: P5
-            { width: 22 }, // H: P6
-            { width: 22 }, // I: P7
-            { width: 22 }, // J: P8
-            { width: 22 }, // K: P9
+            { width: 5 },  // A: DAY
+            { width: 5 },  // B: Gr
+            { width: 4 }, // C: P1
+            { width: 4 }, // D: P2
+            { width: 4 }, // E: P3
+            { width: 4 }, // F: P4
+            { width: 4 }, // G: P5
+            { width: 4 }, // H: P6
+            { width: 4 }, // I: P7
+            { width: 4 }, // J: P8
+            { width: 4 }, // K: P9
         ];
 
         // Row 1: Institution name + Faculty code
@@ -536,6 +537,46 @@ export async function exportFacultyExcel(grid: GridState, faculties: FacultyData
                 }
             }
         });
+
+        // ── Dynamic column-width calculation ──────────────────────────────
+        // Walk every data row (rows 4 onward) and measure the longest
+        // line in each cell's text.  Period columns (C–K, index 3–11)
+        // that have no content stay at a narrow minimum width (4.5).
+        const colMaxLen: number[] = new Array(12).fill(0);
+        // Seed with header labels
+        const headerLbls = ['DAY', '', ...TIME_LABELS];
+        headerLbls.forEach((lbl, i) => {
+            colMaxLen[i + 1] = Math.max(colMaxLen[i + 1], lbl.length);
+        });
+
+        sheet.eachRow((row, rowNum) => {
+            if (rowNum < 5) return; // skip header rows
+            row.eachCell({ includeEmpty: false }, (cell, colNum) => {
+                const val = cell.value;
+                if (!val) return;
+                const text = typeof val === 'string' ? val : String(val);
+                // For wrapped text split on newline, use the longest line
+                const maxLine = text.split('\n').reduce((m, l) => Math.max(m, l.length), 0);
+                colMaxLen[colNum] = Math.max(colMaxLen[colNum] || 0, maxLine);
+            });
+        });
+
+        // Apply widths: add a small padding factor (×1.15 + 1)
+        for (let c = 1; c <= 11; c++) {
+            const measured = colMaxLen[c] ? colMaxLen[c] * 1.15 + 1 : 0;
+            if (c === 1) {
+                // DAY column — fixed narrow, text is rotated
+                sheet.getColumn(c).width = 4.5;
+            } else if (c === 2) {
+                // Gr column
+                sheet.getColumn(c).width = 5;
+            } else {
+                // Period columns: use measured width, min 4.5 for empty, max 24
+                sheet.getColumn(c).width = measured > 0
+                    ? Math.min(Math.max(measured, 14), 24)
+                    : 4.5;
+            }
+        }
         
         // Stats in header row 2
         sheet.getCell('I2').value = `L: ${lCount}  |  T1: ${t1Count}  |  Total Load: ${lCount + t1Count}`;
