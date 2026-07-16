@@ -166,11 +166,18 @@ export default function CodeResponsibilityView({ grid, faculties, codeResponsibi
                                             <select
                                                 value={assigned}
                                                 onChange={e => handleFacultyChange(p.course, p.dept, e.target.value)}
-                                                className={`w-full bg-gray-950 border rounded px-2 py-1 text-sm focus:outline-none focus:border-indigo-500 transition-colors ${assigned ? 'border-indigo-500/50 text-indigo-300' : 'border-gray-700 text-gray-400'}`}
+                                                style={{ backgroundColor: '#0f172a', color: assigned ? '#a5b4fc' : '#9ca3af' }}
+                                                className={`w-full border rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all cursor-pointer ${
+                                                    assigned
+                                                        ? 'border-indigo-500/60 font-medium'
+                                                        : 'border-gray-700 hover:border-gray-600'
+                                                }`}
                                             >
-                                                <option value="">-- Unassigned --</option>
+                                                <option value="" style={{ backgroundColor: '#0f172a', color: '#9ca3af' }}>— Unassigned —</option>
                                                 {faculties.map(f => (
-                                                    <option key={f.code} value={f.code}>{f.name || f.code} ({f.code})</option>
+                                                    <option key={f.code} value={f.code} style={{ backgroundColor: '#0f172a', color: '#c7d2fe' }}>
+                                                        {f.code}{f.name ? ` — ${f.name}` : ''}
+                                                    </option>
                                                 ))}
                                             </select>
                                         </td>
