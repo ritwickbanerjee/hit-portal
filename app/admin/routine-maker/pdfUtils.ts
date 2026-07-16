@@ -1,7 +1,8 @@
-import { TIME_LABELS, DAYS, DAY_MARKS } from './exportUtils';
+import { TIME_LABELS, DAYS, DAY_MARKS, saveBlob } from './exportUtils';
 import { GridState, FacultyData } from './constraintUtils';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import JSZip from 'jszip';
 
 function processInfo(slot: any) {
     if (!slot) return '';
@@ -9,15 +10,16 @@ function processInfo(slot: any) {
 }
 
 export async function exportFacultyPDF(grid: GridState, faculties: FacultyData[]) {
-    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
-    
     const PAIR_COLORS = [
         [255, 218, 185], [230, 230, 250], [224, 255, 255], [240, 255, 240],
         [255, 250, 205], [245, 222, 179], [216, 191, 216], [245, 245, 220]
     ];
 
-    faculties.forEach((fac, facIdx) => {
-        if (facIdx > 0) doc.addPage();
+    const zip = new JSZip();
+
+    for (let facIdx = 0; facIdx < faculties.length; facIdx++) {
+        const fac = faculties[facIdx];
+        const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
         
         // Headers
         doc.setFontSize(14);
@@ -55,7 +57,7 @@ export async function exportFacultyPDF(grid: GridState, faculties: FacultyData[]
                     if (slot1) {
                         cell1 = processInfo(slot1);
                         if (slot1.type === 'T1' || slot1.type === 'T2') {
-                            matchDataStore.push({ rowIdx: body.length, colIdx: p + 2, tag: slot1.type, key: slot1.course.replace(/[^A-Za-z0-9]/g, '') });
+                            matchDataStore.push({ rowIdx: body.length, colIdx: p + 2, tag: slot1.type, key: (slot1.course + slot1.dept).replace(/[^A-Za-z0-9]/g, '') });
                             if (slot1.type === 'T1') t1Count++;
                         } else {
                             lCount++;
@@ -67,7 +69,7 @@ export async function exportFacultyPDF(grid: GridState, faculties: FacultyData[]
                         if (slot2) {
                             cell2 = processInfo(slot2);
                             if (slot2.type === 'T1' || slot2.type === 'T2') {
-                                matchDataStore.push({ rowIdx: body.length + 1, colIdx: p + 2, tag: slot2.type, key: slot2.course.replace(/[^A-Za-z0-9]/g, '') });
+                                matchDataStore.push({ rowIdx: body.length + 1, colIdx: p + 2, tag: slot2.type, key: (slot2.course + slot2.dept).replace(/[^A-Za-z0-9]/g, '') });
                                 if (slot2.type === 'T1') t1Count++;
                             } else {
                                 lCount++;
@@ -95,7 +97,7 @@ export async function exportFacultyPDF(grid: GridState, faculties: FacultyData[]
             head: [['DAY', 'Gr', ...TIME_LABELS]],
             body: body,
             theme: 'grid',
-            styles: { fontSize: 8, halign: 'center', valign: 'middle', cellPadding: 2, lineWidth: 0.5, lineColor: [0, 0, 0] },
+            styles: { fontSize: 8, halign: 'center', valign: 'middle', cellPadding: 2, lineWidth: 0.5, lineColor: [0, 0, 0], minCellHeight: 35 },
             headStyles: { fillColor: [220, 220, 220], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'center', valign: 'middle' },
             columnStyles: {
                 0: { cellWidth: 25, fontStyle: 'bold' },
@@ -156,11 +158,28 @@ export async function exportFacultyPDF(grid: GridState, faculties: FacultyData[]
                     if (t1.page === t2.page) {
                         doc.setPage(t1.page);
                         
-                        // Start/End near the top edge to avoid covering text
-                        const startX = t2.x + t2.w / 2;
-                        const startY = t2.y + 8; 
-                        const endX = t1.x + t1.w / 2;
-                        const endY = t1.y + 8;
+                        let startX = t2.x + t2.w / 2;
+                        let endX = t1.x + t1.w / 2;
+                        let startY = t2.y + t2.h / 2;
+                        let endY = t1.y + t1.h / 2;
+
+                        const margin = 5;
+
+                        if (t1.colIdx > t2.colIdx) {
+                            startX = t2.x + t2.w - margin;
+                            endX = t1.x + margin;
+                        } else if (t1.colIdx < t2.colIdx) {
+                            startX = t2.x + margin;
+                            endX = t1.x + t1.w - margin;
+                        }
+
+                        if (t1.rowIdx > t2.rowIdx) {
+                            startY = t2.y + t2.h - margin;
+                            endY = t1.y + margin;
+                        } else if (t1.rowIdx < t2.rowIdx) {
+                            startY = t2.y + margin;
+                            endY = t1.y + t1.h - margin;
+                        }
                         
                         doc.setDrawColor(255, 0, 0); // Red
                         doc.setLineWidth(1.5);
@@ -187,7 +206,11 @@ export async function exportFacultyPDF(grid: GridState, faculties: FacultyData[]
         doc.text("Member", doc.internal.pageSize.width * 0.25, finalY + 70, { align: 'center' });
         doc.text("HOD", doc.internal.pageSize.width * 0.5, finalY + 70, { align: 'center' });
         doc.text("Principal", doc.internal.pageSize.width * 0.75, finalY + 70, { align: 'center' });
-    });
+        
+        const pdfData = doc.output('arraybuffer');
+        zip.file(`Faculty_Routine_${fac.code}.pdf`, pdfData);
+    }
     
-    doc.save('Faculty_Routines.pdf');
+    const content = await zip.generateAsync({ type: 'blob' });
+    saveBlob(content, 'Faculty_Routines.zip');
 }

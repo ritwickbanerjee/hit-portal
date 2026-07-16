@@ -687,7 +687,7 @@ function downloadCSV(csv: string, filename: string) {
     document.body.removeChild(link);
 }
 
-function saveBlob(blob: Blob, filename: string) {
+export function saveBlob(blob: Blob, filename: string) {
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
