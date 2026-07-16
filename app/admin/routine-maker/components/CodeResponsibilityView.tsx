@@ -13,7 +13,7 @@ interface Props {
     faculties: FacultyData[];
     codeResponsibilities: CodeResponsibility[];
     onChange: (crs: CodeResponsibility[]) => void;
-    onDownload: () => void;
+    onDownload: (activeCrs: CodeResponsibility[]) => void;
     onSave: () => Promise<void>;
 }
 
@@ -131,7 +131,12 @@ export default function CodeResponsibilityView({ grid, faculties, codeResponsibi
                         )}
                     </button>
                     <button 
-                        onClick={onDownload}
+                        onClick={() => {
+                            const activeCrs = codeResponsibilities.filter(cr => 
+                                uniquePairs.some(p => p.course === cr.course && p.dept === cr.dept)
+                            );
+                            onDownload(activeCrs);
+                        }}
                         className="flex items-center gap-2 px-4 py-1.5 bg-green-600 hover:bg-green-500 text-white text-sm font-medium rounded-md transition-colors shadow-sm shadow-green-900/20"
                     >
                         <Download className="w-4 h-4" />

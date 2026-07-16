@@ -1033,7 +1033,7 @@ export default function RoutineMakerPage() {
                                     faculties={faculties}
                                     codeResponsibilities={codeResponsibilities}
                                     onChange={(newCrs) => { setCodeResponsibilities(newCrs); setHasUnsavedChanges(true); }}
-                                    onDownload={() => exportCodeResponsibilityExcel(codeResponsibilities, faculties)}
+                                    onDownload={(activeCrs) => exportCodeResponsibilityExcel(activeCrs, faculties)}
                                     onSave={saveRoutine}
                                 />
                             </div>
