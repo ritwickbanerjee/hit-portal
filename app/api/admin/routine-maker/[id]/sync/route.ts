@@ -47,12 +47,6 @@ function parseSlotDetail(rawInfo: string) {
     dept = parts[1] || '';
     room = parts.slice(2).join('/') || '';
 
-    if (rawInfo.startsWith('CYBER') || rawInfo.startsWith('CC301')) {
-        course = rawInfo;
-        dept = '';
-        room = '';
-        type = 'L';
-    }
 
     return { faculty: '', type, course, dept, room };
 }
