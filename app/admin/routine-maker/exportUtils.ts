@@ -416,8 +416,6 @@ export async function exportFacultyExcel(grid: GridState, faculties: FacultyData
 
         let rowIndex = 5;
         const matchData: { tag: string; key: string; cell: any }[] = [];
-        let lCount = 0;
-        let t1Count = 0;
 
         DAYS.forEach((day, dIdx) => {
             const dayRows = grid[day] || [];
@@ -444,8 +442,6 @@ export async function exportFacultyExcel(grid: GridState, faculties: FacultyData
                     if (tSlot) {
                         matchData.push({ tag: tSlot.type, key: (tSlot.course + tSlot.dept).replace(/[^A-Za-z0-9]/g, ''), cell: cell1 });
                     }
-                    t1Count += periodSlots.filter(s => s && s.type === 'T1').length;
-                    lCount += periodSlots.filter(s => s && s.type !== 'T1' && s.type !== 'T2').length;
                 }
             }
 
@@ -528,12 +524,6 @@ export async function exportFacultyExcel(grid: GridState, faculties: FacultyData
                     : 9.0;
             }
         }
-        
-        // Stats in header row 2
-        sheet.mergeCells(`I2:J2`);
-        sheet.getCell('I2').value = `L: ${lCount}  |  T1: ${t1Count}  |  Total Load: ${lCount + t1Count}`;
-        sheet.getCell('I2').font = { italic: true };
-        sheet.getCell('I2').alignment = { horizontal: 'right' };
     });
 
     const buffer = await workbook.xlsx.writeBuffer();

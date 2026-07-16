@@ -58,9 +58,6 @@ export async function exportFacultyPDF(grid: GridState, faculties: FacultyData[]
         doc.setFontSize(10);
         doc.text("B.Tech/M.Tech/MCA", 40, 60);
         doc.text("SESSION: " + sessionYear, doc.internal.pageSize.width - 40, 60, { align: 'right' });
-        
-        let t1Count = 0;
-        let lCount = 0;
 
         const body: any[][] = [];
         const matchDataStore: any[] = []; 
@@ -82,17 +79,12 @@ export async function exportFacultyPDF(grid: GridState, faculties: FacultyData[]
                     if (tSlot) {
                         matchDataStore.push({ rowIdx: body.length, colIdx: p + 1, tag: tSlot.type, key: (tSlot.course + tSlot.dept).replace(/[^A-Za-z0-9]/g, '') });
                     }
-                    t1Count += periodSlots.filter(s => s && s.type === 'T1').length;
-                    lCount += periodSlots.filter(s => s && s.type !== 'T1' && s.type !== 'T2').length;
                 }
                 
                 r1.push(cell1);
             }
             body.push(r1);
         });
-        
-        doc.setFont("helvetica", "italic");
-        doc.text(`L: ${lCount}  |  T1: ${t1Count}  |  Total Load: ${lCount + t1Count}`, doc.internal.pageSize.width - 40, 75, { align: 'right' });
         
         const capturedCoords: any[] = [];
         let colorCounter = 0;
