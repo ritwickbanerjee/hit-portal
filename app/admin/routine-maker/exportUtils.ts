@@ -531,6 +531,27 @@ export async function exportFacultyExcel(grid: GridState, faculties: FacultyData
                     const colorHex = PAIR_COLORS[colorIndex % PAIR_COLORS.length];
                     t1.cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + colorHex } };
                     t2.cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + colorHex } };
+                    
+                    // Add directional arrow from T2 to T1
+                    const colDiff = Number(t1.cell.col) - Number(t2.cell.col);
+                    const rowDiff = Number(t1.cell.row) - Number(t2.cell.row);
+                    let arrow = '';
+                    
+                    if (rowDiff === 0) {
+                        arrow = colDiff > 0 ? '→' : '←';
+                    } else if (colDiff === 0) {
+                        arrow = rowDiff > 0 ? '↓' : '↑';
+                    } else {
+                        if (rowDiff > 0 && colDiff > 0) arrow = '↘';
+                        else if (rowDiff > 0 && colDiff < 0) arrow = '↙';
+                        else if (rowDiff < 0 && colDiff > 0) arrow = '↗';
+                        else if (rowDiff < 0 && colDiff < 0) arrow = '↖';
+                    }
+                    
+                    if (arrow) {
+                        t2.cell.value = `[ ${arrow} T1 ]\n${t2.cell.value}`;
+                    }
+
                     used.add(i);
                     used.add(t2Index);
                     colorIndex++;
@@ -573,7 +594,7 @@ export async function exportFacultyExcel(grid: GridState, faculties: FacultyData
             } else {
                 // Period columns: use measured width, min 4.5 for empty, max 24
                 sheet.getColumn(c).width = measured > 0
-                    ? Math.min(Math.max(measured, 14), 24)
+                    ? Math.min(Math.max(measured, 7), 24)
                     : 4.5;
             }
         }
