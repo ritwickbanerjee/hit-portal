@@ -1,4 +1,6 @@
 import { GridState, FacultyData } from './constraintUtils';
+
+const getDisplayName = (code: string) => code.toUpperCase() === 'NF' ? 'AR' : code;
 import Papa from 'papaparse';
 
 export const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
@@ -360,8 +362,12 @@ export async function exportFacultyExcel(grid: GridState, faculties: FacultyData
       "FFFACD", "F5DEB3", "D8BFD8", "F5F5DC"
     ];
 
-    faculties.forEach(fac => {
-        const sheet = workbook.addWorksheet(fac.code);
+    const sortedFaculties = [...faculties].sort((a, b) => (a.seniority ?? 999) - (b.seniority ?? 999));
+
+    sortedFaculties.forEach(fac => {
+        const dispName = getDisplayName(fac.code);
+        const prefix = fac.seniority ? `${fac.seniority}.` : '';
+        const sheet = workbook.addWorksheet(`${prefix}${dispName}`.replace(/[:\\/?*\[\]]/g, '')); // sanitize excel sheet names
 
         // Column widths are computed dynamically after data is written (see below)
         // so we just initialise them here with a narrow default
@@ -622,8 +628,9 @@ export async function exportCodeResponsibilityExcel(codeResponsibilities: {cours
     
     codeResponsibilities.forEach(cr => {
         if (!cr.faculty || !cr.course || !cr.dept) return;
-        if (!facultyMap.has(cr.faculty)) facultyMap.set(cr.faculty, new Map());
-        const courseMap = facultyMap.get(cr.faculty)!;
+        const dispFac = getDisplayName(cr.faculty);
+        if (!facultyMap.has(dispFac)) facultyMap.set(dispFac, new Map());
+        const courseMap = facultyMap.get(dispFac)!;
         if (!courseMap.has(cr.course)) courseMap.set(cr.course, []);
         if (!courseMap.get(cr.course)!.includes(cr.dept)) {
             courseMap.get(cr.course)!.push(cr.dept);
@@ -632,7 +639,14 @@ export async function exportCodeResponsibilityExcel(codeResponsibilities: {cours
 
     let currentRow = 4;
 
-    facultyMap.forEach((courseMap, facultyCode) => {
+    const sortedFaculties = Array.from(facultyMap.keys()).sort((a, b) => {
+        const facA = faculties.find(f => getDisplayName(f.code) === a);
+        const facB = faculties.find(f => getDisplayName(f.code) === b);
+        return (facA?.seniority ?? 999) - (facB?.seniority ?? 999);
+    });
+
+    sortedFaculties.forEach((facultyCode) => {
+        const courseMap = facultyMap.get(facultyCode)!;
         const startRow = currentRow;
         let totalRowsForFaculty = 0;
 

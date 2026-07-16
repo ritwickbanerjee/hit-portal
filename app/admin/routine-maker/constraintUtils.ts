@@ -19,6 +19,7 @@ export type FacultyData = {
     color: string;
     designation?: string;
     employeeCode?: string;
+    seniority?: number;
     availability: Record<string, boolean[]>; // day -> boolean[9]
 };
 

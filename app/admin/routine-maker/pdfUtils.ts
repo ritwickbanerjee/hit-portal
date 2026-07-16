@@ -4,6 +4,8 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import JSZip from 'jszip';
 
+const getDisplayName = (code: string) => code.toUpperCase() === 'NF' ? 'AR' : code;
+
 function processInfo(slot: any) {
     if (!slot) return '';
     return `${slot.course}\n${slot.type} / ${slot.dept}\n${slot.room || 'TBA'}`;
@@ -213,4 +215,61 @@ export async function exportFacultyPDF(grid: GridState, faculties: FacultyData[]
     
     const content = await zip.generateAsync({ type: 'blob' });
     saveBlob(content, 'Faculty_Routines.zip');
+}
+
+export async function exportCodeResponsibilityPDF(codeResponsibilities: {course: string, dept: string, faculty: string}[], faculties: FacultyData[]) {
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+    
+    const facMap = new Map<string, FacultyData>();
+    faculties.forEach(f => facMap.set(getDisplayName(f.code), f));
+
+    const facultyMap = new Map<string, Map<string, string[]>>();
+    codeResponsibilities.forEach(cr => {
+        if (!cr.faculty || !cr.course || !cr.dept) return;
+        const dispFac = getDisplayName(cr.faculty);
+        if (!facultyMap.has(dispFac)) facultyMap.set(dispFac, new Map());
+        const courseMap = facultyMap.get(dispFac)!;
+        if (!courseMap.has(cr.course)) courseMap.set(cr.course, []);
+        if (!courseMap.get(cr.course)!.includes(cr.dept)) {
+            courseMap.get(cr.course)!.push(cr.dept);
+        }
+    });
+
+    const rows: any[] = [];
+    facultyMap.forEach((courseMap, facultyCode) => {
+        courseMap.forEach((depts, courseCode) => {
+            rows.push({ faculty: facultyCode, course: courseCode, depts });
+        });
+    });
+
+    rows.sort((a, b) => {
+        const sA = facMap.get(a.faculty)?.seniority ?? 999;
+        const sB = facMap.get(b.faculty)?.seniority ?? 999;
+        if (sA !== sB) return sA - sB;
+        return a.course.localeCompare(b.course);
+    });
+
+    let lastFac = '';
+    const tableBody = rows.map(r => {
+        const displayFac = r.faculty === lastFac ? '' : r.faculty;
+        lastFac = r.faculty;
+        return [displayFac, r.course, r.depts.join(', ')];
+    });
+
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Code Responsibility", doc.internal.pageSize.width / 2, 40, { align: 'center' });
+    doc.setFontSize(12);
+    doc.text("Odd Semester 2026-27", doc.internal.pageSize.width / 2, 55, { align: 'center' });
+
+    autoTable(doc, {
+        startY: 70,
+        head: [['Faculty', 'Code', 'Stream(s)']],
+        body: tableBody,
+        theme: 'grid',
+        styles: { fontSize: 10, halign: 'center', valign: 'middle', cellPadding: 5 },
+        headStyles: { fillColor: [220, 220, 220], textColor: [0, 0, 0], fontStyle: 'bold' }
+    });
+
+    doc.save('Code_Responsibility.pdf');
 }

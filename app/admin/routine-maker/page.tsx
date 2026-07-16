@@ -12,7 +12,7 @@ import {
 import { 
     exportMasterCSV, exportDeptCourseCSV, exportLoadMatrixExcel, exportFacultyExcel, exportCodeResponsibilityExcel
 } from './exportUtils';
-import { exportFacultyPDF } from './pdfUtils';
+import { exportFacultyPDF, exportCodeResponsibilityPDF } from './pdfUtils';
 
 import CodeResponsibilityView from './components/CodeResponsibilityView';
 import DepartmentRoutineView from './components/DepartmentRoutineView';
@@ -887,7 +887,12 @@ export default function RoutineMakerPage() {
                                                         const newF = [...faculties];
                                                         newF[idx].employeeCode = e.target.value;
                                                         setFaculties(newF); setHasUnsavedChanges(true);
-                                                    }} className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm w-24 shrink-0 outline-none" />
+                                                    }} className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm w-20 shrink-0 outline-none" />
+                                                    <input type="number" value={fac.seniority || ''} placeholder="Seniority" onChange={(e) => {
+                                                        const newF = [...faculties];
+                                                        newF[idx].seniority = parseInt(e.target.value) || undefined;
+                                                        setFaculties(newF); setHasUnsavedChanges(true);
+                                                    }} className="bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm w-16 shrink-0 outline-none" />
                                                 </div>
                                                 
                                                 {/* Mini Availability Matrix (Days=Rows, Periods=Cols) */}
@@ -1034,6 +1039,7 @@ export default function RoutineMakerPage() {
                                     codeResponsibilities={codeResponsibilities}
                                     onChange={(newCrs) => { setCodeResponsibilities(newCrs); setHasUnsavedChanges(true); }}
                                     onDownload={(activeCrs) => exportCodeResponsibilityExcel(activeCrs, faculties)}
+                                    onDownloadPDF={(activeCrs) => exportCodeResponsibilityPDF(activeCrs, faculties)}
                                     onSave={saveRoutine}
                                 />
                             </div>

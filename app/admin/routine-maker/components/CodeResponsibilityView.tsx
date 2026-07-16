@@ -14,10 +14,11 @@ interface Props {
     codeResponsibilities: CodeResponsibility[];
     onChange: (crs: CodeResponsibility[]) => void;
     onDownload: (activeCrs: CodeResponsibility[]) => void;
+    onDownloadPDF: (activeCrs: CodeResponsibility[]) => void;
     onSave: () => Promise<void>;
 }
 
-export default function CodeResponsibilityView({ grid, faculties, codeResponsibilities, onChange, onDownload, onSave }: Props) {
+export default function CodeResponsibilityView({ grid, faculties, codeResponsibilities, onChange, onDownload, onDownloadPDF, onSave }: Props) {
     const [deptFilter, setDeptFilter] = useState<string>('');
     const [searchCourse, setSearchCourse] = useState<string>('');
     const [isSaving, setIsSaving] = useState(false);
@@ -140,7 +141,19 @@ export default function CodeResponsibilityView({ grid, faculties, codeResponsibi
                         className="flex items-center gap-2 px-4 py-1.5 bg-green-600 hover:bg-green-500 text-white text-sm font-medium rounded-md transition-colors shadow-sm shadow-green-900/20"
                     >
                         <Download className="w-4 h-4" />
-                        Download Excel
+                        Excel
+                    </button>
+                    <button 
+                        onClick={() => {
+                            const activeCrs = codeResponsibilities.filter(cr => 
+                                uniquePairs.some(p => p.course === cr.course && p.dept === cr.dept)
+                            );
+                            onDownloadPDF(activeCrs);
+                        }}
+                        className="flex items-center gap-2 px-4 py-1.5 bg-red-600 hover:bg-red-500 text-white text-sm font-medium rounded-md transition-colors shadow-sm shadow-red-900/20"
+                    >
+                        <Download className="w-4 h-4" />
+                        PDF
                     </button>
                 </div>
             </div>
