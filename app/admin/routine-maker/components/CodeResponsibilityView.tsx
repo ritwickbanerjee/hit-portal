@@ -43,7 +43,7 @@ export default function CodeResponsibilityView({ grid, faculties, codeResponsibi
             dayRows.forEach(row => {
                 row.slots.forEach(slot => {
                     if (slot && slot.course && slot.dept) {
-                        pairs.add(JSON.stringify({ course: slot.course, dept: slot.dept }));
+                        pairs.add(JSON.stringify({ course: slot.course.trim(), dept: slot.dept.trim() }));
                     }
                 });
             });
@@ -66,11 +66,9 @@ export default function CodeResponsibilityView({ grid, faculties, codeResponsibi
     }, [uniquePairs, deptFilter, searchCourse]);
 
     const handleFacultyChange = (course: string, dept: string, faculty: string) => {
-        const existing = [...codeResponsibilities];
-        const index = existing.findIndex(cr => cr.course === course && cr.dept === dept);
-        if (index >= 0) {
-            existing[index].faculty = faculty;
-        } else {
+        // Remove ALL existing entries for this exact course and dept to prevent duplicates
+        const existing = codeResponsibilities.filter(cr => !(cr.course === course && cr.dept === dept));
+        if (faculty) {
             existing.push({ course, dept, faculty });
         }
         onChange(existing);
@@ -133,7 +131,17 @@ export default function CodeResponsibilityView({ grid, faculties, codeResponsibi
                     </button>
                     <button 
                         onClick={() => {
-                            const activeCrs = codeResponsibilities.filter(cr => 
+                            // Deduplicate before export so the user's view perfectly matches the output
+                            const deduplicatedCrs: CodeResponsibility[] = [];
+                            const seen = new Set<string>();
+                            for (const cr of codeResponsibilities) {
+                                const key = `${cr.course}|${cr.dept}`;
+                                if (!seen.has(key)) {
+                                    seen.add(key);
+                                    deduplicatedCrs.push(cr);
+                                }
+                            }
+                            const activeCrs = deduplicatedCrs.filter(cr => 
                                 uniquePairs.some(p => p.course === cr.course && p.dept === cr.dept)
                             );
                             onDownload(activeCrs);
@@ -145,7 +153,16 @@ export default function CodeResponsibilityView({ grid, faculties, codeResponsibi
                     </button>
                     <button 
                         onClick={() => {
-                            const activeCrs = codeResponsibilities.filter(cr => 
+                            const deduplicatedCrs: CodeResponsibility[] = [];
+                            const seen = new Set<string>();
+                            for (const cr of codeResponsibilities) {
+                                const key = `${cr.course}|${cr.dept}`;
+                                if (!seen.has(key)) {
+                                    seen.add(key);
+                                    deduplicatedCrs.push(cr);
+                                }
+                            }
+                            const activeCrs = deduplicatedCrs.filter(cr => 
                                 uniquePairs.some(p => p.course === cr.course && p.dept === cr.dept)
                             );
                             onDownloadPDF(activeCrs);
