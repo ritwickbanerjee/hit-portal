@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Download, Search, CheckCircle2 } from 'lucide-react';
+import { Download, Search, CheckCircle2, Save } from 'lucide-react';
 import { GridState, FacultyData } from '../constraintUtils';
 
 interface CodeResponsibility {
@@ -14,11 +14,26 @@ interface Props {
     codeResponsibilities: CodeResponsibility[];
     onChange: (crs: CodeResponsibility[]) => void;
     onDownload: () => void;
+    onSave: () => Promise<void>;
 }
 
-export default function CodeResponsibilityView({ grid, faculties, codeResponsibilities, onChange, onDownload }: Props) {
+export default function CodeResponsibilityView({ grid, faculties, codeResponsibilities, onChange, onDownload, onSave }: Props) {
     const [deptFilter, setDeptFilter] = useState<string>('');
     const [searchCourse, setSearchCourse] = useState<string>('');
+    const [isSaving, setIsSaving] = useState(false);
+    const [savedOk, setSavedOk] = useState(false);
+
+    const handleSave = async () => {
+        setIsSaving(true);
+        setSavedOk(false);
+        try {
+            await onSave();
+            setSavedOk(true);
+            setTimeout(() => setSavedOk(false), 2500);
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
     // Extract unique (course, dept) combinations from the grid
     const uniquePairs = useMemo(() => {
@@ -99,13 +114,30 @@ export default function CodeResponsibilityView({ grid, faculties, codeResponsibi
                     </div>
                 </div>
 
-                <button 
-                    onClick={onDownload}
-                    className="flex items-center gap-2 px-4 py-1.5 bg-green-600 hover:bg-green-500 text-white text-sm font-medium rounded-md transition-colors shadow-sm shadow-green-900/20"
-                >
-                    <Download className="w-4 h-4" />
-                    Download Excel
-                </button>
+                <div className="flex items-center gap-2">
+                    <button 
+                        onClick={handleSave}
+                        disabled={isSaving}
+                        className={`flex items-center gap-2 px-4 py-1.5 text-sm font-medium rounded-md transition-all shadow-sm ${
+                            savedOk
+                                ? 'bg-green-600 text-white shadow-green-900/20'
+                                : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-900/20 disabled:opacity-60'
+                        }`}
+                    >
+                        {savedOk ? (
+                            <><CheckCircle2 className="w-4 h-4" /> Saved!</>
+                        ) : (
+                            <><Save className="w-4 h-4" /> {isSaving ? 'Saving...' : 'Save'}</>
+                        )}
+                    </button>
+                    <button 
+                        onClick={onDownload}
+                        className="flex items-center gap-2 px-4 py-1.5 bg-green-600 hover:bg-green-500 text-white text-sm font-medium rounded-md transition-colors shadow-sm shadow-green-900/20"
+                    >
+                        <Download className="w-4 h-4" />
+                        Download Excel
+                    </button>
+                </div>
             </div>
 
             {/* Table Area */}

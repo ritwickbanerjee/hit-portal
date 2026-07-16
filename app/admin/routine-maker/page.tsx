@@ -209,7 +209,7 @@ export default function RoutineMakerPage() {
                 headers: getHeaders(),
                 body: JSON.stringify({
                     name: routineName,
-                    grid, faculties, mappingRules, lockedCells
+                    grid, faculties, mappingRules, lockedCells, codeResponsibilities
                 })
             });
             if (res.ok) {
@@ -1033,6 +1033,7 @@ export default function RoutineMakerPage() {
                                     codeResponsibilities={codeResponsibilities}
                                     onChange={(newCrs) => { setCodeResponsibilities(newCrs); setHasUnsavedChanges(true); }}
                                     onDownload={() => exportCodeResponsibilityExcel(codeResponsibilities, faculties)}
+                                    onSave={saveRoutine}
                                 />
                             </div>
                         )}
