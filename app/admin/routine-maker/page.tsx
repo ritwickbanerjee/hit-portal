@@ -1225,11 +1225,19 @@ export default function RoutineMakerPage() {
                             <button onClick={() => { exportLoadMatrixExcel(grid, faculties, mappingRules); setExportOpen(false); }} className="w-full text-left px-4 py-3 text-sm rounded hover:bg-gray-800 transition-colors flex items-center gap-3">
                                 <span className="p-1.5 bg-green-500/20 text-green-400 rounded"><Download className="w-4 h-4" /></span> Load Matrix Excel
                             </button>
-                            <button onClick={() => { exportFacultyExcel(grid, faculties); setExportOpen(false); }} className="w-full text-left px-4 py-3 text-sm rounded hover:bg-gray-800 transition-colors flex items-center gap-3">
-                                <span className="p-1.5 bg-amber-500/20 text-amber-400 rounded"><Download className="w-4 h-4" /></span> Export Faculty Routines (Excel)
+                            <button onClick={() => { 
+                                const yr = window.prompt('Enter Session Year:', '2026-27'); 
+                                if (yr) { exportFacultyExcel(grid, faculties, yr); setExportOpen(false); }
+                            }} className="w-full text-left px-4 py-3 text-sm rounded hover:bg-gray-800 transition-colors flex items-center gap-3">
+                                <div className="bg-green-500/20 p-2 rounded"><FileSpreadsheet className="w-4 h-4 text-green-400" /></div>
+                                <div><div className="font-bold">Faculty-wise Routines</div><div className="text-xs text-gray-400">Multiple tabs in one Excel file</div></div>
                             </button>
-                            <button onClick={() => { exportFacultyPDF(grid, faculties); setExportOpen(false); }} className="w-full text-left px-4 py-3 text-sm rounded hover:bg-gray-800 transition-colors flex items-center gap-3">
-                                <span className="p-1.5 bg-red-500/20 text-red-400 rounded"><Download className="w-4 h-4" /></span> Download Faculty Routines (PDF)
+                            <button onClick={() => { 
+                                const yr = window.prompt('Enter Session Year:', '2026-27');
+                                if (yr) { exportFacultyPDF(grid, faculties, yr); setExportOpen(false); }
+                            }} className="w-full text-left px-4 py-3 text-sm rounded hover:bg-gray-800 transition-colors flex items-center gap-3">
+                                <div className="bg-red-500/20 p-2 rounded"><Download className="w-4 h-4 text-red-400" /></div>
+                                <div><div className="font-bold">Faculty-wise Routines (PDF)</div><div className="text-xs text-gray-400">ZIP of individual PDFs</div></div>
                             </button>
                             
                             {currentRoutineId && (

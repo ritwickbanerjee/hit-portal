@@ -11,7 +11,7 @@ function processInfo(slot: any) {
     return `${slot.course}\n${slot.type} / ${slot.dept}\n${slot.room || 'TBA'}`;
 }
 
-export async function exportFacultyPDF(grid: GridState, faculties: FacultyData[]) {
+export async function exportFacultyPDF(grid: GridState, faculties: FacultyData[], sessionYear: string = "2026-27") {
     const PAIR_COLORS = [
         [255, 218, 185], [230, 230, 250], [224, 255, 255], [240, 255, 240],
         [255, 250, 205], [245, 222, 179], [216, 191, 216], [245, 245, 220]
@@ -23,6 +23,8 @@ export async function exportFacultyPDF(grid: GridState, faculties: FacultyData[]
         const fac = faculties[facIdx];
         const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
         
+        const dispName = getDisplayName(fac.code);
+
         // Headers
         doc.setFontSize(14);
         doc.setFont("helvetica", "bold");
@@ -30,11 +32,11 @@ export async function exportFacultyPDF(grid: GridState, faculties: FacultyData[]
         
         doc.setFontSize(12);
         doc.text("TIME TABLE", doc.internal.pageSize.width / 2, 45, { align: 'center' });
-        doc.text("Faculty: " + fac.code, doc.internal.pageSize.width - 40, 45, { align: 'right' });
+        doc.text("Faculty: " + dispName, doc.internal.pageSize.width - 40, 45, { align: 'right' });
         
         doc.setFontSize(10);
         doc.text("B.Tech/M.Tech/MCA", 40, 60);
-        doc.text("SESSION: 2025-26", doc.internal.pageSize.width - 40, 60, { align: 'right' });
+        doc.text("SESSION: " + sessionYear, doc.internal.pageSize.width - 40, 60, { align: 'right' });
         
         let t1Count = 0;
         let lCount = 0;
@@ -45,46 +47,29 @@ export async function exportFacultyPDF(grid: GridState, faculties: FacultyData[]
         DAYS.forEach((day, dIdx) => {
             const dayRows = grid[day] || [];
             
-            const r1: any[] = [{ content: DAY_MARKS[dIdx].substring(0, 3), rowSpan: 2, styles: { valign: 'middle', halign: 'center' } }, 'Gr. 1'];
-            const r2: any[] = ['Gr. 2'];
+            const r1: any[] = [{ content: DAY_MARKS[dIdx].substring(0, 3), styles: { valign: 'middle', halign: 'center' } }];
             
             for (let p = 0; p < 9; p++) {
                 const periodSlots = dayRows.map(r => r.slots[p]).filter(s => s && s.faculty === fac.code);
                 
                 let cell1 = '';
-                let cell2 = '';
                 
                 if (periodSlots.length > 0) {
-                    const slot1 = periodSlots[0];
+                    const slot1 = periodSlots[0]; // just take first
                     if (slot1) {
                         cell1 = processInfo(slot1);
                         if (slot1.type === 'T1' || slot1.type === 'T2') {
-                            matchDataStore.push({ rowIdx: body.length, colIdx: p + 2, tag: slot1.type, key: (slot1.course + slot1.dept).replace(/[^A-Za-z0-9]/g, '') });
+                            matchDataStore.push({ rowIdx: body.length, colIdx: p + 1, tag: slot1.type, key: (slot1.course + slot1.dept).replace(/[^A-Za-z0-9]/g, '') });
                             if (slot1.type === 'T1') t1Count++;
                         } else {
                             lCount++;
                         }
                     }
-                    
-                    if (periodSlots.length > 1) {
-                        const slot2 = periodSlots[1];
-                        if (slot2) {
-                            cell2 = processInfo(slot2);
-                            if (slot2.type === 'T1' || slot2.type === 'T2') {
-                                matchDataStore.push({ rowIdx: body.length + 1, colIdx: p + 2, tag: slot2.type, key: (slot2.course + slot2.dept).replace(/[^A-Za-z0-9]/g, '') });
-                                if (slot2.type === 'T1') t1Count++;
-                            } else {
-                                lCount++;
-                            }
-                        }
-                    }
                 }
                 
                 r1.push(cell1);
-                r2.push(cell2);
             }
             body.push(r1);
-            body.push(r2);
         });
         
         doc.setFont("helvetica", "italic");
@@ -96,21 +81,17 @@ export async function exportFacultyPDF(grid: GridState, faculties: FacultyData[]
 
         autoTable(doc, {
             startY: 85,
-            head: [['DAY', 'Gr', ...TIME_LABELS]],
+            head: [['DAY', ...TIME_LABELS]],
             body: body,
             theme: 'grid',
             styles: { fontSize: 8, halign: 'center', valign: 'middle', cellPadding: 2, lineWidth: 0.5, lineColor: [0, 0, 0], minCellHeight: 35 },
             headStyles: { fillColor: [220, 220, 220], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'center', valign: 'middle' },
             columnStyles: {
-                0: { cellWidth: 25, fontStyle: 'bold' },
-                1: { cellWidth: 30, fontStyle: 'bold' }
+                0: { cellWidth: 35, fontStyle: 'bold' }
             },
             willDrawCell: function (data) {
                 if (data.section === 'body') {
                     let actualColIdx = data.column.index;
-                    if (data.row.index % 2 === 1) {
-                        actualColIdx += 1;
-                    }
 
                     const matchIdx = matchDataStore.findIndex(m => m.rowIdx === data.row.index && m.colIdx === actualColIdx);
                     if (matchIdx !== -1) {
@@ -126,9 +107,6 @@ export async function exportFacultyPDF(grid: GridState, faculties: FacultyData[]
             didDrawCell: function(data) {
                 if (data.section === 'body') {
                     let actualColIdx = data.column.index;
-                    if (data.row.index % 2 === 1) {
-                        actualColIdx += 1;
-                    }
                     const matchIdx = matchDataStore.findIndex(m => m.rowIdx === data.row.index && m.colIdx === actualColIdx);
                     if (matchIdx !== -1) {
                         capturedCoords.push({
@@ -210,7 +188,8 @@ export async function exportFacultyPDF(grid: GridState, faculties: FacultyData[]
         doc.text("Principal", doc.internal.pageSize.width * 0.75, finalY + 70, { align: 'center' });
         
         const pdfData = doc.output('arraybuffer');
-        zip.file(`Faculty_Routine_${fac.code}.pdf`, pdfData);
+        const prefix = fac.seniority ? `${fac.seniority}-` : '';
+        zip.file(`${prefix}${dispName}.pdf`, pdfData);
     }
     
     const content = await zip.generateAsync({ type: 'blob' });
