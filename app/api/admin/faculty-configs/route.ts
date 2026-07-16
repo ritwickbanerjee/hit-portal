@@ -1,4 +1,4 @@
-﻿import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import FacultyConfig from '@/models/FacultyConfig';
 
@@ -13,11 +13,11 @@ export async function GET() {
 export async function POST(req: Request) {
     try {
         await connectDB();
-        const { facultyName, rootFolderId, scriptUrl } = await req.json();
+        const { facultyName, rootFolderId, scriptUrl, seniority } = await req.json();
 
         const config = await FacultyConfig.findOneAndUpdate(
             { facultyName },
-            { facultyName, rootFolderId, scriptUrl },
+            { facultyName, rootFolderId, scriptUrl, seniority },
             { upsert: true, new: true }
         );
 

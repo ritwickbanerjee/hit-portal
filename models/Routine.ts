@@ -25,6 +25,9 @@ const RoutineFacultySchema = new mongoose.Schema({
     code: { type: String, required: true },
     name: { type: String, default: '' },
     color: { type: String, default: '#4b5563' },
+    designation: { type: String, default: '' },
+    employeeCode: { type: String, default: '' },
+    seniority: { type: Number },
     availability: { type: FacultyAvailabilitySchema, default: () => ({}) },
 }, { _id: false });
 
