@@ -256,6 +256,7 @@ export async function exportCodeResponsibilityPDF(codeResponsibilities: {course:
         const sB = (facB ? (configMap.get(facB.code) || configMap.get(facB.name))?.seniority : null) ?? facB?.seniority ?? 999;
         
         if (sA !== sB) return sA - sB;
+        if (a.faculty !== b.faculty) return a.faculty.localeCompare(b.faculty);
         return a.course.localeCompare(b.course);
     });
 
