@@ -546,7 +546,7 @@ export async function exportFacultyExcel(grid: GridState, faculties: FacultyData
         const colMaxLen: number[] = new Array(12).fill(0);
 
         sheet.eachRow((row, rowNum) => {
-            if (rowNum < 5) return; // skip header rows
+            if (rowNum < 5 || rowNum > 14) return; // skip header rows and footer rows
             row.eachCell({ includeEmpty: false }, (cell, colNum) => {
                 const val = cell.value;
                 if (!val) return;
