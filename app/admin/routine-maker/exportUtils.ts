@@ -589,10 +589,23 @@ export async function exportCodeResponsibilityExcel(codeResponsibilities: {cours
 
     let currentRow = 4;
 
+    let globalFaculties: any[] = [];
+    try {
+        const res = await fetch('/api/admin/faculty-configs');
+        globalFaculties = await res.json();
+    } catch(e) {}
+    
+    const configMap = new Map();
+    globalFaculties.forEach(c => configMap.set(c.facultyName, c));
+
     const sortedFaculties = Array.from(facultyMap.keys()).sort((a, b) => {
         const facA = faculties.find(f => getDisplayName(f.code) === a);
         const facB = faculties.find(f => getDisplayName(f.code) === b);
-        return (facA?.seniority ?? 999) - (facB?.seniority ?? 999);
+        
+        const sA = (facA ? (configMap.get(facA.code) || configMap.get(facA.name))?.seniority : null) ?? facA?.seniority ?? 999;
+        const sB = (facB ? (configMap.get(facB.code) || configMap.get(facB.name))?.seniority : null) ?? facB?.seniority ?? 999;
+        
+        return sA - sB;
     });
 
     sortedFaculties.forEach((facultyCode) => {

@@ -12,14 +12,32 @@ function processInfo(slot: any) {
 }
 
 export async function exportFacultyPDF(grid: GridState, faculties: FacultyData[], sessionYear: string = "2026-27") {
+    const jsPDF = (await import('jspdf')).default;
+    const autoTable = (await import('jspdf-autotable')).default;
+    const JSZip = (await import('jszip')).default;
+
+    let globalFaculties: any[] = [];
+    try {
+        const res = await fetch('/api/admin/faculty-configs');
+        globalFaculties = await res.json();
+    } catch(e) {}
+    
+    const configMap = new Map();
+    globalFaculties.forEach(c => configMap.set(c.facultyName, c));
+
+    const facultiesWithSeniority = faculties.map(f => {
+        const c = configMap.get(f.code) || configMap.get(f.name);
+        return { ...f, seniority: c?.seniority ?? 999 };
+    });
+
+    const zip = new JSZip();
+
+    const sortedFaculties = facultiesWithSeniority.sort((a, b) => a.seniority - b.seniority);
+
     const PAIR_COLORS = [
         [255, 218, 185], [230, 230, 250], [224, 255, 255], [240, 255, 240],
         [255, 250, 205], [245, 222, 179], [216, 191, 216], [245, 245, 220]
     ];
-
-    const zip = new JSZip();
-
-    const sortedFaculties = [...faculties].sort((a, b) => (a.seniority ?? 999) - (b.seniority ?? 999));
 
     for (let facIdx = 0; facIdx < sortedFaculties.length; facIdx++) {
         const fac = sortedFaculties[facIdx];
@@ -90,7 +108,7 @@ export async function exportFacultyPDF(grid: GridState, faculties: FacultyData[]
             columnStyles: {
                 0: { cellWidth: 35, fontStyle: 'bold' }
             },
-            willDrawCell: function (data) {
+            didParseCell: function (data) {
                 if (data.section === 'body') {
                     let actualColIdx = data.column.index;
 
@@ -221,9 +239,22 @@ export async function exportCodeResponsibilityPDF(codeResponsibilities: {course:
         });
     });
 
+    let globalFaculties: any[] = [];
+    try {
+        const res = await fetch('/api/admin/faculty-configs');
+        globalFaculties = await res.json();
+    } catch(e) {}
+    
+    const configMap = new Map();
+    globalFaculties.forEach(c => configMap.set(c.facultyName, c));
+
     rows.sort((a, b) => {
-        const sA = facMap.get(a.faculty)?.seniority ?? 999;
-        const sB = facMap.get(b.faculty)?.seniority ?? 999;
+        const facA = facMap.get(a.faculty);
+        const facB = facMap.get(b.faculty);
+        
+        const sA = (facA ? (configMap.get(facA.code) || configMap.get(facA.name))?.seniority : null) ?? facA?.seniority ?? 999;
+        const sB = (facB ? (configMap.get(facB.code) || configMap.get(facB.name))?.seniority : null) ?? facB?.seniority ?? 999;
+        
         if (sA !== sB) return sA - sB;
         return a.course.localeCompare(b.course);
     });
