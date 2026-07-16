@@ -528,6 +528,10 @@ export async function exportFacultyExcel(grid: GridState, faculties: FacultyData
                 );
                 if (t2Index !== -1) {
                     const t2 = matchData[t2Index];
+                    const colorHex = PAIR_COLORS[colorIndex % PAIR_COLORS.length];
+                    t1.cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + colorHex } };
+                    t2.cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + colorHex } };
+                    
                     used.add(i);
                     used.add(t2Index);
                     colorIndex++;
