@@ -80,7 +80,7 @@ export async function exportFacultyPDF(grid: GridState, faculties: FacultyData[]
                     
                     const tSlot = periodSlots.find(s => s && (s.type === 'T1' || s.type === 'T2'));
                     if (tSlot) {
-                        matchDataStore.push({ rowIdx: body.length, colIdx: p + 1, tag: tSlot.type, key: tSlot.course.replace(/[^A-Za-z0-9]/g, '') });
+                        matchDataStore.push({ rowIdx: body.length, colIdx: p + 1, tag: tSlot.type, key: (tSlot.course + tSlot.dept).replace(/[^A-Za-z0-9]/g, '') });
                     }
                     t1Count += periodSlots.filter(s => s && s.type === 'T1').length;
                     lCount += periodSlots.filter(s => s && s.type !== 'T1' && s.type !== 'T2').length;
@@ -207,7 +207,7 @@ export async function exportFacultyPDF(grid: GridState, faculties: FacultyData[]
         doc.text("Principal", doc.internal.pageSize.width * 0.75, finalY + 70, { align: 'center' });
         
         const pdfData = doc.output('arraybuffer');
-        zip.file(`${rank}-${dispName}.pdf`, pdfData);
+        zip.file(`${dispName}.pdf`, pdfData);
     }
     
     const content = await zip.generateAsync({ type: 'blob' });

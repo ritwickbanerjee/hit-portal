@@ -367,7 +367,7 @@ export async function exportFacultyExcel(grid: GridState, faculties: FacultyData
     sortedFaculties.forEach((fac, facIdx) => {
         const dispName = getDisplayName(fac.code);
         const rank = facIdx + 1;
-        const sheet = workbook.addWorksheet(`${rank}-${dispName}`.replace(/[:\\/?*\[\]]/g, '')); // sanitize excel sheet names
+        const sheet = workbook.addWorksheet(`${dispName}`.replace(/[:\\/?*\[\]]/g, '')); // sanitize excel sheet names
 
         // Column widths are computed dynamically after data is written (see below)
         // so we just initialise them here with a narrow default
@@ -442,7 +442,7 @@ export async function exportFacultyExcel(grid: GridState, faculties: FacultyData
 
                     const tSlot = periodSlots.find(s => s && (s.type === 'T1' || s.type === 'T2'));
                     if (tSlot) {
-                        matchData.push({ tag: tSlot.type, key: tSlot.course.replace(/[^A-Za-z0-9]/g, ''), cell: cell1 });
+                        matchData.push({ tag: tSlot.type, key: (tSlot.course + tSlot.dept).replace(/[^A-Za-z0-9]/g, ''), cell: cell1 });
                     }
                     t1Count += periodSlots.filter(s => s && s.type === 'T1').length;
                     lCount += periodSlots.filter(s => s && s.type !== 'T1' && s.type !== 'T2').length;
