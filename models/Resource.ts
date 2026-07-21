@@ -2,9 +2,12 @@ import mongoose from 'mongoose';
 
 const ResourceSchema = new mongoose.Schema({
     title: { type: String, required: true },
-    type: { type: String, enum: ['pdf', 'link', 'video', 'practice', 'hints'], default: 'link' },
+    type: { type: String, enum: ['pdf', 'link', 'video', 'practice', 'hints', 'html_content'], default: 'link' },
     url: { type: String }, // Optional for practice/hints
     videoLink: { type: String },
+
+    // For HTML content resources
+    htmlContent: { type: String }, // Raw HTML code pasted by admin
 
     // Context
     course_code: { type: String }, // Can be main target

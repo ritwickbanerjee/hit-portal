@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, BookOpen, ExternalLink, Loader2, FileText, Video, Brain, Zap, Play, User, ChevronRight, Folder } from 'lucide-react';
+import { ArrowLeft, BookOpen, ExternalLink, Loader2, FileText, Video, Brain, Zap, Play, User, ChevronRight, Folder, Code } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 export default function StudentResources() {
@@ -84,11 +84,19 @@ export default function StudentResources() {
         return resources.filter(r => {
             const course = r.targetCourse || r.course_code;
             const matchesCourse = course === activeCourse;
-            if (type === 'materials') return matchesCourse && (r.type === 'pdf' || r.type === 'study_material');
+            if (type === 'materials') return matchesCourse && (r.type === 'pdf' || r.type === 'study_material' || r.type === 'html_content');
             if (type === 'videos') return matchesCourse && (r.type === 'video' || r.type === 'video_resource');
             if (type === 'practice') return matchesCourse && (r.type === 'practice' || r.type === 'hints' || r.type === 'practice_questions' || r.type === 'practice_questions_hints');
             return false;
         });
+    };
+
+    const openHtmlResource = (htmlContent: string) => {
+        const blob = new Blob([htmlContent], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+        // Revoke after a short delay to allow the tab to load
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
     };
 
     const materialsCount = getResourcesByType('materials').length;
@@ -228,8 +236,9 @@ export default function StudentResources() {
                                             return (
                                                 <div key={resource._id} className="p-3 sm:p-4 rounded-xl bg-white/5 border border-white/10">
                                                     <div className="flex items-center gap-3">
-                                                        <div className={`p-2 rounded-lg shrink-0 ${activeView === 'materials' ? 'bg-blue-500/20' : 'bg-rose-500/20'}`}>
-                                                            {activeView === 'materials' && <FileText className="h-4 w-4 text-blue-400" />}
+                                                        <div className={`p-2 rounded-lg shrink-0 ${activeView === 'materials' ? (resource.type === 'html_content' ? 'bg-emerald-500/20' : 'bg-blue-500/20') : 'bg-rose-500/20'}`}>
+                                                            {activeView === 'materials' && resource.type === 'html_content' && <Code className="h-4 w-4 text-emerald-400" />}
+                                                            {activeView === 'materials' && resource.type !== 'html_content' && <FileText className="h-4 w-4 text-blue-400" />}
                                                             {activeView === 'videos' && <Video className="h-4 w-4 text-rose-400" />}
                                                         </div>
                                                         <div className="flex-1 min-w-0">
@@ -240,7 +249,18 @@ export default function StudentResources() {
                                                                 </p>
                                                             )}
                                                         </div>
-                                                        {(resource.url || resource.videoLink) && (
+                                                        {/* HTML content: Open via Blob URL */}
+                                                        {resource.type === 'html_content' && resource.htmlContent && (
+                                                            <button
+                                                                onClick={() => openHtmlResource(resource.htmlContent)}
+                                                                className="p-2 rounded-lg shrink-0 bg-emerald-500 hover:bg-emerald-400 transition-colors"
+                                                                title="Open HTML page in browser"
+                                                            >
+                                                                <Code className="h-4 w-4 text-white" />
+                                                            </button>
+                                                        )}
+                                                        {/* PDF/link or video: open external URL */}
+                                                        {resource.type !== 'html_content' && (resource.url || resource.videoLink) && (
                                                             <a
                                                                 href={resource.url || resource.videoLink}
                                                                 target="_blank"

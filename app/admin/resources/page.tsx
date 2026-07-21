@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Loader2, Plus, Trash2, Edit, Link as LinkIcon, FileText, Video, Brain, Copy, Check, Sparkles, X, AlertCircle } from 'lucide-react';
+import { Loader2, Plus, Trash2, Edit, Link as LinkIcon, FileText, Video, Brain, Copy, Check, Sparkles, X, AlertCircle, Code } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import 'katex/dist/katex.min.css';
 
@@ -54,6 +54,10 @@ export default function Resources() {
     const [videoForm, setVideoForm] = useState({
         title: '', url: '', topic: '', subtopic: '',
         targetDepartments: [] as string[], targetYear: '', targetCourse: ''
+    });
+
+    const [htmlForm, setHtmlForm] = useState({
+        title: '', htmlContent: '', targetDepartments: [] as string[], targetYear: '', targetCourse: ''
     });
 
     const [submitting, setSubmitting] = useState(false);
@@ -532,6 +536,29 @@ ${JSON.stringify(selectedData, null, 2)}`;
         }
     };
 
+    const submitHtml = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!htmlForm.htmlContent.trim()) return toast.error('HTML content cannot be empty');
+        setSubmitting(true);
+        try {
+            const payload = { ...htmlForm, type: 'html_content', facultyName: user.name };
+            const res = await fetch('/api/admin/resources', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...getHeaders() },
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                toast.success('HTML Page Deployed!');
+                setHtmlForm({ title: '', htmlContent: '', targetDepartments: [], targetYear: '', targetCourse: '' });
+                fetchResources();
+            } else {
+                toast.error('Failed to deploy HTML page');
+            }
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
 
     // AI Settings Handlers
     const toggleAITopic = (topic: string) => {
@@ -585,6 +612,7 @@ ${JSON.stringify(selectedData, null, 2)}`;
                         { id: 'practice', label: 'Practice Questions' },
                         { id: 'hints', label: 'Practice (Hints)' },
                         { id: 'materials', label: 'Study Materials (PDF)' },
+                        { id: 'html', label: 'HTML Page' },
                         { id: 'videos', label: 'Video Resources' }
                     ].map(tab => (
                         <button
@@ -1064,6 +1092,99 @@ ${JSON.stringify(selectedData, null, 2)}`;
                                     className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded-lg disabled:opacity-50"
                                 >
                                     {submitting ? <Loader2 className="animate-spin h-5 w-5 mx-auto" /> : 'Upload & Deploy'}
+                                </button>
+                            </form>
+                        </div>
+                    )}
+
+                    {/* HTML Tab */}
+                    {activeTab === 'html' && (
+                        <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
+                            <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                                <Code className="h-5 w-5 text-emerald-400" />
+                                Deploy HTML Page
+                            </h2>
+                            <p className="text-sm text-gray-400 mb-6">Paste raw HTML code. Students will see an "Open" button that renders the page directly in their browser.</p>
+                            <form onSubmit={submitHtml} className="space-y-4">
+                                <div>
+                                    <label className="block text-sm text-gray-400 mb-1">Title</label>
+                                    <input
+                                        type="text" required
+                                        className="w-full bg-gray-700 border-gray-600 rounded text-white p-2"
+                                        placeholder="e.g. Chapter 3 Interactive Notes"
+                                        value={htmlForm.title} onChange={e => setHtmlForm({ ...htmlForm, title: e.target.value })}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm text-gray-400 mb-1">HTML Code</label>
+                                    <textarea
+                                        required
+                                        rows={14}
+                                        spellCheck={false}
+                                        placeholder={`<!DOCTYPE html>\n<html>\n  <head><title>My Material</title></head>\n  <body>\n    <h1>Hello!</h1>\n  </body>\n</html>`}
+                                        className="w-full bg-gray-900 border border-gray-600 rounded text-green-300 p-3 font-mono text-sm resize-y focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                        value={htmlForm.htmlContent} onChange={e => setHtmlForm({ ...htmlForm, htmlContent: e.target.value })}
+                                    />
+                                </div>
+                                <div className="grid grid-cols-3 gap-4">
+                                    <div>
+                                        <label className="block text-sm text-gray-400 mb-1">Departments</label>
+                                        <div className="relative">
+                                            <button
+                                                type="button"
+                                                className="bg-gray-700 border-gray-600 rounded text-white p-2 w-full text-left flex justify-between items-center"
+                                                onClick={() => document.getElementById('dept-dropdown-html')?.classList.toggle('hidden')}
+                                            >
+                                                <span className="truncate">{htmlForm.targetDepartments.length ? `${htmlForm.targetDepartments.length} Depts` : 'Select Departments'}</span>
+                                                <span className="text-xs">▼</span>
+                                            </button>
+                                            <div id="dept-dropdown-html" className="hidden absolute top-full left-0 w-full bg-gray-700 border border-gray-600 rounded mt-1 z-10 max-h-40 overflow-y-auto">
+                                                {depts.map(d => (
+                                                    <label key={d} className="flex items-center gap-2 p-2 hover:bg-gray-600 cursor-pointer">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={htmlForm.targetDepartments.includes(d)}
+                                                            onChange={(e) => {
+                                                                const newDepts = e.target.checked
+                                                                    ? [...htmlForm.targetDepartments, d]
+                                                                    : htmlForm.targetDepartments.filter(x => x !== d);
+                                                                setHtmlForm({ ...htmlForm, targetDepartments: newDepts });
+                                                            }}
+                                                        />
+                                                        <span className="text-sm text-white">{d}</span>
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm text-gray-400 mb-1">Year</label>
+                                        <select
+                                            className="w-full bg-gray-700 border-gray-600 rounded text-white p-2"
+                                            value={htmlForm.targetYear} onChange={e => setHtmlForm({ ...htmlForm, targetYear: e.target.value })}
+                                        >
+                                            <option value="">Select Year</option>
+                                            {years.map(y => <option key={y} value={y}>{y}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm text-gray-400 mb-1">Course</label>
+                                        <select
+                                            required
+                                            className="w-full bg-gray-700 border-gray-600 rounded text-white p-2"
+                                            value={htmlForm.targetCourse} onChange={e => setHtmlForm({ ...htmlForm, targetCourse: e.target.value })}
+                                        >
+                                            <option value="">Select Course</option>
+                                            {courses.map(c => <option key={c} value={c}>{c}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
+                                <button
+                                    type="submit" disabled={submitting}
+                                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 rounded-lg disabled:opacity-50 flex items-center justify-center gap-2"
+                                >
+                                    {submitting ? <Loader2 className="animate-spin h-5 w-5" /> : <Code className="h-5 w-5" />}
+                                    {submitting ? 'Deploying...' : 'Deploy HTML Page'}
                                 </button>
                             </form>
                         </div>
