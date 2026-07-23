@@ -50,3 +50,8 @@ final_check.js
 note_check.js
 scan_activity.js
 out.html
+
+# one-off export scripts (may contain credentials / raw data)
+export-attendance.js
+attendance_export.csv
+attendance_summary.csv
