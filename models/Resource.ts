@@ -8,6 +8,7 @@ const ResourceSchema = new mongoose.Schema({
 
     // For HTML content resources
     htmlContent: { type: String }, // Raw HTML code pasted by admin
+    htmlDeadline: { type: Date }, // Optional deadline; after this students cannot open the HTML
 
     // Context
     course_code: { type: String }, // Can be main target

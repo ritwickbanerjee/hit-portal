@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Loader2, Plus, Trash2, Edit, Link as LinkIcon, FileText, Video, Brain, Copy, Check, Sparkles, X, AlertCircle, Code } from 'lucide-react';
+import { Loader2, Plus, Trash2, Edit, Link as LinkIcon, FileText, Video, Brain, Copy, Check, Sparkles, X, AlertCircle, Code, Eye, Clock, RefreshCw } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import 'katex/dist/katex.min.css';
 
@@ -57,7 +57,13 @@ export default function Resources() {
     });
 
     const [htmlForm, setHtmlForm] = useState({
-        title: '', htmlContent: '', targetDepartments: [] as string[], targetYear: '', targetCourse: ''
+        title: '', htmlContent: '', targetDepartments: [] as string[], targetYear: '', targetCourse: '', htmlDeadline: ''
+    });
+
+    // HTML Edit/Preview Modal State
+    const [htmlEditResource, setHtmlEditResource] = useState<any>(null);
+    const [htmlEditForm, setHtmlEditForm] = useState({
+        title: '', htmlContent: '', targetDepartments: [] as string[], targetYear: '', targetCourse: '', htmlDeadline: ''
     });
 
     const [submitting, setSubmitting] = useState(false);
@@ -210,6 +216,57 @@ export default function Resources() {
             targetYear: resource.targetYear || '',
             targetCourse: resource.targetCourse || resource.course_code || ''
         });
+    };
+
+    const handleHtmlEdit = (resource: any) => {
+        setHtmlEditResource(resource);
+        // Format deadline for datetime-local input (needs YYYY-MM-DDTHH:MM)
+        let deadline = '';
+        if (resource.htmlDeadline) {
+            const d = new Date(resource.htmlDeadline);
+            // Offset to local time for the input
+            d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+            deadline = d.toISOString().slice(0, 16);
+        }
+        setHtmlEditForm({
+            title: resource.title || '',
+            htmlContent: resource.htmlContent || '',
+            targetDepartments: resource.targetDepartments || [],
+            targetYear: resource.targetYear || '',
+            targetCourse: resource.targetCourse || resource.course_code || '',
+            htmlDeadline: deadline
+        });
+    };
+
+    const handleHtmlRedeploy = async () => {
+        if (!htmlEditResource) return;
+        try {
+            setSubmitting(true);
+            const payload: any = {
+                title: htmlEditForm.title,
+                htmlContent: htmlEditForm.htmlContent,
+                targetDepartments: htmlEditForm.targetDepartments,
+                targetYear: htmlEditForm.targetYear,
+                targetCourse: htmlEditForm.targetCourse,
+                htmlDeadline: htmlEditForm.htmlDeadline ? new Date(htmlEditForm.htmlDeadline).toISOString() : null
+            };
+            const res = await fetch(`/api/admin/resources?id=${htmlEditResource._id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', ...getHeaders() },
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                toast.success('HTML page redeployed!');
+                setHtmlEditResource(null);
+                fetchResources();
+            } else {
+                toast.error('Failed to redeploy');
+            }
+        } catch (error) {
+            toast.error('Error redeploying');
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     const handleUpdate = async () => {
@@ -541,7 +598,12 @@ ${JSON.stringify(selectedData, null, 2)}`;
         if (!htmlForm.htmlContent.trim()) return toast.error('HTML content cannot be empty');
         setSubmitting(true);
         try {
-            const payload = { ...htmlForm, type: 'html_content', facultyName: user.name };
+            const payload = {
+                ...htmlForm,
+                type: 'html_content',
+                facultyName: user.name,
+                htmlDeadline: htmlForm.htmlDeadline ? new Date(htmlForm.htmlDeadline).toISOString() : null
+            };
             const res = await fetch('/api/admin/resources', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', ...getHeaders() },
@@ -549,7 +611,7 @@ ${JSON.stringify(selectedData, null, 2)}`;
             });
             if (res.ok) {
                 toast.success('HTML Page Deployed!');
-                setHtmlForm({ title: '', htmlContent: '', targetDepartments: [], targetYear: '', targetCourse: '' });
+                setHtmlForm({ title: '', htmlContent: '', targetDepartments: [], targetYear: '', targetCourse: '', htmlDeadline: '' });
                 fetchResources();
             } else {
                 toast.error('Failed to deploy HTML page');
@@ -1179,6 +1241,23 @@ ${JSON.stringify(selectedData, null, 2)}`;
                                         </select>
                                     </div>
                                 </div>
+                                {/* Optional Deadline */}
+                                <div className="bg-gray-900/50 border border-gray-600 rounded-lg p-4">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Clock className="h-4 w-4 text-amber-400" />
+                                        <label className="text-sm font-medium text-amber-300">Deadline (Optional)</label>
+                                    </div>
+                                    <p className="text-xs text-gray-500 mb-3">After this date/time, students will see the activity as expired and won't be able to open it.</p>
+                                    <input
+                                        type="datetime-local"
+                                        className="bg-gray-700 border-gray-600 rounded text-white p-2 w-full"
+                                        value={htmlForm.htmlDeadline}
+                                        onChange={e => setHtmlForm({ ...htmlForm, htmlDeadline: e.target.value })}
+                                    />
+                                    {htmlForm.htmlDeadline && (
+                                        <button type="button" onClick={() => setHtmlForm({ ...htmlForm, htmlDeadline: '' })} className="mt-2 text-xs text-gray-400 hover:text-red-400 transition-colors">✕ Clear deadline</button>
+                                    )}
+                                </div>
                                 <button
                                     type="submit" disabled={submitting}
                                     className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 rounded-lg disabled:opacity-50 flex items-center justify-center gap-2"
@@ -1398,6 +1477,161 @@ ${JSON.stringify(selectedData, null, 2)}`;
                 </div>
             )}
 
+            {/* HTML Edit / Redeploy Modal */}
+            {htmlEditResource && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-gray-900 rounded-xl w-full max-w-4xl border border-emerald-500/30 shadow-2xl shadow-emerald-500/10 flex flex-col max-h-[90vh]">
+                        {/* Header */}
+                        <div className="p-5 border-b border-gray-700 flex justify-between items-center bg-gradient-to-r from-emerald-900/40 to-teal-900/30 rounded-t-xl">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 rounded-lg bg-emerald-500/20">
+                                    <Code className="h-5 w-5 text-emerald-400" />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-bold text-white">Edit & Redeploy HTML Page</h2>
+                                    <p className="text-xs text-gray-400">Changes will update instantly for all students.</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setHtmlEditResource(null)} className="text-gray-400 hover:text-white transition-colors p-1">
+                                <X className="h-6 w-6" />
+                            </button>
+                        </div>
+
+                        {/* Body - scrollable */}
+                        <div className="p-5 space-y-4 overflow-y-auto flex-1">
+                            {/* Title */}
+                            <div>
+                                <label className="block text-sm text-gray-400 mb-1">Title</label>
+                                <input
+                                    type="text"
+                                    className="w-full bg-gray-800 border border-gray-600 rounded text-white p-2"
+                                    value={htmlEditForm.title}
+                                    onChange={e => setHtmlEditForm({ ...htmlEditForm, title: e.target.value })}
+                                />
+                            </div>
+
+                            {/* HTML Editor */}
+                            <div>
+                                <div className="flex items-center justify-between mb-1">
+                                    <label className="text-sm text-gray-400">HTML Code</label>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const blob = new Blob([htmlEditForm.htmlContent], { type: 'text/html' });
+                                            const url = URL.createObjectURL(blob);
+                                            window.open(url, '_blank');
+                                            setTimeout(() => URL.revokeObjectURL(url), 10000);
+                                        }}
+                                        className="text-xs flex items-center gap-1 text-emerald-400 hover:text-emerald-300 transition-colors"
+                                    >
+                                        <Eye className="h-3 w-3" /> Preview in browser
+                                    </button>
+                                </div>
+                                <textarea
+                                    rows={18}
+                                    spellCheck={false}
+                                    className="w-full bg-gray-950 border border-gray-600 rounded text-green-300 p-3 font-mono text-sm resize-y focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                    value={htmlEditForm.htmlContent}
+                                    onChange={e => setHtmlEditForm({ ...htmlEditForm, htmlContent: e.target.value })}
+                                />
+                            </div>
+
+                            {/* Target selectors */}
+                            <div className="grid grid-cols-3 gap-4">
+                                <div>
+                                    <label className="block text-sm text-gray-400 mb-1">Departments</label>
+                                    <div className="relative">
+                                        <button
+                                            type="button"
+                                            className="bg-gray-800 border border-gray-600 rounded text-white p-2 w-full text-left flex justify-between items-center"
+                                            onClick={() => document.getElementById('dept-dropdown-html-edit')?.classList.toggle('hidden')}
+                                        >
+                                            <span className="truncate text-sm">{htmlEditForm.targetDepartments.length ? `${htmlEditForm.targetDepartments.length} Depts` : 'Select Departments'}</span>
+                                            <span className="text-xs">▼</span>
+                                        </button>
+                                        <div id="dept-dropdown-html-edit" className="hidden absolute top-full left-0 w-full bg-gray-800 border border-gray-600 rounded mt-1 z-10 max-h-40 overflow-y-auto">
+                                            {depts.map(d => (
+                                                <label key={d} className="flex items-center gap-2 p-2 hover:bg-gray-700 cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={htmlEditForm.targetDepartments.includes(d)}
+                                                        onChange={(e) => {
+                                                            const newDepts = e.target.checked
+                                                                ? [...htmlEditForm.targetDepartments, d]
+                                                                : htmlEditForm.targetDepartments.filter(x => x !== d);
+                                                            setHtmlEditForm({ ...htmlEditForm, targetDepartments: newDepts });
+                                                        }}
+                                                    />
+                                                    <span className="text-sm text-white">{d}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm text-gray-400 mb-1">Year</label>
+                                    <select
+                                        className="w-full bg-gray-800 border border-gray-600 rounded text-white p-2"
+                                        value={htmlEditForm.targetYear}
+                                        onChange={e => setHtmlEditForm({ ...htmlEditForm, targetYear: e.target.value })}
+                                    >
+                                        <option value="">Select Year</option>
+                                        {years.map(y => <option key={y} value={y}>{y}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm text-gray-400 mb-1">Course</label>
+                                    <select
+                                        className="w-full bg-gray-800 border border-gray-600 rounded text-white p-2"
+                                        value={htmlEditForm.targetCourse}
+                                        onChange={e => setHtmlEditForm({ ...htmlEditForm, targetCourse: e.target.value })}
+                                    >
+                                        <option value="">Select Course</option>
+                                        {courses.map(c => <option key={c} value={c}>{c}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Deadline */}
+                            <div className="bg-amber-900/20 border border-amber-500/30 rounded-lg p-4">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <Clock className="h-4 w-4 text-amber-400" />
+                                    <label className="text-sm font-medium text-amber-300">Deadline (Optional)</label>
+                                </div>
+                                <p className="text-xs text-gray-500 mb-3">After this date/time, students will see the activity as expired.</p>
+                                <input
+                                    type="datetime-local"
+                                    className="bg-gray-800 border border-gray-600 rounded text-white p-2 w-full"
+                                    value={htmlEditForm.htmlDeadline}
+                                    onChange={e => setHtmlEditForm({ ...htmlEditForm, htmlDeadline: e.target.value })}
+                                />
+                                {htmlEditForm.htmlDeadline && (
+                                    <button type="button" onClick={() => setHtmlEditForm({ ...htmlEditForm, htmlDeadline: '' })} className="mt-2 text-xs text-gray-400 hover:text-red-400 transition-colors">✕ Clear deadline</button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="p-5 border-t border-gray-700 flex gap-3">
+                            <button
+                                onClick={() => setHtmlEditResource(null)}
+                                className="flex-1 py-3 px-4 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-all"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleHtmlRedeploy}
+                                disabled={submitting}
+                                className="flex-1 py-3 px-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-lg font-bold transition-all flex items-center justify-center gap-2 disabled:opacity-50 shadow-lg shadow-emerald-500/20"
+                            >
+                                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                                {submitting ? 'Redeploying...' : 'Save & Redeploy'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* AI Topic Control Modal */}
             {showAIModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
@@ -1511,21 +1745,37 @@ ${JSON.stringify(selectedData, null, 2)}`;
                                 <div className="flex justify-between items-start mb-1">
                                     <h3 className="text-white font-medium text-sm line-clamp-2">{r.title}</h3>
                                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button onClick={() => handleEdit(r)} className="text-gray-600 hover:text-blue-400 transition-colors">
-                                            <Edit className="h-4 w-4" />
-                                        </button>
+                                        {r.type === 'html_content' ? (
+                                            <button onClick={() => handleHtmlEdit(r)} className="text-gray-600 hover:text-emerald-400 transition-colors" title="View / Edit HTML">
+                                                <Eye className="h-4 w-4" />
+                                            </button>
+                                        ) : (
+                                            <button onClick={() => handleEdit(r)} className="text-gray-600 hover:text-blue-400 transition-colors">
+                                                <Edit className="h-4 w-4" />
+                                            </button>
+                                        )}
                                         <button onClick={() => handleDelete(r._id)} className="text-gray-600 hover:text-red-400 transition-colors">
                                             <Trash2 className="h-4 w-4" />
                                         </button>
                                     </div>
                                 </div>
                                 <div className="flex flex-wrap gap-2 mb-2">
-                                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase ${r.type === 'practice' ? 'bg-blue-900 text-blue-300' :
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase ${
+                                        r.type === 'practice' ? 'bg-blue-900 text-blue-300' :
                                         r.type === 'hints' ? 'bg-purple-900 text-purple-300' :
-                                            r.type === 'video' ? 'bg-red-900 text-red-300' :
-                                                'bg-green-900 text-green-300'
-                                        }`}>{r.type}</span>
+                                        r.type === 'video' ? 'bg-red-900 text-red-300' :
+                                        r.type === 'html_content' ? 'bg-emerald-900 text-emerald-300' :
+                                        'bg-green-900 text-green-300'
+                                    }`}>{r.type === 'html_content' ? 'HTML' : r.type}</span>
                                     <span className="text-xs bg-gray-700 text-gray-300 px-1.5 py-0.5 rounded">{r.targetCourse || 'All'}</span>
+                                    {r.type === 'html_content' && r.htmlDeadline && (
+                                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold flex items-center gap-1 ${
+                                            new Date(r.htmlDeadline) < new Date() ? 'bg-red-900 text-red-300' : 'bg-amber-900 text-amber-300'
+                                        }`}>
+                                            <Clock className="h-2.5 w-2.5" />
+                                            {new Date(r.htmlDeadline) < new Date() ? 'EXPIRED' : new Date(r.htmlDeadline).toLocaleDateString()}
+                                        </span>
+                                    )}
                                 </div>
                                 <div className="text-xs text-gray-400 mb-1">
                                     {r.targetDepartments && r.targetDepartments.length > 0
