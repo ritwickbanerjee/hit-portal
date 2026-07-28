@@ -138,10 +138,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         }
     }, [user]);
 
-    // Compute initials from the logged-in user's name (e.g. "Ritwick Banerjee" → "RB")
-    const userInitials = user?.name
-        ? user.name.trim().split(/\s+/).map((p: string) => p[0]).join('').toUpperCase()
-        : '';
+    // Compute initials from the logged-in user's name.
+    // Strips common titles (Dr., Prof., Mr., Mrs., Ms.) so that
+    // "Dr. Ritwick Banerjee" correctly produces "RB" not "DRB".
+    // Uses first letter of first word + first letter of last word only.
+    const HONORIFICS = ['dr', 'prof', 'mr', 'mrs', 'ms', 'er', 'shri'];
+    const userInitials = (() => {
+        if (!user?.name) return '';
+        const parts = user.name.trim().split(/\s+/)
+            .filter((p: string) => !HONORIFICS.includes(p.toLowerCase().replace(/\.$/, '')));
+        if (parts.length === 0) return '';
+        if (parts.length === 1) return parts[0][0].toUpperCase();
+        return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    })();
     const hasHitRoutineAccess = ['RB', 'DC', 'SC'].includes(userInitials);
 
     const navigation = [
