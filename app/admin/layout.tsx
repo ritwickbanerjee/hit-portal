@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
     Users, ClipboardList, CheckSquare, FileText,
-    Upload, BarChart, BookOpen, LogOut, Menu, X, GraduationCap, Laptop, CalendarDays, LayoutGrid, Sparkles, ClipboardCheck
+    Upload, BarChart, BookOpen, LogOut, Menu, X, GraduationCap, Laptop, CalendarDays, LayoutGrid, Sparkles, ClipboardCheck, Building2
 } from 'lucide-react';
 import InstallPWA from '@/components/InstallPWA';
 import ActiveDeploymentToggle from '@/components/ActiveDeploymentToggle';
@@ -138,12 +138,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         }
     }, [user]);
 
+    // Compute initials from the logged-in user's name (e.g. "Ritwick Banerjee" → "RB")
+    const userInitials = user?.name
+        ? user.name.trim().split(/\s+/).map((p: string) => p[0]).join('').toUpperCase()
+        : '';
+    const hasHitRoutineAccess = ['RB', 'DC', 'SC'].includes(userInitials);
+
     const navigation = [
         { name: 'Student & Course Management', href: '/admin/dashboard', icon: Users },
         { name: 'Mark Daily Attendance', href: '/admin/attendance', icon: CheckSquare },
         { name: 'Track Attendance', href: '/admin/reports', icon: ClipboardList },
         { name: 'My Routine', href: '/admin/routine', icon: CalendarDays },
         ...(routineMakerAccess ? [{ name: 'Routine Maker', href: '/admin/routine-maker', icon: LayoutGrid }] : []),
+        ...(hasHitRoutineAccess ? [{ name: 'HIT Routine', href: '/admin/hit-routine', icon: Building2 }] : []),
         { name: 'Question Bank', href: '/admin/questions', icon: FileText },
         { name: 'Assignments', href: '/admin/assignments', icon: Upload },
         { name: 'Assignment Submissions', href: '/admin/submissions', icon: FileText },
