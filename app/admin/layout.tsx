@@ -138,20 +138,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         }
     }, [user]);
 
-    // Compute initials from the logged-in user's name.
-    // Strips common titles (Dr., Prof., Mr., Mrs., Ms.) so that
-    // "Dr. Ritwick Banerjee" correctly produces "RB" not "DRB".
-    // Uses first letter of first word + first letter of last word only.
-    const HONORIFICS = ['dr', 'prof', 'mr', 'mrs', 'ms', 'er', 'shri'];
-    const userInitials = (() => {
-        if (!user?.name) return '';
-        const parts = user.name.trim().split(/\s+/)
-            .filter((p: string) => !HONORIFICS.includes(p.toLowerCase().replace(/\.$/, '')));
-        if (parts.length === 0) return '';
-        if (parts.length === 1) return parts[0][0].toUpperCase();
-        return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-    })();
-    const hasHitRoutineAccess = ['RB', 'DC', 'SC'].includes(userInitials);
+    // Explicitly authorize specific users for HIT Routine access based on their email
+    const HIT_ROUTINE_EMAILS = [
+        'ritwick92@gmail.com',
+        'dipankar.chakraborty@heritageit.edu',
+        'sandip.chatterjee@heritageit.edu'
+    ];
+    const hasHitRoutineAccess = user?.email && HIT_ROUTINE_EMAILS.includes(user.email.toLowerCase());
 
     const navigation = [
         { name: 'Student & Course Management', href: '/admin/dashboard', icon: Users },
