@@ -386,7 +386,22 @@ export default function HitRoutinePage() {
             }
         });
 
-        setWarnings(newWarnings);
+        const deduplicatedWarnings: ValidationWarning[] = [];
+        newWarnings.forEach(w => {
+            const normalizedDesc = w.description.replace(/\(Group \d\)/, '(Group 1 & 2)');
+            const existing = deduplicatedWarnings.find(dw => 
+                dw.title === w.title && 
+                dw.description.replace(/\(Group \d\)/, '(Group 1 & 2)') === normalizedDesc
+            );
+            if (existing) {
+                existing.description = normalizedDesc;
+                existing.relatedCells.push(...w.relatedCells);
+            } else {
+                deduplicatedWarnings.push({ ...w });
+            }
+        });
+
+        setWarnings(deduplicatedWarnings);
         setActiveWarningId(null);
     }, [activeDept, rawRoutines]);
 
@@ -442,7 +457,8 @@ export default function HitRoutinePage() {
         const stats: Record<string, { L: number, T: number, P: number }> = {};
         deptRoutines.forEach(r => {
             const cc = r.courseCode || 'Unknown';
-            if (cc === 'Unknown' || r.classType?.toUpperCase() === 'BREAK') return;
+            const ccUpper = cc.toUpperCase();
+            if (cc === 'Unknown' || ccUpper === 'NA' || ccUpper === 'N/A' || r.classType?.toUpperCase() === 'BREAK') return;
             if (!stats[cc]) stats[cc] = { L: 0, T: 0, P: 0 };
             const type = (r.classType || '').toUpperCase();
             if (type.includes('LAB') || type === 'P') stats[cc].P++;
