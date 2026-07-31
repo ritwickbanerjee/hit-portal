@@ -50,6 +50,16 @@ type RoutineEntry = {
     faculty: string; roomNo: string;
 };
 
+type FacultyEntry = {
+    initials: string; fullName: string; department: string;
+    type: string; sourceFileDept: string;
+};
+
+type CourseEntry = {
+    courseCode: string; subject: string; L: number; T: number; P: number;
+    totalPeriods: number; creditPoints: number; department: string;
+};
+
 type ValidationWarning = {
     id: string;
     type: 'warning' | 'error';
@@ -83,6 +93,8 @@ export default function HitRoutinePage() {
 
     // Routine data
     const [rawRoutines, setRawRoutines] = useState<RoutineEntry[]>([]);
+    const [rawFaculty, setRawFaculty] = useState<FacultyEntry[]>([]);
+    const [rawCourses, setRawCourses] = useState<CourseEntry[]>([]);
     const [departments, setDepartments] = useState<string[]>([]);
     const [activeDept, setActiveDept] = useState('');
     const [syncing, setSyncing] = useState(false);
@@ -142,7 +154,7 @@ export default function HitRoutinePage() {
             const json = await res.json();
             if (json.error) throw new Error(json.error);
 
-            let rawData: any[][] = json.data || [];
+            let rawData: any[][] = json.routines || json.data || [];
             if (rawData.length > 0 && rawData[0][0]?.toLowerCase() === 'day') rawData.shift();
 
             const depts = new Set<string>();
@@ -158,12 +170,38 @@ export default function HitRoutinePage() {
                 };
             }).filter(Boolean) as RoutineEntry[];
 
+            // Handle faculty
+            let facultyData: any[][] = json.faculty || [];
+            if (facultyData.length > 0 && facultyData[0][0]?.toLowerCase() === 'initials') facultyData.shift();
+            const fEntries: FacultyEntry[] = facultyData.map((row: any[]) => {
+                const clean = row.map((c: any) => (c ? String(c).trim() : ''));
+                if (clean.length < 5) return null;
+                return {
+                    initials: clean[0], fullName: clean[1], department: clean[2], type: clean[3], sourceFileDept: clean[4]
+                };
+            }).filter(Boolean) as FacultyEntry[];
+
+            // Handle courses
+            let courseData: any[][] = json.courses || [];
+            if (courseData.length > 0 && courseData[0][0]?.toLowerCase() === 'course code') courseData.shift();
+            const cEntries: CourseEntry[] = courseData.map((row: any[]) => {
+                const clean = row.map((c: any) => (c ? String(c).trim() : ''));
+                if (clean.length < 8) return null;
+                return {
+                    courseCode: clean[0], subject: clean[1], L: parseInt(clean[2]) || 0, T: parseInt(clean[3]) || 0,
+                    P: parseInt(clean[4]) || 0, totalPeriods: parseInt(clean[5]) || 0, creditPoints: parseFloat(clean[6]) || 0,
+                    department: clean[7]
+                };
+            }).filter(Boolean) as CourseEntry[];
+
             setRawRoutines(entries);
+            setRawFaculty(fEntries);
+            setRawCourses(cEntries);
             const deptArr = Array.from(depts).sort();
             setDepartments(deptArr);
             if (deptArr.length > 0 && !activeDept) setActiveDept(deptArr[0]);
             setLastSynced(new Date());
-            toast.success(`Synced ${entries.length} entries from Google Sheets`);
+            toast.success(`Synced ${entries.length} routine entries, ${fEntries.length} faculty, ${cEntries.length} courses`);
         } catch (e: any) {
             setSyncError(e.message);
             toast.error('Sync failed: ' + e.message);
@@ -404,9 +442,71 @@ export default function HitRoutinePage() {
             }
         });
 
+        // 7) Check Proposed Contact Hours
+        const proposedCourses = rawCourses.filter(c => c.department === activeDept);
+        if (proposedCourses.length > 0) {
+            const stats: Record<string, { L: number, T: number, P: number }> = {};
+            const grid: Record<string, Record<string, Record<number, RoutineEntry[]>>> = {};
+            DAYS.forEach(day => {
+                grid[day] = { 'Group 1': {}, 'Group 2': {} };
+                PERIODS.forEach(p => { grid[day]['Group 1'][p.id] = []; grid[day]['Group 2'][p.id] = []; });
+            });
+            deptRoutines.forEach(r => {
+                const targetDay = DAYS.find(d => d.toLowerCase() === r.day?.toLowerCase());
+                if (!targetDay || isNaN(r.period) || r.period < 1 || r.period > 8) return;
+                const grp = (r.group || '').toLowerCase();
+                const g1 = grp.includes('1') || grp === 'all' || grp === '' || grp === 'na';
+                const g2 = grp.includes('2') || grp === 'all' || grp === '' || grp === 'na';
+                if (g1) grid[targetDay]['Group 1'][r.period].push(r);
+                if (g2) grid[targetDay]['Group 2'][r.period].push(r);
+            });
+
+            const countClass = (r: RoutineEntry) => {
+                const cc = r.courseCode || 'Unknown';
+                const ccUpper = cc.toUpperCase();
+                if (cc === 'Unknown' || ccUpper === 'NA' || ccUpper === 'N/A' || r.classType?.toUpperCase() === 'BREAK') return;
+                if (!stats[cc]) stats[cc] = { L: 0, T: 0, P: 0 };
+                const type = (r.classType || '').toUpperCase();
+                if (type.includes('LAB') || type === 'P') stats[cc].P++;
+                else if (type === 'T' || type.includes('TUTORIAL')) stats[cc].T++;
+                else stats[cc].L++;
+            };
+
+            DAYS.forEach(day => {
+                PERIODS.forEach(p => {
+                    const classesG1 = grid[day]['Group 1'][p.id];
+                    const classesG2 = grid[day]['Group 2'][p.id];
+                    const isIdentical = classesG1.length > 0 && classesG1.length === classesG2.length && classesG1.every((c, i) => c.classType === classesG2[i].classType && c.courseCode === classesG2[i].courseCode && c.faculty === classesG2[i].faculty && c.roomNo === classesG2[i].roomNo);
+                    classesG1.forEach(countClass);
+                    if (!isIdentical) classesG2.forEach(countClass);
+                });
+            });
+
+            Object.keys(stats).forEach(cc => {
+                const actual = stats[cc];
+                const proposed = proposedCourses.find(c => c.courseCode === cc);
+                if (proposed) {
+                    const violations = [];
+                    if (actual.L > proposed.L) violations.push(`Lectures (${actual.L} > ${proposed.L})`);
+                    if (actual.T > proposed.T) violations.push(`Tutorials (${actual.T} > ${proposed.T})`);
+                    if (actual.P > proposed.P) violations.push(`Labs (${actual.P} > ${proposed.P})`);
+                    
+                    if (violations.length > 0) {
+                        deduplicatedWarnings.push({
+                            id: `warn-${warningIdCounter++}`,
+                            type: 'error',
+                            title: 'Contact Hours Exceeded',
+                            description: `${cc} has exceeded proposed contact hours for ${violations.join(', ')}.`,
+                            relatedCells: []
+                        });
+                    }
+                }
+            });
+        }
+
         setWarnings(deduplicatedWarnings);
         setActiveWarningId(null);
-    }, [activeDept, rawRoutines]);
+    }, [activeDept, rawRoutines, rawCourses]);
 
     useEffect(() => {
         validateActiveDepartment();
@@ -455,6 +555,25 @@ export default function HitRoutinePage() {
         else toast.error(`Found ${newWarnings.length} room clashes!`);
     };
 
+    const FacultyLegend = () => {
+        const deptFaculty = rawFaculty.filter(f => f.sourceFileDept === activeDept);
+        if (deptFaculty.length === 0) return null;
+        
+        return (
+            <div className="mt-8 bg-slate-800/40 border border-slate-700 rounded-xl p-4">
+                <h3 className="text-sm font-bold text-white mb-4">Faculty Reference</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                    {deptFaculty.map((f, idx) => (
+                        <div key={idx} className="flex items-center gap-2 p-2 bg-slate-900/50 rounded-lg border border-slate-700/50">
+                            <div className="text-xs font-bold text-amber-400 min-w-[30px] text-center">{f.initials}</div>
+                            <div className="text-xs text-slate-300 truncate" title={f.fullName}>{f.fullName}</div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    };
+
     const CourseStatistics = () => {
         const stats: Record<string, { L: number, T: number, P: number }> = {};
         
@@ -484,28 +603,46 @@ export default function HitRoutinePage() {
         });
         const sortedCourses = Object.keys(stats).sort();
         if (sortedCourses.length === 0) return null;
+        const proposedCourses = rawCourses.filter(c => c.department === activeDept);
+
         return (
             <div className="mt-8 bg-slate-800/40 border border-slate-700 rounded-xl p-4">
-                <h3 className="text-sm font-bold text-white mb-4">Course Workload Summary (Weekly)</h3>
+                <h3 className="text-sm font-bold text-white mb-4">Course Workload Summary (Actual / Proposed)</h3>
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
                         <thead>
                             <tr className="text-slate-400 border-b border-slate-700">
-                                <th className="pb-2 font-bold">Course Code</th>
-                                <th className="pb-2 font-bold text-center w-24">Lectures (L)</th>
-                                <th className="pb-2 font-bold text-center w-24">Tutorials (T)</th>
-                                <th className="pb-2 font-bold text-center w-24">Labs (P)</th>
+                                <th className="pb-2 font-bold px-2">Course Code</th>
+                                <th className="pb-2 font-bold text-center w-32">Lectures (L)</th>
+                                <th className="pb-2 font-bold text-center w-32">Tutorials (T)</th>
+                                <th className="pb-2 font-bold text-center w-32">Labs (P)</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-700/50">
-                            {sortedCourses.map(cc => (
-                                <tr key={cc} className="text-slate-300">
-                                    <td className="py-2">{cc}</td>
-                                    <td className="py-2 text-center">{stats[cc].L}</td>
-                                    <td className="py-2 text-center">{stats[cc].T}</td>
-                                    <td className="py-2 text-center">{stats[cc].P}</td>
-                                </tr>
-                            ))}
+                            {sortedCourses.map(cc => {
+                                const actual = stats[cc];
+                                const proposed = proposedCourses.find(c => c.courseCode === cc);
+                                const lViolated = proposed && actual.L > proposed.L;
+                                const tViolated = proposed && actual.T > proposed.T;
+                                const pViolated = proposed && actual.P > proposed.P;
+                                const isViolated = lViolated || tViolated || pViolated;
+                                return (
+                                    <tr key={cc} className={`${isViolated ? 'bg-red-950/20' : ''} text-slate-300`}>
+                                        <td className="py-2 px-2">
+                                            {cc} {proposed?.subject ? <span className="text-slate-500 text-xs ml-2">- {proposed.subject}</span> : ''}
+                                        </td>
+                                        <td className={`py-2 text-center ${lViolated ? 'text-red-400 font-bold' : ''}`}>
+                                            {actual.L} {proposed ? <span className="text-slate-500 ml-1">/ {proposed.L}</span> : ''}
+                                        </td>
+                                        <td className={`py-2 text-center ${tViolated ? 'text-red-400 font-bold' : ''}`}>
+                                            {actual.T} {proposed ? <span className="text-slate-500 ml-1">/ {proposed.T}</span> : ''}
+                                        </td>
+                                        <td className={`py-2 text-center ${pViolated ? 'text-red-400 font-bold' : ''}`}>
+                                            {actual.P} {proposed ? <span className="text-slate-500 ml-1">/ {proposed.P}</span> : ''}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>
@@ -561,6 +698,7 @@ export default function HitRoutinePage() {
                             <li>No "Break" period during the first 3 classes.</li>
                             <li>No empty slots in the first 3 classes (per group).</li>
                             <li>Global Room Clash Checker (click button above) finds room overlaps across all routines.</li>
+                            <li>Proposed contact hours must be &ge; Actual contact hours for L, T, and P.</li>
                         </ol>
                     </div>
                 )}
@@ -674,6 +812,7 @@ export default function HitRoutinePage() {
                 </div>
             )}
 
+            <FacultyLegend />
             <CourseStatistics />
         </div>
     );
