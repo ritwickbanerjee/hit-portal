@@ -456,9 +456,9 @@ export default function HitRoutinePage() {
     };
 
     const CourseStatistics = () => {
-        const deptRoutines = rawRoutines.filter(r => r.department === activeDept);
         const stats: Record<string, { L: number, T: number, P: number }> = {};
-        deptRoutines.forEach(r => {
+        
+        const countClass = (r: RoutineEntry) => {
             const cc = r.courseCode || 'Unknown';
             const ccUpper = cc.toUpperCase();
             if (cc === 'Unknown' || ccUpper === 'NA' || ccUpper === 'N/A' || r.classType?.toUpperCase() === 'BREAK') return;
@@ -467,6 +467,20 @@ export default function HitRoutinePage() {
             if (type.includes('LAB') || type === 'P') stats[cc].P++;
             else if (type === 'T' || type.includes('TUTORIAL')) stats[cc].T++;
             else stats[cc].L++;
+        };
+
+        DAYS.forEach(day => {
+            PERIODS.forEach(p => {
+                const classesG1 = gridData[day]?.['Group 1']?.[p.id] || [];
+                const classesG2 = gridData[day]?.['Group 2']?.[p.id] || [];
+                
+                const isIdentical = classesG1.length > 0 && classesG1.length === classesG2.length && classesG1.every((c, i) => c.classType === classesG2[i].classType && c.courseCode === classesG2[i].courseCode && c.faculty === classesG2[i].faculty && c.roomNo === classesG2[i].roomNo);
+
+                classesG1.forEach(countClass);
+                if (!isIdentical) {
+                    classesG2.forEach(countClass);
+                }
+            });
         });
         const sortedCourses = Object.keys(stats).sort();
         if (sortedCourses.length === 0) return null;
