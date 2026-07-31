@@ -27,3 +27,7 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+body.hide-admin-sidebar #admin-sidebar {
+  display: none !important;
+}

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
     ArrowLeft, Building2, CalendarDays, LayoutGrid, RefreshCw,
-    Plus, Trash2, ToggleLeft, ToggleRight, X, Clock,
+    Plus, Trash2, ToggleLeft, ToggleRight, X, Clock, Maximize, Minimize,
     CheckCircle2, Circle, AlertTriangle, Download, Wifi, WifiOff
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
@@ -109,6 +109,17 @@ export default function HitRoutinePage() {
 
     // Room availability
     const [selectedCell, setSelectedCell] = useState<{ day: string; period: number } | null>(null);
+
+    // Full Width Toggle
+    const [fullWidth, setFullWidth] = useState(false);
+    useEffect(() => {
+        if (fullWidth) {
+            document.body.classList.add('hide-admin-sidebar');
+        } else {
+            document.body.classList.remove('hide-admin-sidebar');
+        }
+        return () => document.body.classList.remove('hide-admin-sidebar');
+    }, [fullWidth]);
 
     // Room management
     const [rooms, setRooms] = useState<RoomDoc[]>([]);
@@ -495,7 +506,8 @@ export default function HitRoutinePage() {
 
             Object.keys(stats).forEach(cc => {
                 const actual = stats[cc];
-                const proposed = proposedCourses.find(c => c.courseCode === cc);
+                const cleanCc = cc.replace(/\s+/g, '').toUpperCase();
+                const proposed = rawCourses.find(c => c.courseCode.replace(/\s+/g, '').toUpperCase() === cleanCc);
                 if (proposed) {
                     const violations = [];
                     if (actual.L > proposed.L) violations.push(`Lectures (${actual.L} > ${proposed.L})`);
@@ -632,7 +644,8 @@ export default function HitRoutinePage() {
                         <tbody className="divide-y divide-slate-700/50">
                             {sortedCourses.map(cc => {
                                 const actual = stats[cc];
-                                const proposed = proposedCourses.find(c => c.courseCode === cc);
+                                const cleanCc = cc.replace(/\s+/g, '').toUpperCase();
+                                const proposed = rawCourses.find(c => c.courseCode.replace(/\s+/g, '').toUpperCase() === cleanCc);
                                 const lViolated = proposed && actual.L > proposed.L;
                                 const tViolated = proposed && actual.T > proposed.T;
                                 const pViolated = proposed && actual.P > proposed.P;
@@ -801,10 +814,10 @@ export default function HitRoutinePage() {
                                                                     const theme = getDeptColor(cls.courseCode || cls.department);
                                                                     const isLibrary = (cls.classType || '').toUpperCase().includes('LIBRARY') || (cls.courseCode || '').toUpperCase().includes('LIBRARY');
                                                                     return (
-                                                                        <div key={ci} className={`flex flex-col items-center p-1.5 rounded border-l-2 ${theme.bg} ${theme.border} text-center ${rowSpan === 2 ? 'h-full justify-center' : ''}`}>
-                                                                            <div className={`font-bold text-[11px] ${theme.text}`}>{cls.classType} · {cls.courseCode}</div>
+                                                                        <div key={ci} className={`flex flex-col items-center p-1 rounded border-l-2 ${theme.bg} ${theme.border} text-center ${rowSpan === 2 ? 'h-full justify-center' : ''}`}>
+                                                                            <div className={`font-bold text-[10px] ${theme.text}`}>{cls.classType} · {cls.courseCode}</div>
                                                                             {!isLibrary && (
-                                                                                <div className="text-[10px] text-slate-400">{cls.faculty || 'NA'} · {cls.roomNo || 'NA'}</div>
+                                                                                <div className="text-[9px] text-slate-400">{cls.faculty || 'NA'} · {cls.roomNo || 'NA'}</div>
                                                                             )}
                                                                         </div>
                                                                     );
@@ -1129,14 +1142,17 @@ export default function HitRoutinePage() {
     ];
 
     return (
-        <div className="min-h-screen bg-slate-950 text-slate-200 font-sans p-4 sm:p-6">
-            <div className="max-w-[1400px] mx-auto space-y-5">
+        <div className="min-h-screen bg-slate-950 text-slate-200 font-sans p-2 sm:p-4">
+            <div className={`mx-auto space-y-5 ${fullWidth ? 'max-w-none' : 'max-w-[1400px]'}`}>
                 {/* Header */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900/50 p-4 sm:p-5 rounded-2xl border border-slate-800">
                     <div className="flex items-center gap-4">
                         <Link href="/admin/dashboard" className="p-2 rounded-xl bg-white/5 border border-white/10 text-slate-400 hover:text-white transition-colors">
                             <ArrowLeft className="h-4 w-4" />
                         </Link>
+                        <button onClick={() => setFullWidth(!fullWidth)} className="p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 hover:text-indigo-300 transition-colors" title={fullWidth ? "Restore Sidebar" : "Maximize Screen"}>
+                            {fullWidth ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
+                        </button>
                         <div className="flex items-center gap-3">
                             <div className="p-2.5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-lg shadow-blue-500/20">
                                 <Building2 className="h-6 w-6 text-white" />
