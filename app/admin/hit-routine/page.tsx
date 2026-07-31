@@ -535,16 +535,16 @@ export default function HitRoutinePage() {
                 const proposed = rawCourses.find(c => c.courseCode.replace(/\s+/g, '').toUpperCase() === cleanCc);
                 if (proposed) {
                     const violations = [];
-                    if (actual.L > proposed.L) violations.push(`Lectures (${actual.L} > ${proposed.L})`);
-                    if (actual.T > proposed.T) violations.push(`Tutorials (${actual.T} > ${proposed.T})`);
-                    if (actual.P > proposed.P) violations.push(`Labs (${actual.P} > ${proposed.P})`);
+                    if (actual.L < proposed.L) violations.push(`Lectures (${actual.L} < ${proposed.L})`);
+                    if (actual.T < proposed.T) violations.push(`Tutorials (${actual.T} < ${proposed.T})`);
+                    if (actual.P < proposed.P) violations.push(`Labs (${actual.P} < ${proposed.P})`);
                     
                     if (violations.length > 0) {
                         deduplicatedWarnings.push({
                             id: `warn-${warningIdCounter++}`,
                             type: 'error',
-                            title: 'Contact Hours Exceeded',
-                            description: `${cc} has exceeded proposed contact hours for ${violations.join(', ')}.`,
+                            title: 'Insufficient Contact Hours',
+                            description: `${cc} has insufficient contact hours for ${violations.join(', ')}.`,
                             relatedCells: []
                         });
                     }
@@ -747,7 +747,7 @@ export default function HitRoutinePage() {
                             <li>No "Break" period during the first 3 classes.</li>
                             <li>No empty slots in the first 3 classes (per group).</li>
                             <li>Global Room Clash Checker (click button above) finds room overlaps across all routines.</li>
-                            <li>Proposed contact hours must be &ge; Actual contact hours for L, T, and P.</li>
+                            <li>Actual contact hours must be &ge; Proposed contact hours for L, T, and P.</li>
                         </ol>
                     </div>
                 )}
