@@ -9,8 +9,10 @@ import {
     CheckCircle2, Circle, AlertTriangle, Download, Wifi, WifiOff
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import Papa from 'papaparse';
 
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbxQqF87JuYNVHtxOhBdU2ujfiXQwRrpI62xghfinQkjhziR_uxxIbBD9sK6zOd0BgInUw/exec';
+// We now use direct CSV URLs instead of the GAS macro
+// const GAS_URL = 'https://script.google.com/macros/s/AKfycbxQqF87JuYNVHtxOhBdU2ujfiXQwRrpI62xghfinQkjhziR_uxxIbBD9sK6zOd0BgInUw/exec';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 const PERIODS = [
@@ -156,17 +158,33 @@ export default function HitRoutinePage() {
         return h;
     };
 
-    // ── Sync from Google Sheets ──────────────────────────────────────────────
+    // ── Sync from Google Sheets (CSV) ──────────────────────────────────────────────
     const syncRoutine = useCallback(async () => {
         setSyncing(true);
         setSyncError('');
         try {
-            const res = await fetch(GAS_URL);
-            if (!res.ok) throw new Error('Failed to reach Google Sheets API');
-            const json = await res.json();
-            if (json.error) throw new Error(json.error);
+            const baseUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRkM7tRpPYMajcdeun038vCFpTatOVifwRCQ3vCgZhefKtEFOGFgUmPSp6iNA3Jf1esMxvUpI9Nm9sL/pub';
+            const stagingUrl = `${baseUrl}?gid=2079327075&single=true&output=csv`;
+            const coursesUrl = `${baseUrl}?gid=179283689&single=true&output=csv`;
+            const facultyUrl = `${baseUrl}?gid=286226636&single=true&output=csv`;
 
-            let rawData: any[][] = json.routines || json.data || [];
+            const parseCsv = (csvText: string) => {
+                return Papa.parse(csvText, { skipEmptyLines: true }).data as string[][];
+            };
+
+            const [stagingRes, coursesRes, facultyRes] = await Promise.all([
+                fetch(stagingUrl), fetch(coursesUrl), fetch(facultyUrl)
+            ]);
+
+            if (!stagingRes.ok || !coursesRes.ok || !facultyRes.ok) {
+                throw new Error('Failed to fetch CSV data from Google Sheets');
+            }
+
+            const stagingText = await stagingRes.text();
+            const coursesText = await coursesRes.text();
+            const facultyText = await facultyRes.text();
+
+            let rawData = parseCsv(stagingText);
             if (rawData.length > 0 && rawData[0][0]?.toLowerCase() === 'day') rawData.shift();
 
             const depts = new Set<string>();
@@ -178,12 +196,11 @@ export default function HitRoutinePage() {
                 return {
                     day: clean[0], group: clean[1], period: parseInt(clean[2]),
                     classType: clean[3], courseCode: clean[4], department: dept,
-                    faculty: clean[6], roomNo: clean[7],
+                    faculty: clean[6], roomNo: clean[7]
                 };
             }).filter(Boolean) as RoutineEntry[];
 
-            // Handle faculty
-            let facultyData: any[][] = json.faculty || [];
+            let facultyData = parseCsv(facultyText);
             if (facultyData.length > 0 && facultyData[0][0]?.toLowerCase() === 'initials') facultyData.shift();
             const fEntries: FacultyEntry[] = facultyData.map((row: any[]) => {
                 const clean = row.map((c: any) => (c ? String(c).trim() : ''));
@@ -193,8 +210,7 @@ export default function HitRoutinePage() {
                 };
             }).filter(Boolean) as FacultyEntry[];
 
-            // Handle courses
-            let courseData: any[][] = json.courses || [];
+            let courseData = parseCsv(coursesText);
             if (courseData.length > 0 && courseData[0][0]?.toLowerCase() === 'course code') courseData.shift();
             const cEntries: CourseEntry[] = courseData.map((row: any[]) => {
                 const clean = row.map((c: any) => (c ? String(c).trim() : ''));
@@ -206,17 +222,18 @@ export default function HitRoutinePage() {
                 };
             }).filter(Boolean) as CourseEntry[];
 
+            const deptArray = Array.from(depts).sort();
+            setDepartments(deptArray);
+            if (!activeDept && deptArray.length > 0) setActiveDept(deptArray[0]);
+
             setRawRoutines(entries);
             setRawFaculty(fEntries);
             setRawCourses(cEntries);
-            const deptArr = Array.from(depts).sort();
-            setDepartments(deptArr);
-            if (deptArr.length > 0 && !activeDept) setActiveDept(deptArr[0]);
             setLastSynced(new Date());
-            toast.success(`Synced ${entries.length} routine entries, ${fEntries.length} faculty, ${cEntries.length} courses`);
-        } catch (e: any) {
-            setSyncError(e.message);
-            toast.error('Sync failed: ' + e.message);
+            toast.success(`Synced ${entries.length} routines, ${cEntries.length} courses, ${fEntries.length} faculty!`);
+        } catch (err: any) {
+            setSyncError(err.message);
+            toast.error(err.message);
         } finally {
             setSyncing(false);
         }

@@ -1,0 +1,43 @@
+Course Code,Subject,L,T,P,Total Periods,Credit Points,Department
+PHY2101,Physics II,3,0,0,3,3,AEIE
+AEI2101,Analog Electronics,3,0,0,3,3,AEIE
+AEI2102,Circuit Theory & Network Analysis,3,0,0,3,3,AEIE
+AEI2103,Electrical & Electronic Measurements,3,1,0,4,4,AEIE
+AEI2104,Sensors and Transducers,3,0,0,3,3,AEIE
+AEI2150,Design Thinking & Idea Lab Workshop,0,0,2,2,1,AEIE
+AEI2151,Analog Electronics Lab,0,0,3,3,1.5,AEIE
+AEI2152,Circuits & Networks Lab,0,0,3,3,1.5,AEIE
+AEI2153,Electrical & Electronic Measurements Lab,0,0,3,3,1.5,AEIE
+AEI2154,Sensors and Transducers Lab,0,0,2,2,1,AEIE
+EVS2016,Environmental Sciences,2,0,0,2,0,BT
+BTC2101,Chemistry of Biomolecules,3,0,0,3,3,BT
+BTC2102,Thermodynamics & Kinetics,3,0,0,3,3,BT
+BTC2103,Biochemistry,3,0,0,3,3,BT
+BTC2104,Microbiology,3,0,0,3,3,BT
+CSE2005,Data Structure,3,0,0,3,3,BT
+BTC2151,Biomolecular Chemistry Lab,0,0,2,2,1,BT
+BTC2153,Biochemistry Lab,0,0,2,2,1,BT
+BTC2154,Microbiology Lab,0,0,3,3,1.5,BT
+CSE2055,Data Structure Lab,0,0,2,2,1,BT
+BTC2155,Design Thinking and IDEA Lab,0,0,2,2,1,BT
+CIV2101,Fundamentals of Strength of Materials,3,0,0,3,3,CHE
+CIV2102,Fluid Mechanics,3,0,0,3,3,CHE
+CIV2103,Construction Materials and Technology,3,0,0,3,3,CHE
+CIV2104,Surveying,3,0,0,3,3,CHE
+CIV2105,Design Thinking,1,0,0,1,1,CHE
+EVS2016,Environmental Sciences,2,0,0,2,0,CHE
+CIV2151,Strength of Materials Laboratory,0,0,3,3,1.5,CHE
+CIV2152,Fluid Mechanics Laboratory,0,0,2,2,1,CHE
+CIV2156,Engineering Drawing,0,0,3,3,1.5,CHE
+CIV2157,CAD Laboratory,0,0,2,2,1,CHE
+CIV2158,Idea Laboratory,0,0,2,2,0,CHE
+CBS2101,Data Structures and Basic Algorithms,4,0,0,4,4,CSBS
+CBS2102,Information Theory and Coding,3,0,0,3,3,CSBS
+CBS2103,Fundamentals of Management,2,0,0,2,2,CSBS
+MTH2103,Discrete Mathematics,4,0,0,4,4,CSBS
+ECE2002,Digital Circuit Design,3,0,0,3,3,CSBS
+EVS2016,Environmental Science,2,0,0,2,0,CSBS
+CBS2151,Data Structures and Basic Algorithms Lab,0,0,3,3,1.5,CSBS
+CBS2153,Business Statistics Lab,0,0,2,2,1,CSBS
+ECE2052,Digital Circuit Design Lab,0,0,2,2,1,CSBS
+CBS2155,Design Thinking and Idea Lab,0,0,2,2,1,CSBS
