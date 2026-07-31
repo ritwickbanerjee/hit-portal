@@ -671,9 +671,9 @@ export default function HitRoutinePage() {
                                 const actual = stats[cc];
                                 const cleanCc = cc.replace(/\s+/g, '').toUpperCase();
                                 const proposed = rawCourses.find(c => c.courseCode.replace(/\s+/g, '').toUpperCase() === cleanCc);
-                                const lViolated = proposed && actual.L > proposed.L;
-                                const tViolated = proposed && actual.T > proposed.T;
-                                const pViolated = proposed && actual.P > proposed.P;
+                                const lViolated = proposed && actual.L < proposed.L;
+                                const tViolated = proposed && actual.T < proposed.T;
+                                const pViolated = proposed && actual.P < proposed.P;
                                 const isViolated = lViolated || tViolated || pViolated;
                                 return (
                                     <tr key={cc} className={`${isViolated ? 'bg-red-950/20' : ''} text-slate-300`}>
