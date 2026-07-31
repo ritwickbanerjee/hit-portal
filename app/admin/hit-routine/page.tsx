@@ -373,6 +373,14 @@ export default function HitRoutinePage() {
             return t.includes('LAB') || t === 'P';
         };
 
+        const isRealClass = (e: RoutineEntry) => {
+            const ct = (e.classType || '').toUpperCase();
+            const cc = (e.courseCode || '').toUpperCase();
+            if (ct === 'BREAK' || cc === 'BREAK') return false;
+            if ((ct === 'NA' || ct === 'N/A' || ct === '') && (cc === 'NA' || cc === 'N/A' || cc === '')) return false;
+            return true;
+        };
+
         DAYS.forEach(day => {
             const dayRoutines = deptRoutines.filter(r => r.day?.toLowerCase() === day.toLowerCase());
             const groups = ['Group 1', 'Group 2'];
@@ -398,7 +406,7 @@ export default function HitRoutinePage() {
                             
                             let skipWarning = false;
                             if (isLibClass) {
-                                const hasMoreClasses = sorted.some(e => e.period > nxt.period && e.classType?.toUpperCase() !== 'BREAK');
+                                const hasMoreClasses = sorted.some(e => e.period > nxt.period && isRealClass(e));
                                 if (!hasMoreClasses) skipWarning = true;
                             }
                             
@@ -442,7 +450,7 @@ export default function HitRoutinePage() {
                                 const nextClass = sorted.find(e => e.period === labEndPeriod + 1);
                                 if (nextClass && nextClass.classType?.toUpperCase() !== 'BREAK') {
                                     const isNextLibrary = (nextClass.classType || '').toUpperCase().includes('LIBRARY') || (nextClass.courseCode || '').toUpperCase().includes('LIBRARY');
-                                    const hasMoreClasses = sorted.some(e => e.period > labEndPeriod + 1 && e.classType?.toUpperCase() !== 'BREAK');
+                                    const hasMoreClasses = sorted.some(e => e.period > labEndPeriod + 1 && isRealClass(e));
                                     if (!hasMoreClasses && !isNextLibrary) {
                                         addWarn('Lab Followed By Single Class', 
                                             `A lab ends at Period ${labEndPeriod}, followed by a single class at Period ${labEndPeriod + 1} and no more classes on ${day} (${grp}).`, 
