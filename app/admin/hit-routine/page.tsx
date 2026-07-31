@@ -95,8 +95,18 @@ export default function HitRoutinePage() {
         const stored = localStorage.getItem('user');
         if (!stored) { router.push('/admin/login'); return; }
         const u = JSON.parse(stored);
-        const initials = u.name?.split(' ').map((p: string) => p[0]).join('').toUpperCase() || '';
-        if (!['RB', 'DC', 'SC'].includes(initials)) { router.push('/admin/dashboard'); return; }
+        
+        const isGA = localStorage.getItem('globalAdminActive') === 'true';
+        const allowedEmails = [
+            'ritwick92@gmail.com',
+            'dipankar.chakraborty@heritageit.edu',
+            'sandip.chatterjee@heritageit.edu'
+        ];
+        
+        if (!isGA && (!u.email || !allowedEmails.includes(u.email.toLowerCase()))) { 
+            router.push('/admin/dashboard'); 
+            return; 
+        }
         setUser(u);
     }, [router]);
 

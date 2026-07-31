@@ -15,17 +15,32 @@ export async function middleware(req: NextRequest) {
     const day = istTime.getDate();
     
     let targetDomain = "";
-    if (day >= 8 && day <= 13) {
-        targetDomain = "hit-portal-five.vercel.app";
-    } else if (day >= 14 && day <= 19) {
-        targetDomain = "hit-portal-four.vercel.app";
-    } else if (day >= 20 && day <= 25) {
-        targetDomain = "hit-portal-one.vercel.app";
-    } else if (day >= 26) {
-        targetDomain = "maths-hit-attendance-assignment-track.netlify.app";
-    } else {
-        // 1st - 7th
-        targetDomain = "hit-portal-six.vercel.app";
+    
+    try {
+        // Fetch custom URL from public API (cached at edge)
+        const configUrl = new URL('/api/public/platform', req.url);
+        const res = await fetch(configUrl.toString(), { next: { revalidate: 60 } });
+        if (res.ok) {
+            const data = await res.json();
+            if (data.activePlatform === 'https://maths-hit-attendance-assignment-track.netlify.app' || data.activePlatform === 'netlify') {
+                targetDomain = "maths-hit-attendance-assignment-track.netlify.app";
+            }
+        }
+    } catch (e) {
+        // Silently fallback to date-based rotation if API fails
+    }
+
+    if (!targetDomain) {
+        if (day >= 1 && day <= 8) {
+            targetDomain = "hit-portal-six.vercel.app";
+        } else if (day >= 9 && day <= 16) {
+            targetDomain = "hit-portal-five.vercel.app";
+        } else if (day >= 17 && day <= 24) {
+            targetDomain = "hit-portal-four.vercel.app";
+        } else {
+            // 25th - end
+            targetDomain = "hit-portal-one.vercel.app";
+        }
     }
 
     const currentHost = req.headers.get('host') || req.nextUrl.host || "";

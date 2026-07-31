@@ -138,12 +138,19 @@ export default function MyRoutinePage() {
         return { type, subject, topic, room, dept, year };
     };
 
-    const getCRForClass = (dept: string, year: string, courseCode: string) => {
-        return crContacts.find(c =>
-            (c.department || "").trim().toLowerCase() === (dept || "").trim().toLowerCase() &&
-            (c.year || "").trim().toLowerCase() === (year || "").trim().toLowerCase() &&
-            (c.courseCode || "").trim().toLowerCase() === (courseCode || "").trim().toLowerCase()
-        );
+    const getCRForClass = (dept: string, year: string, courseCode: string, fullContent: string) => {
+        return crContacts.find(c => {
+            const savedCourse = (c.courseCode || "").trim().toLowerCase();
+            const savedDept = (c.department || "").trim().toLowerCase();
+            const currCourse = (courseCode || "").trim().toLowerCase();
+            const currDept = (dept || "").trim().toLowerCase();
+            const contentLower = fullContent.toLowerCase();
+
+            const courseMatch = savedCourse === currCourse;
+            const deptMatch = !savedDept || savedDept === currDept || contentLower.includes(savedDept);
+
+            return courseMatch && deptMatch;
+        });
     };
 
     const handleClassClick = (item: RoutineItem) => {
@@ -151,7 +158,7 @@ export default function MyRoutinePage() {
         setSelectedClass({ dept, year, course: subject, content: item.content });
 
         // Pre-fill if contact exists
-        const existing = getCRForClass(dept, year, subject);
+        const existing = getCRForClass(dept, year, subject, item.content);
         if (existing) {
             setCrForm({ crPhone: existing.crPhone, crName: existing.crName });
         } else {
@@ -205,7 +212,18 @@ export default function MyRoutinePage() {
         );
     }
 
-    const currentDayRoutine = routine[activeDay] || [];
+    const parseTimeForSort = (timeStr: string) => {
+        const start = timeStr.split('-')[0].trim();
+        const match = start.match(/(\d+):(\d+)\s*(AM|PM)/i);
+        if (!match) return 0;
+        let [_, h, m, ampm] = match;
+        let hours = parseInt(h);
+        if (ampm.toUpperCase() === 'PM' && hours !== 12) hours += 12;
+        if (ampm.toUpperCase() === 'AM' && hours === 12) hours = 0;
+        return hours * 60 + parseInt(m);
+    };
+
+    const currentDayRoutine = [...(routine[activeDay] || [])].sort((a, b) => parseTimeForSort(a.time) - parseTimeForSort(b.time));
 
     return (
         <div className="space-y-4 max-w-4xl mx-auto pb-20 px-3 sm:px-4">
@@ -277,7 +295,7 @@ export default function MyRoutinePage() {
                     currentDayRoutine.map((item, idx) => {
                         const { type, subject, topic, room, dept, year } = parseContent(item.content);
                         const styles = getCardStyles(item.content, idx);
-                        const crContact = getCRForClass(dept, year, subject);
+                        const crContact = getCRForClass(dept, year, subject, item.content);
 
                         return (
                             <div

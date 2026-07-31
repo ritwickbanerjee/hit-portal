@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Department Routine Grid</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <style>
+        body { 
+            background-color: #020617; /* slate-950 */ 
+            color: white; 
+            font-family: 'Inter', sans-serif; 
+        }
+        
+        /* Custom Scrollbar for the data grid */
+        .scrollbar-thin::-webkit-scrollbar { height: 6px; width: 6px; }
+        .scrollbar-thin::-webkit-scrollbar-track { background: rgba(15,23,42,1); border-radius: 4px; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.8); border-radius: 4px; }
+        .scrollbar-thin { scrollbar-width: thin; scrollbar-color: rgba(99,102,241,0.8) rgba(15,23,42,1); }
+        
+        /* Loading Animation */
+        @keyframes pulse-ring { 
+            0% { transform: scale(0.8); opacity: 0.5; } 
+            100% { transform: scale(1.3); opacity: 0; } 
+        }
+        .loader-ring::before { 
+            content: ''; position: absolute; left: 0; top: 0; height: 100%; width: 100%; 
+            background-color: #6366f1; border-radius: 50%; z-index: -1; 
+            animation: pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite; 
+        }
+
+        /* Table Borders for Dark Mode */
+        table {
+            border-collapse: collapse;
+        }
+        td, th {
+            border: 1px solid rgba(51, 65, 85, 1); /* slate-700 */
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 sm:p-8 selection:bg-indigo-500/30">
+
+    <div id="app" class="max-w-[1400px] mx-auto space-y-6">
+        
+        <!-- Header & Controls -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900/50 p-4 sm:p-6 rounded-2xl border border-slate-800 backdrop-blur-md">
+            <div class="flex items-center gap-4">
+                <div class="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-lg shadow-blue-500/20">
+                    <i class="ph-fill ph-table text-white text-2xl"></i>
+                </div>
+                <div>
+                    <h2 class="text-2xl sm:text-3xl font-black text-white leading-tight tracking-tight">Master Routine Grid</h2>
+                    <p class="text-sm text-emerald-400 font-medium flex items-center gap-1.5 mt-1">
+                        <i class="ph-fill ph-check-circle"></i> Live API Connected
+                    </p>
+                </div>
+            </div>
+
+            <!-- Department Selector -->
+            <div id="dept-selector-container" class="relative hidden">
+                <label class="block text-xs font-bold text-slate-400 mb-1 uppercase tracking-wider">Select Department</label>
+                <div class="relative min-w-[200px]">
+                    <select id="dept-select" class="appearance-none bg-slate-800 border border-slate-600 text-white text-sm font-bold rounded-xl pl-4 pr-10 py-3 outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer w-full hover:bg-slate-700 transition-colors shadow-inner">
+                        <!-- Options injected by JS -->
+                    </select>
+                    <i class="ph ph-caret-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Initial Loader State -->
+        <div id="loading-view" class="flex flex-col items-center justify-center min-h-[50vh] space-y-5 bg-slate-900/30 rounded-3xl border border-slate-800 border-dashed">
+            <div class="relative flex h-12 w-12 items-center justify-center">
+                <i class="ph ph-spinner-gap animate-spin text-5xl text-blue-500"></i>
+                <div class="loader-ring"></div>
+            </div>
+            <p class="text-blue-400 text-sm font-bold animate-pulse tracking-wide">FETCHING STAGING DATA...</p>
+        </div>
+
+        <!-- Error Banner -->
+        <div id="error-banner" class="hidden bg-red-500/10 border border-red-500/20 p-4 rounded-xl items-center gap-3 text-red-400 text-sm backdrop-blur-sm">
+            <i class="ph-fill ph-warning-circle text-xl shrink-0"></i>
+            <p id="error-message" class="font-medium"></p>
+        </div>
+
+        <!-- Main Grid Container (Hidden initially) -->
+        <div id="grid-view" class="hidden animate-in fade-in duration-500">
+            <div class="overflow-x-auto rounded-xl border border-slate-700 shadow-2xl scrollbar-thin bg-slate-900">
+                <table class="w-full text-sm text-center">
+                    <thead id="grid-header">
+                        <!-- Injected by JS -->
+                    </thead>
+                    <tbody id="grid-body" class="text-slate-200">
+                        <!-- Injected by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+    </div>
+
+    <script>
+        // Use the Web App URL provided by the user
+        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxQqF87JuYNVHtxOhBdU2ujfiXQwRrpI62xghfinQkjhziR_uxxIbBD9sK6zOd0BgInUw/exec';
+
+        // State Management
+        let appState = {
+            rawRoutines: [],
+            departments: [],
+            activeDept: '',
+            days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+            periods: [
+                { id: 1, time: "9:00 - 10:00" },
+                { id: 2, time: "10:00 - 11:00" },
+                { id: 3, time: "11:00 - 12:00" },
+                { id: 4, time: "12:00 - 1:00" },
+                { id: 5, time: "1:00 - 2:00" },
+                { id: 6, time: "2:00 - 3:00" },
+                { id: 7, time: "3:00 - 4:00" },
+                { id: 8, time: "4:00 - 5:00" }
+            ],
+            gridData: {} // Structured data for rendering
+        };
+
+        // UI Color Palette for Classes (Dark Mode optimized)
+        const classColors = [
+            { bg: "bg-rose-950/40", border: "border-rose-500/50", text: "text-rose-200", accent: "text-rose-400" },
+            { bg: "bg-indigo-950/40", border: "border-indigo-500/50", text: "text-indigo-200", accent: "text-indigo-400" },
+            { bg: "bg-emerald-950/40", border: "border-emerald-500/50", text: "text-emerald-200", accent: "text-emerald-400" },
+            { bg: "bg-amber-950/40", border: "border-amber-500/50", text: "text-amber-200", accent: "text-amber-400" },
+            { bg: "bg-cyan-950/40", border: "border-cyan-500/50", text: "text-cyan-200", accent: "text-cyan-400" },
+            { bg: "bg-fuchsia-950/40", border: "border-fuchsia-500/50", text: "text-fuchsia-200", accent: "text-fuchsia-400" }
+        ];
+
+        function getCardTheme(courseCode) {
+            if(!courseCode || courseCode === "BREAK") return { bg: "bg-slate-800/50", border: "border-slate-600/50", text: "text-slate-300", accent: "text-slate-400" };
+            let hash = 0;
+            for (let i = 0; i < courseCode.length; i++) {
+                hash = courseCode.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            return classColors[Math.abs(hash) % classColors.length];
+        }
+
+        async function initApp() {
+            try {
+                const response = await fetch(WEB_APP_URL);
+                if (!response.ok) throw new Error("Failed to connect to the Staging API. Make sure the Web App is deployed.");
+                
+                const json = await response.json();
+                if (json.error) throw new Error(json.error);
+
+                const rawData = json.data;
+                // Remove header row ("Day", "Group", etc.)
+                if(rawData.length > 0 && rawData[0][0] && rawData[0][0].toLowerCase() === 'day') {
+                    rawData.shift(); 
+                }
+                
+                // Process Raw Data from Staging Sheet
+                // Expected Columns: Day | Group | Period | Class Type | Course Code | Department | Faculty | Room No
+                const depts = new Set();
+                
+                appState.rawRoutines = rawData.map(row => {
+                    const cleanRow = row.map(cell => cell ? String(cell).trim() : "");
+                    if(cleanRow.length < 8) return null;
+                    
+                    const day = cleanRow[0];
+                    const group = cleanRow[1];
+                    const period = parseInt(cleanRow[2]);
+                    const classType = cleanRow[3];
+                    const courseCode = cleanRow[4];
+                    const dept = cleanRow[5] || "Unknown";
+                    const faculty = cleanRow[6];
+                    const roomNo = cleanRow[7];
+
+                    if (!day || isNaN(period)) return null; // Skip invalid rows
+
+                    if(dept && dept !== "Unknown") depts.add(dept);
+
+                    return { day, group, period, classType, courseCode, department: dept, faculty, roomNo };
+                }).filter(Boolean); // Remove nulls
+
+                appState.departments = Array.from(depts).sort();
+                
+                if (appState.departments.length > 0) {
+                    appState.activeDept = appState.departments[0];
+                    document.getElementById('dept-selector-container').classList.remove('hidden');
+                    renderDeptSelector();
+                }
+
+                // Hide loader and show grid
+                document.getElementById('loading-view').classList.add('hidden');
+                document.getElementById('grid-view').classList.remove('hidden');
+                
+                processGridData();
+                renderGrid();
+
+            } catch (error) {
+                document.getElementById('loading-view').classList.add('hidden');
+                showError(error.message);
+            }
+        }
+
+        function processGridData() {
+            // Reset grid
+            appState.gridData = {};
+            appState.days.forEach(day => {
+                appState.gridData[day] = {
+                    "Group 1": {},
+                    "Group 2": {}
+                };
+                appState.periods.forEach(p => {
+                    appState.gridData[day]["Group 1"][p.id] = [];
+                    appState.gridData[day]["Group 2"][p.id] = [];
+                });
+            });
+
+            // Filter by active department
+            const activeRoutines = appState.rawRoutines.filter(r => r.department === appState.activeDept);
+
+            // Populate Grid Data
+            activeRoutines.forEach(routine => {
+                // Ensure exact day match (case insensitive)
+                const targetDay = appState.days.find(d => d.toLowerCase() === routine.day.toLowerCase());
+                if (!targetDay) return;
+
+                const p = routine.period;
+                if (p < 1 || p > 8) return;
+
+                // Determine which group(s) this class belongs to
+                const grpStr = (routine.group || "").toLowerCase();
+                // If it explicitly says "Group 1", only put it in G1. 
+                // If "All" or empty, put in both.
+                let appliesToG1 = grpStr.includes("1") || grpStr === "all" || grpStr === "" || grpStr === "na";
+                let appliesToG2 = grpStr.includes("2") || grpStr === "all" || grpStr === "" || grpStr === "na";
+
+                if (appliesToG1) appState.gridData[targetDay]["Group 1"][p].push(routine);
+                if (appliesToG2) appState.gridData[targetDay]["Group 2"][p].push(routine);
+            });
+        }
+
+        function renderDeptSelector() {
+            const select = document.getElementById('dept-select');
+            select.innerHTML = '';
+            
+            appState.departments.forEach(dept => {
+                const option = document.createElement('option');
+                option.value = dept;
+                option.textContent = dept;
+                if (dept === appState.activeDept) option.selected = true;
+                select.appendChild(option);
+            });
+
+            select.onchange = (e) => {
+                appState.activeDept = e.target.value;
+                processGridData();
+                renderGrid();
+            };
+        }
+
+        function generateClassBoxHTML(routineArr) {
+            if (!routineArr || routineArr.length === 0) return '';
+            
+            // Generate HTML for each class in this cell (handles OE / Multiple classes)
+            let blocksHTML = routineArr.map(cls => {
+                if (cls.classType.toUpperCase() === "BREAK") {
+                    return `
+                        <div class="w-full h-full min-h-[4rem] flex items-center justify-center bg-slate-800/80 rounded border border-slate-700/50">
+                            <span class="text-xs font-bold tracking-[0.2em] text-slate-500 uppercase"><i class="ph ph-coffee mr-1"></i> Break</span>
+                        </div>
+                    `;
+                }
+
+                const theme = getCardTheme(cls.courseCode);
+                return `
+                    <div class="flex flex-col items-center justify-center p-2 rounded-md border-l-2 ${theme.bg} ${theme.border} w-full text-center hover:bg-opacity-70 transition-all">
+                        <div class="font-bold text-[13px] leading-tight mb-1 ${theme.text}">
+                            ${cls.classType} / ${cls.courseCode} / <span class="${theme.accent}">${cls.department}</span>
+                        </div>
+                        <div class="text-[11px] font-medium text-slate-400">
+                            ${cls.faculty || 'NA'} / ${cls.roomNo || 'NA'}
+                        </div>
+                    </div>
+                `;
+            }).join('<div class="h-1"></div>'); // Gap for multiple classes (OE)
+
+            return `<div class="p-1 h-full flex flex-col justify-center min-h-[5rem]">${blocksHTML}</div>`;
+        }
+
+        function renderGrid() {
+            const thead = document.getElementById('grid-header');
+            const tbody = document.getElementById('grid-body');
+            
+            // Render Header
+            let headerHTML = `
+                <tr class="bg-blue-600 text-white">
+                    <th class="p-4 w-[100px] border-blue-700/50 shadow-inner font-black uppercase tracking-wider text-sm">Day</th>
+                    <th class="p-4 w-[90px] border-blue-700/50 shadow-inner font-black uppercase tracking-wider text-sm">Group</th>
+            `;
+            appState.periods.forEach(p => {
+                headerHTML += `
+                    <th class="p-3 min-w-[170px] border-blue-700/50">
+                        <div class="font-bold text-sm">Period ${p.id}</div>
+                        <div class="text-xs font-medium text-blue-200/80 mt-0.5">(${p.time})</div>
+                    </th>
+                `;
+            });
+            headerHTML += `</tr>`;
+            thead.innerHTML = headerHTML;
+
+            // Render Body rows
+            let bodyHTML = '';
+            
+            appState.days.forEach(day => {
+                const dayData = appState.gridData[day];
+                
+                // Group 1 Row
+                bodyHTML += `<tr class="hover:bg-slate-800/30 transition-colors">`;
+                bodyHTML += `<td rowspan="2" class="font-black text-slate-300 uppercase tracking-widest bg-slate-900 shadow-[inset_-2px_0_10px_rgba(0,0,0,0.3)]">${day}</td>`;
+                bodyHTML += `<td class="font-bold text-slate-400 bg-slate-800/20 text-xs">Group 1</td>`;
+                
+                appState.periods.forEach(p => {
+                    const classes = dayData["Group 1"][p.id];
+                    bodyHTML += `<td class="align-middle">${generateClassBoxHTML(classes)}</td>`;
+                });
+                bodyHTML += `</tr>`;
+
+                // Group 2 Row
+                bodyHTML += `<tr class="hover:bg-slate-800/30 transition-colors">`;
+                bodyHTML += `<td class="font-bold text-slate-400 bg-slate-800/20 text-xs">Group 2</td>`;
+                
+                appState.periods.forEach(p => {
+                    const classes = dayData["Group 2"][p.id];
+                    bodyHTML += `<td class="align-middle">${generateClassBoxHTML(classes)}</td>`;
+                });
+                bodyHTML += `</tr>`;
+            });
+
+            tbody.innerHTML = bodyHTML;
+        }
+
+        function showError(msg) {
+            const banner = document.getElementById('error-banner');
+            const msgEl = document.getElementById('error-message');
+            banner.classList.remove('hidden');
+            banner.classList.add('flex');
+            msgEl.textContent = msg;
+        }
+
+        // Boot
+        window.addEventListener('DOMContentLoaded', initApp);
+
+    </script>
+</body>
+</html>
