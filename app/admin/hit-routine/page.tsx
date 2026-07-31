@@ -367,13 +367,22 @@ export default function HitRoutinePage() {
                             cur.classType?.toUpperCase() !== 'BREAK' &&
                             !isLab(cur.classType) && !isLab(nxt.classType)) {
                             const isLibClass = (cur.classType || '').toUpperCase().includes('LIBRARY') || (cur.courseCode || '').toUpperCase().includes('LIBRARY');
-                            const warningDesc = isLibClass 
-                                ? `Two Library slots on ${day} (${grp}).`
-                                : `${cur.faculty} has consecutive theory classes for ${cur.courseCode} on ${day} (${grp}).`;
+                            
+                            let skipWarning = false;
+                            if (isLibClass) {
+                                const hasMoreClasses = sorted.some(e => e.period > nxt.period && e.classType?.toUpperCase() !== 'BREAK');
+                                if (!hasMoreClasses) skipWarning = true;
+                            }
+                            
+                            if (!skipWarning) {
+                                const warningDesc = isLibClass 
+                                    ? `Two Library slots on ${day} (${grp}).`
+                                    : `${cur.faculty} has consecutive theory classes for ${cur.courseCode} on ${day} (${grp}).`;
 
-                            addWarn('Back-to-Back Classes', warningDesc, 
-                                [{ day, period: cur.period, group: grp }, { day, period: nxt.period, group: grp }]
-                            );
+                                addWarn('Back-to-Back Classes', warningDesc, 
+                                    [{ day, period: cur.period, group: grp }, { day, period: nxt.period, group: grp }]
+                                );
+                            }
                         }
                     }
 
@@ -404,8 +413,9 @@ export default function HitRoutinePage() {
                                 const labEndPeriod = sorted[labEndIdx].period;
                                 const nextClass = sorted.find(e => e.period === labEndPeriod + 1);
                                 if (nextClass && nextClass.classType?.toUpperCase() !== 'BREAK') {
+                                    const isNextLibrary = (nextClass.classType || '').toUpperCase().includes('LIBRARY') || (nextClass.courseCode || '').toUpperCase().includes('LIBRARY');
                                     const hasMoreClasses = sorted.some(e => e.period > labEndPeriod + 1 && e.classType?.toUpperCase() !== 'BREAK');
-                                    if (!hasMoreClasses) {
+                                    if (!hasMoreClasses && !isNextLibrary) {
                                         addWarn('Lab Followed By Single Class', 
                                             `A lab ends at Period ${labEndPeriod}, followed by a single class at Period ${labEndPeriod + 1} and no more classes on ${day} (${grp}).`, 
                                             [{ day, period: labEndPeriod, group: grp }, { day, period: labEndPeriod + 1, group: grp }]
@@ -693,9 +703,9 @@ export default function HitRoutinePage() {
                         <button onClick={() => setShowWarningNote(false)} className="absolute top-3 right-3 text-blue-400 hover:text-blue-300"><X className="h-4 w-4" /></button>
                         <h3 className="text-blue-300 font-bold mb-2 flex items-center gap-2"><CheckCircle2 className="h-4 w-4"/> Validation Criteria</h3>
                         <ol className="list-decimal pl-5 text-xs text-blue-200/80 space-y-1">
-                            <li>Same class (course code & faculty) should not have back to back 2 class (unless LAB/P)</li>
+                            <li>Same class (course code & faculty) should not have back to back 2 class (unless LAB/P, or Library at the end of the day).</li>
                             <li>No "Remedial" or "Library" class in the first 3 periods.</li>
-                            <li>No situation where there is a Lab, after that exactly one class, and then day is over.</li>
+                            <li>No situation where there is a Lab, after that exactly one class, and then day is over (unless the last class is Library).</li>
                             <li>No "Break" period during the first 3 classes.</li>
                             <li>No empty slots in the first 3 classes (per group).</li>
                             <li>Global Room Clash Checker (click button above) finds room overlaps across all routines.</li>
