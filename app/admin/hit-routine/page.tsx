@@ -50,6 +50,14 @@ type RoutineEntry = {
     faculty: string; roomNo: string;
 };
 
+type ValidationWarning = {
+    id: string;
+    type: 'warning' | 'error';
+    title: string;
+    description: string;
+    relatedCells: { day: string; period: number; group: string }[];
+};
+
 type RoomDoc = {
     _id: string; roomNo: string; label: string;
     building: string; capacity: number; isActive: boolean; source: string;
@@ -80,6 +88,11 @@ export default function HitRoutinePage() {
     const [syncing, setSyncing] = useState(false);
     const [lastSynced, setLastSynced] = useState<Date | null>(null);
     const [syncError, setSyncError] = useState('');
+
+    // Validation
+    const [warnings, setWarnings] = useState<ValidationWarning[]>([]);
+    const [activeWarningId, setActiveWarningId] = useState<string | null>(null);
+    const [showWarningNote, setShowWarningNote] = useState(true);
 
     // Room availability
     const [selectedCell, setSelectedCell] = useState<{ day: string; period: number } | null>(null);
@@ -267,6 +280,213 @@ export default function HitRoutinePage() {
     const currentPeriod = getCurrentPeriod();
     const gridData = buildGridData();
 
+    // ── Validation Engine ───────────────────────────────────────────────────
+    const validateActiveDepartment = useCallback(() => {
+        if (!activeDept || rawRoutines.length === 0) {
+            setWarnings([]);
+            return;
+        }
+        
+        const deptRoutines = rawRoutines.filter(r => r.department === activeDept);
+        const newWarnings: ValidationWarning[] = [];
+        let warningIdCounter = 1;
+
+        const addWarn = (title: string, desc: string, cells: { day: string; period: number; group: string }[], isError = false) => {
+            newWarnings.push({
+                id: `warn-${warningIdCounter++}`,
+                type: isError ? 'error' : 'warning',
+                title,
+                description: desc,
+                relatedCells: cells
+            });
+        };
+
+        const isLab = (type: string) => {
+            const t = (type || '').toUpperCase();
+            return t.includes('LAB') || t === 'P';
+        };
+
+        DAYS.forEach(day => {
+            const dayRoutines = deptRoutines.filter(r => r.day?.toLowerCase() === day.toLowerCase());
+            const groups = ['Group 1', 'Group 2'];
+
+            if (dayRoutines.length > 0) { // Only check if dept has classes this day
+                groups.forEach(grp => {
+                    const grpEntries = dayRoutines.filter(r => {
+                        const g = (r.group || '').toLowerCase();
+                        return g.includes(grp.replace('Group ', '')) || g === 'all' || g === '' || g === 'na';
+                    });
+
+                    // 1) Back to back same class (unless Lab)
+                    const sorted = [...grpEntries].sort((a, b) => a.period - b.period);
+                    for (let i = 0; i < sorted.length - 1; i++) {
+                        const cur = sorted[i];
+                        const nxt = sorted[i+1];
+                        if (cur.period + 1 === nxt.period && 
+                            cur.courseCode === nxt.courseCode && 
+                            cur.faculty === nxt.faculty && 
+                            cur.classType?.toUpperCase() !== 'BREAK' &&
+                            !isLab(cur.classType) && !isLab(nxt.classType)) {
+                            
+                            addWarn('Back-to-Back Classes', 
+                                `${cur.faculty} has consecutive theory classes for ${cur.courseCode} on ${day} (${grp}).`, 
+                                [{ day, period: cur.period, group: grp }, { day, period: nxt.period, group: grp }]
+                            );
+                        }
+                    }
+
+                    // 2 & 4) No Remedial, Library, or Break in first 3 periods
+                    for (let p = 1; p <= 3; p++) {
+                        const entries = grpEntries.filter(r => r.period === p);
+                        entries.forEach(e => {
+                            const ct = (e.classType || '').toUpperCase();
+                            const cc = (e.courseCode || '').toUpperCase();
+                            if (ct.includes('REMEDIAL') || cc.includes('REMEDIAL') || ct.includes('LIBRARY') || cc.includes('LIBRARY')) {
+                                addWarn('Early Remedial/Library', `Found Remedial/Library class in Period ${p} on ${day} (${grp}).`, [{ day, period: p, group: grp }]);
+                            }
+                            if (ct.includes('BREAK') || cc.includes('BREAK')) {
+                                addWarn('Early Break', `Found Break in Period ${p} on ${day} (${grp}).`, [{ day, period: p, group: grp }]);
+                            }
+                        });
+                    }
+
+                    // 3) Lab followed by one class and day is over
+                    const labEntries = sorted.filter(e => isLab(e.classType));
+                    if (labEntries.length > 0) {
+                        for (let i = 0; i < sorted.length; i++) {
+                            if (isLab(sorted[i].classType)) {
+                                let labEndIdx = i;
+                                while (labEndIdx + 1 < sorted.length && isLab(sorted[labEndIdx+1].classType) && sorted[labEndIdx+1].period === sorted[labEndIdx].period + 1 && sorted[labEndIdx+1].courseCode === sorted[i].courseCode) {
+                                    labEndIdx++;
+                                }
+                                const labEndPeriod = sorted[labEndIdx].period;
+                                const nextClass = sorted.find(e => e.period === labEndPeriod + 1);
+                                if (nextClass && nextClass.classType?.toUpperCase() !== 'BREAK') {
+                                    const hasMoreClasses = sorted.some(e => e.period > labEndPeriod + 1 && e.classType?.toUpperCase() !== 'BREAK');
+                                    if (!hasMoreClasses) {
+                                        addWarn('Lab Followed By Single Class', 
+                                            `A lab ends at Period ${labEndPeriod}, followed by a single class at Period ${labEndPeriod + 1} and no more classes on ${day} (${grp}).`, 
+                                            [{ day, period: labEndPeriod, group: grp }, { day, period: labEndPeriod + 1, group: grp }]
+                                        );
+                                    }
+                                }
+                                i = labEndIdx; 
+                            }
+                        }
+                    }
+
+                    // 5) Empty slot in first 3 classes
+                    for (let p = 1; p <= 3; p++) {
+                        const entries = grpEntries.filter(r => r.period === p);
+                        if (entries.length === 0) {
+                            addWarn('Empty Early Slot', `No class scheduled in Period ${p} on ${day} for ${grp}.`, [{ day, period: p, group: grp }]);
+                        }
+                    }
+                });
+            }
+        });
+
+        setWarnings(newWarnings);
+        setActiveWarningId(null);
+    }, [activeDept, rawRoutines]);
+
+    useEffect(() => {
+        validateActiveDepartment();
+    }, [validateActiveDepartment]);
+
+    const checkRoomClashes = () => {
+        const newWarnings: ValidationWarning[] = [];
+        let warningIdCounter = 1000;
+        const roomMap: Record<string, RoutineEntry[]> = {}; 
+
+        rawRoutines.forEach(r => {
+            if (!r.roomNo || r.roomNo === 'NA' || r.roomNo === 'N/A') return;
+            if (r.classType?.toUpperCase() === 'BREAK') return;
+            const key = `${r.day?.toLowerCase()}-${r.period}-${r.roomNo.toUpperCase()}`;
+            if (!roomMap[key]) roomMap[key] = [];
+            roomMap[key].push(r);
+        });
+
+        Object.entries(roomMap).forEach(([key, entries]) => {
+            const uniqueClasses = new Set(entries.map(e => `${e.courseCode}-${e.faculty}-${e.department}`));
+            if (uniqueClasses.size > 1) {
+                const [day, periodStr, room] = key.split('-');
+                const period = parseInt(periodStr);
+                const displayDay = day.charAt(0).toUpperCase() + day.slice(1);
+                
+                const cells: { day: string; period: number; group: string }[] = [];
+                entries.forEach(e => {
+                    const g = e.group.toLowerCase();
+                    if (g.includes('1') || g === 'all' || g === '' || g === 'na') cells.push({ day: displayDay, period, group: 'Group 1' });
+                    if (g.includes('2') || g === 'all' || g === '' || g === 'na') cells.push({ day: displayDay, period, group: 'Group 2' });
+                });
+
+                newWarnings.push({
+                    id: `clash-${warningIdCounter++}`,
+                    type: 'error',
+                    title: 'Room Clash',
+                    description: `Room ${room} is double-booked on ${displayDay} Period ${period}. (${Array.from(uniqueClasses).join(', ')})`,
+                    relatedCells: cells
+                });
+            }
+        });
+
+        setWarnings(newWarnings);
+        setActiveWarningId(null);
+        if (newWarnings.length === 0) toast.success('No room clashes found globally!');
+        else toast.error(`Found ${newWarnings.length} room clashes!`);
+    };
+
+    const CourseStatistics = () => {
+        const deptRoutines = rawRoutines.filter(r => r.department === activeDept);
+        const stats: Record<string, { L: number, T: number, P: number }> = {};
+        deptRoutines.forEach(r => {
+            const cc = r.courseCode || 'Unknown';
+            if (cc === 'Unknown' || r.classType?.toUpperCase() === 'BREAK') return;
+            if (!stats[cc]) stats[cc] = { L: 0, T: 0, P: 0 };
+            const type = (r.classType || '').toUpperCase();
+            if (type.includes('LAB') || type === 'P') stats[cc].P++;
+            else if (type === 'T' || type.includes('TUTORIAL')) stats[cc].T++;
+            else stats[cc].L++;
+        });
+        const sortedCourses = Object.keys(stats).sort();
+        if (sortedCourses.length === 0) return null;
+        return (
+            <div className="mt-8 bg-slate-800/40 border border-slate-700 rounded-xl p-4">
+                <h3 className="text-sm font-bold text-white mb-4">Course Workload Summary (Weekly)</h3>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left">
+                        <thead>
+                            <tr className="text-slate-400 border-b border-slate-700">
+                                <th className="pb-2 font-bold">Course Code</th>
+                                <th className="pb-2 font-bold text-center w-24">Lectures (L)</th>
+                                <th className="pb-2 font-bold text-center w-24">Tutorials (T)</th>
+                                <th className="pb-2 font-bold text-center w-24">Labs (P)</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-700/50">
+                            {sortedCourses.map(cc => (
+                                <tr key={cc} className="text-slate-300">
+                                    <td className="py-2">{cc}</td>
+                                    <td className="py-2 text-center">{stats[cc].L}</td>
+                                    <td className="py-2 text-center">{stats[cc].T}</td>
+                                    <td className="py-2 text-center">{stats[cc].P}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        );
+    };
+
+    const isCellHighlighted = (day: string, period: number, group: string) => {
+        if (!activeWarningId) return false;
+        const warning = warnings.find(w => w.id === activeWarningId);
+        if (!warning) return false;
+        return warning.relatedCells.some(c => c.day.toLowerCase() === day.toLowerCase() && c.period === period && c.group === group);
+    };
+
     if (!user) return null;
 
     // ── Tab: Routine Grid ────────────────────────────────────────────────────
@@ -285,10 +505,49 @@ export default function HitRoutinePage() {
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-xs">▼</span>
                 </div>
                 <SyncButton />
+                <button onClick={checkRoomClashes} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-600/20 border border-amber-500/40 text-amber-300 text-sm font-bold hover:bg-amber-600/30 transition-all">
+                    <AlertTriangle className="h-4 w-4" /> Check Room Clashes
+                </button>
                 {lastSynced && (
                     <span className="text-xs text-slate-500 flex items-center gap-1">
                         <Clock className="h-3 w-3" /> Last synced: {lastSynced.toLocaleTimeString('en-IN')}
                     </span>
+                )}
+            </div>
+
+            {/* Validation Warnings & Note */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {showWarningNote && (
+                    <div className="col-span-1 md:col-span-3 bg-blue-950/30 border border-blue-500/30 rounded-xl p-4 relative">
+                        <button onClick={() => setShowWarningNote(false)} className="absolute top-3 right-3 text-blue-400 hover:text-blue-300"><X className="h-4 w-4" /></button>
+                        <h3 className="text-blue-300 font-bold mb-2 flex items-center gap-2"><CheckCircle2 className="h-4 w-4"/> Validation Criteria</h3>
+                        <ol className="list-decimal pl-5 text-xs text-blue-200/80 space-y-1">
+                            <li>Same class (course code & faculty) should not have back to back 2 class (unless LAB/P)</li>
+                            <li>No "Remedial" or "Library" class in the first 3 periods.</li>
+                            <li>No situation where there is a Lab, after that exactly one class, and then day is over.</li>
+                            <li>No "Break" period during the first 3 classes.</li>
+                            <li>No empty slots in the first 3 classes (per group).</li>
+                            <li>Global Room Clash Checker (click button above) finds room overlaps across all routines.</li>
+                        </ol>
+                    </div>
+                )}
+                {warnings.length > 0 && (
+                    <div className="col-span-1 md:col-span-3 bg-slate-900 border border-slate-700 rounded-xl p-4">
+                        <h3 className="text-white font-bold mb-3 flex items-center gap-2">
+                            <AlertTriangle className="h-4 w-4 text-amber-400"/> 
+                            Validation Issues ({warnings.length})
+                            <span className="text-xs font-normal text-slate-400 ml-2">Click an issue to highlight related cells</span>
+                        </h3>
+                        <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto pr-2 pb-2">
+                            {warnings.map(w => (
+                                <button key={w.id} onClick={() => setActiveWarningId(activeWarningId === w.id ? null : w.id)}
+                                    className={`text-left text-xs p-2.5 rounded-lg border transition-all flex-1 min-w-[250px] max-w-sm ${activeWarningId === w.id ? 'bg-amber-950/50 border-amber-500 shadow-md shadow-amber-900/20' : 'bg-slate-800/50 border-slate-700 hover:border-slate-500'}`}>
+                                    <div className={`font-bold ${w.type === 'error' ? 'text-red-400' : 'text-amber-400'}`}>{w.title}</div>
+                                    <div className="text-slate-400 mt-1">{w.description}</div>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
                 )}
             </div>
 
@@ -334,8 +593,9 @@ export default function HitRoutinePage() {
                                             {PERIODS.map(p => {
                                                 const classes = gridData[day]?.[grp]?.[p.id] || [];
                                                 const isNow = currentPeriod?.day === day && currentPeriod?.period === p.id;
+                                                const isHighlighted = isCellHighlighted(day, p.id, grp);
                                                 return (
-                                                    <td key={p.id} className={`align-middle border border-slate-700 ${isNow ? 'ring-1 ring-yellow-400/50 bg-yellow-950/10' : ''}`}>
+                                                    <td key={p.id} className={`align-middle border border-slate-700 transition-all duration-300 ${isNow ? 'ring-1 ring-yellow-400/50 bg-yellow-950/10' : ''} ${isHighlighted ? 'ring-2 ring-amber-400 bg-amber-950/30 z-10 relative shadow-[0_0_15px_rgba(251,191,36,0.3)]' : ''}`}>
                                                         {classes.length === 0 ? (
                                                             <div className="h-16 flex items-center justify-center text-slate-700 text-xs">—</div>
                                                         ) : (
@@ -365,6 +625,8 @@ export default function HitRoutinePage() {
                     </table>
                 </div>
             )}
+
+            <CourseStatistics />
         </div>
     );
 

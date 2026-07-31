@@ -30,7 +30,7 @@ export default function MyRoutinePage() {
     const [crContacts, setCrContacts] = useState<CRContact[]>([]);
     const [showCRModal, setShowCRModal] = useState(false);
     const [selectedClass, setSelectedClass] = useState<{ dept: string; year: string; course: string; content: string } | null>(null);
-    const [crForm, setCrForm] = useState({ crPhone: '', crName: '' });
+    const [crForm, setCrForm] = useState<{name: string; phone: string}[]>([{ name: '', phone: '' }]);
     const [savingCR, setSavingCR] = useState(false);
     const dayScrollRef = useRef<HTMLDivElement>(null);
 
@@ -160,18 +160,29 @@ export default function MyRoutinePage() {
         // Pre-fill if contact exists
         const existing = getCRForClass(dept, year, subject, item.content);
         if (existing) {
-            setCrForm({ crPhone: existing.crPhone, crName: existing.crName });
+            const names = (existing.crName || '').split(',').map(s => s.trim());
+            const phones = (existing.crPhone || '').split(',').map(s => s.trim());
+            const formArr = [];
+            for (let i = 0; i < Math.max(names.length, phones.length); i++) {
+                if (phones[i]) formArr.push({ name: names[i] || '', phone: phones[i] });
+            }
+            if (formArr.length === 0) formArr.push({ name: '', phone: '' });
+            setCrForm(formArr);
         } else {
-            setCrForm({ crPhone: '', crName: '' });
+            setCrForm([{ name: '', phone: '' }]);
         }
         setShowCRModal(true);
     };
 
     const handleSaveCR = async () => {
-        if (!selectedClass || !crForm.crPhone.trim()) {
-            toast.error('Phone number is required');
+        const validForms = crForm.filter(f => f.phone.trim());
+        if (!selectedClass || validForms.length === 0) {
+            toast.error('At least one phone number is required');
             return;
         }
+
+        const crPhoneStr = validForms.map(f => f.phone.trim()).join(', ');
+        const crNameStr = validForms.map(f => f.name.trim()).join(', ');
 
         setSavingCR(true);
         try {
@@ -182,8 +193,8 @@ export default function MyRoutinePage() {
                     department: selectedClass.dept,
                     year: selectedClass.year,
                     courseCode: selectedClass.course,
-                    crPhone: crForm.crPhone.trim(),
-                    crName: crForm.crName.trim()
+                    crPhone: crPhoneStr,
+                    crName: crNameStr
                 })
             });
 
@@ -334,13 +345,22 @@ export default function MyRoutinePage() {
                                     </div>
 
                                     {/* CR Contact Badge */}
-                                    {crContact && (
-                                        <div className="shrink-0 flex items-center gap-1.5 px-2 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/20">
-                                            <Phone className="h-3 w-3 text-emerald-400" />
-                                            <div className="text-right">
-                                                <p className="text-[8px] sm:text-[10px] text-emerald-400 font-bold leading-tight">CR</p>
-                                                <p className="text-[10px] sm:text-xs text-emerald-300 font-mono">{crContact.crPhone}</p>
-                                            </div>
+                                    {crContact && crContact.crPhone && (
+                                        <div className="shrink-0 flex flex-col gap-1">
+                                            {crContact.crPhone.split(',').map((phone, i) => {
+                                                const p = phone.trim();
+                                                if (!p) return null;
+                                                const name = crContact.crName?.split(',')[i]?.trim();
+                                                return (
+                                                    <div key={i} className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/20">
+                                                        <Phone className="h-3 w-3 text-emerald-400" />
+                                                        <div className="text-right">
+                                                            <p className="text-[8px] sm:text-[10px] text-emerald-400 font-bold leading-tight">{name || `CR ${i+1}`}</p>
+                                                            <p className="text-[10px] sm:text-xs text-emerald-300 font-mono">{p}</p>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
                                     )}
                                 </div>
@@ -418,35 +438,57 @@ export default function MyRoutinePage() {
                             </div>
                         )}
 
-                        <div>
-                            <label className="text-xs text-slate-400 font-bold block mb-1.5">
-                                <User className="h-3 w-3 inline mr-1" />CR Name (optional)
-                            </label>
-                            <input
-                                type="text"
-                                placeholder="e.g. Rahul Sharma"
-                                value={crForm.crName}
-                                onChange={e => setCrForm({ ...crForm, crName: e.target.value })}
-                                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder-slate-600 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                            />
+                        <div className="space-y-3 max-h-60 overflow-y-auto pr-2 scrollbar-thin">
+                            {crForm.map((contact, idx) => (
+                                <div key={idx} className="p-3 bg-white/5 border border-white/10 rounded-xl relative">
+                                    {crForm.length > 1 && (
+                                        <button onClick={() => setCrForm(crForm.filter((_, i) => i !== idx))} className="absolute top-2 right-2 p-1 text-slate-500 hover:text-red-400">
+                                            <X className="h-3 w-3" />
+                                        </button>
+                                    )}
+                                    <div className="mb-2">
+                                        <label className="text-[10px] text-slate-400 font-bold block mb-1">
+                                            <User className="h-3 w-3 inline mr-1" />CR {idx + 1} Name (optional)
+                                        </label>
+                                        <input
+                                            type="text"
+                                            placeholder="e.g. Rahul Sharma"
+                                            value={contact.name}
+                                            onChange={e => {
+                                                const newForm = [...crForm];
+                                                newForm[idx].name = e.target.value;
+                                                setCrForm(newForm);
+                                            }}
+                                            className="w-full bg-slate-900 border border-white/10 rounded-lg px-2 py-1.5 text-white text-xs placeholder-slate-600 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] text-slate-400 font-bold block mb-1">
+                                            <Phone className="h-3 w-3 inline mr-1" />CR {idx + 1} Phone *
+                                        </label>
+                                        <input
+                                            type="tel"
+                                            placeholder="e.g. 9876543210"
+                                            value={contact.phone}
+                                            onChange={e => {
+                                                const newForm = [...crForm];
+                                                newForm[idx].phone = e.target.value;
+                                                setCrForm(newForm);
+                                            }}
+                                            className="w-full bg-slate-900 border border-white/10 rounded-lg px-2 py-1.5 text-white text-xs placeholder-slate-600 focus:ring-2 focus:ring-emerald-500 focus:border-transparent font-mono"
+                                        />
+                                    </div>
+                                </div>
+                            ))}
                         </div>
-
-                        <div>
-                            <label className="text-xs text-slate-400 font-bold block mb-1.5">
-                                <Phone className="h-3 w-3 inline mr-1" />Phone Number *
-                            </label>
-                            <input
-                                type="tel"
-                                placeholder="e.g. 9876543210"
-                                value={crForm.crPhone}
-                                onChange={e => setCrForm({ ...crForm, crPhone: e.target.value })}
-                                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder-slate-600 focus:ring-2 focus:ring-emerald-500 focus:border-transparent font-mono"
-                            />
-                        </div>
+                        
+                        <button onClick={() => setCrForm([...crForm, { name: '', phone: '' }])} className="w-full py-2 bg-indigo-500/10 text-indigo-400 font-bold text-xs rounded-xl hover:bg-indigo-500/20 transition-all border border-indigo-500/20">
+                            + Add Another CR
+                        </button>
 
                         <button
                             onClick={handleSaveCR}
-                            disabled={savingCR || !crForm.crPhone.trim()}
+                            disabled={savingCR || crForm.filter(f => f.phone.trim()).length === 0}
                             className="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 disabled:from-gray-600 disabled:to-gray-700 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2 transition-all"
                         >
                             {savingCR ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
