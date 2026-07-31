@@ -592,10 +592,22 @@ export default function HitRoutinePage() {
                                             </td>
                                             {PERIODS.map(p => {
                                                 const classes = gridData[day]?.[grp]?.[p.id] || [];
+                                                
+                                                // Check for vertical merge
+                                                const otherGrp = grp === 'Group 1' ? 'Group 2' : 'Group 1';
+                                                const otherClasses = gridData[day]?.[otherGrp]?.[p.id] || [];
+                                                const isIdentical = classes.length > 0 && classes.length === otherClasses.length && classes.every((c, i) => c.classType === otherClasses[i].classType && c.courseCode === otherClasses[i].courseCode && c.faculty === otherClasses[i].faculty && c.roomNo === otherClasses[i].roomNo);
+                                                
+                                                if (grp === 'Group 2' && isIdentical) {
+                                                    return null; // Handled by Group 1 rowSpan
+                                                }
+                                                
+                                                const rowSpan = (grp === 'Group 1' && isIdentical) ? 2 : 1;
                                                 const isNow = currentPeriod?.day === day && currentPeriod?.period === p.id;
-                                                const isHighlighted = isCellHighlighted(day, p.id, grp);
+                                                const isHighlighted = isCellHighlighted(day, p.id, grp) || (rowSpan === 2 && isCellHighlighted(day, p.id, 'Group 2'));
+
                                                 return (
-                                                    <td key={p.id} className={`align-middle border border-slate-700 transition-all duration-300 ${isNow ? 'ring-1 ring-yellow-400/50 bg-yellow-950/10' : ''} ${isHighlighted ? 'ring-2 ring-amber-400 bg-amber-950/30 z-10 relative shadow-[0_0_15px_rgba(251,191,36,0.3)]' : ''}`}>
+                                                    <td key={p.id} rowSpan={rowSpan} className={`align-middle border border-slate-700 transition-all duration-300 ${isNow ? 'ring-1 ring-yellow-400/50 bg-yellow-950/10' : ''} ${isHighlighted ? 'ring-2 ring-amber-400 bg-amber-950/30 z-10 relative shadow-[0_0_15px_rgba(251,191,36,0.3)]' : ''}`}>
                                                         {classes.length === 0 ? (
                                                             <div className="h-16 flex items-center justify-center text-slate-700 text-xs">—</div>
                                                         ) : (
@@ -605,10 +617,13 @@ export default function HitRoutinePage() {
                                                                         <div key={ci} className="flex items-center justify-center h-12 bg-slate-800/60 rounded text-slate-500 text-[10px] font-bold">☕ BREAK</div>
                                                                     );
                                                                     const theme = getDeptColor(cls.courseCode || cls.department);
+                                                                    const isLibrary = (cls.classType || '').toUpperCase().includes('LIBRARY') || (cls.courseCode || '').toUpperCase().includes('LIBRARY');
                                                                     return (
-                                                                        <div key={ci} className={`flex flex-col items-center p-1.5 rounded border-l-2 ${theme.bg} ${theme.border} text-center`}>
+                                                                        <div key={ci} className={`flex flex-col items-center p-1.5 rounded border-l-2 ${theme.bg} ${theme.border} text-center ${rowSpan === 2 ? 'h-full justify-center' : ''}`}>
                                                                             <div className={`font-bold text-[11px] ${theme.text}`}>{cls.classType} · {cls.courseCode}</div>
-                                                                            <div className="text-[10px] text-slate-400">{cls.faculty || 'NA'} · {cls.roomNo || 'NA'}</div>
+                                                                            {!isLibrary && (
+                                                                                <div className="text-[10px] text-slate-400">{cls.faculty || 'NA'} · {cls.roomNo || 'NA'}</div>
+                                                                            )}
                                                                         </div>
                                                                     );
                                                                 })}
