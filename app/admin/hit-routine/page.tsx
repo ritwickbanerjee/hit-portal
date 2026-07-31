@@ -22,6 +22,7 @@ const PERIODS = [
     { id: 6, time: '2:00–3:00' },
     { id: 7, time: '3:00–4:00' },
     { id: 8, time: '4:00–5:00' },
+    { id: 9, time: '5:00–6:00' },
 ];
 
 const DEPT_COLORS: Record<string, { bg: string; border: string; text: string; accent: string }> = {};
@@ -305,7 +306,7 @@ export default function HitRoutinePage() {
         const deptRoutines = rawRoutines.filter(r => r.department === activeDept);
         deptRoutines.forEach(r => {
             const targetDay = DAYS.find(d => d.toLowerCase() === r.day?.toLowerCase());
-            if (!targetDay || isNaN(r.period) || r.period < 1 || r.period > 8) return;
+            if (!targetDay || isNaN(r.period) || r.period < 1 || r.period > 9) return;
             const grp = (r.group || '').toLowerCase();
             const g1 = grp.includes('1') || grp === 'all' || grp === '' || grp === 'na';
             const g2 = grp.includes('2') || grp === 'all' || grp === '' || grp === 'na';
@@ -453,7 +454,7 @@ export default function HitRoutinePage() {
             });
             deptRoutines.forEach(r => {
                 const targetDay = DAYS.find(d => d.toLowerCase() === r.day?.toLowerCase());
-                if (!targetDay || isNaN(r.period) || r.period < 1 || r.period > 8) return;
+                if (!targetDay || isNaN(r.period) || r.period < 1 || r.period > 9) return;
                 const grp = (r.group || '').toLowerCase();
                 const g1 = grp.includes('1') || grp === 'all' || grp === '' || grp === 'na';
                 const g2 = grp.includes('2') || grp === 'all' || grp === '' || grp === 'na';
