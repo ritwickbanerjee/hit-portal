@@ -327,9 +327,12 @@ export default function HitRoutinePage() {
                             cur.faculty === nxt.faculty && 
                             cur.classType?.toUpperCase() !== 'BREAK' &&
                             !isLab(cur.classType) && !isLab(nxt.classType)) {
-                            
-                            addWarn('Back-to-Back Classes', 
-                                `${cur.faculty} has consecutive theory classes for ${cur.courseCode} on ${day} (${grp}).`, 
+                            const isLibClass = (cur.classType || '').toUpperCase().includes('LIBRARY') || (cur.courseCode || '').toUpperCase().includes('LIBRARY');
+                            const warningDesc = isLibClass 
+                                ? `Two Library slots on ${day} (${grp}).`
+                                : `${cur.faculty} has consecutive theory classes for ${cur.courseCode} on ${day} (${grp}).`;
+
+                            addWarn('Back-to-Back Classes', warningDesc, 
                                 [{ day, period: cur.period, group: grp }, { day, period: nxt.period, group: grp }]
                             );
                         }
