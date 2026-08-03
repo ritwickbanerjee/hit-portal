@@ -275,13 +275,14 @@ export default function AssignmentsPage() {
                                 <th className="px-6 py-3">Faculty</th>
                                 <th className="px-6 py-3">Course</th>
                                 <th className="px-6 py-3">Dept+Year</th>
+                                <th className="px-6 py-3">Start Time</th>
                                 <th className="px-6 py-3">Deadline</th>
                                 <th className="px-6 py-3 text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-700">
                             {assignments.length === 0 ? (
-                                <tr><td colSpan={7} className="text-center py-8 text-gray-500">No assignments found</td></tr>
+                                <tr><td colSpan={8} className="text-center py-8 text-gray-500">No assignments found</td></tr>
                             ) : (
                                 assignments.map((a) => (
                                     <tr key={a._id} className="hover:bg-gray-700/30 transition-colors">
@@ -300,6 +301,7 @@ export default function AssignmentsPage() {
                                                     ? `${a.targetDepartments.join(', ')} - ${a.targetYear || 'N/A'}`
                                                     : 'N/A'}
                                         </td>
+                                        <td className="px-6 py-4">{a.startTime ? new Date(a.startTime).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'N/A'}</td>
                                         <td className="px-6 py-4">{new Date(a.deadline).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}</td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex items-center justify-end gap-2">
