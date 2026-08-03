@@ -691,7 +691,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                         <div className="shrink-0 mt-1"><Laptop className="h-5 w-5 text-indigo-400" /></div>
                                         <div>
                                             <p className="font-semibold text-white mb-1">Install as an App</p>
-                                            <p className="text-sm text-slate-400 leading-relaxed">You can save this portal on your phone just like an App! Simply go to the <span className="text-indigo-300 font-medium">Track Attendance Page</span> from your mobile browser and click the <span className="font-bold text-white">"Install App"</span> button.</p>
+                                            <p className="text-sm text-slate-400 leading-relaxed">You can save this portal on your phone just like an App! Simply go to the <span className="text-indigo-300 font-medium">Mark Daily Attendance</span> page from your mobile browser and click the <span className="font-bold text-white">"Install App"</span> button.</p>
                                         </div>
                                     </div>
 
