@@ -542,7 +542,7 @@ export default function AdminAttendance() {
                         </div>
 
                         {/* Group Filters */}
-                        <div className="bg-slate-900/50 backdrop-blur-xl p-6 rounded-2xl border border-white/5 shadow-xl md:col-span-2">
+                        <div className="bg-slate-900/50 backdrop-blur-xl p-6 rounded-2xl border border-white/5 shadow-xl md:col-span-2 relative z-50">
                             <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Student Group</label>
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                 {/* Multi-select Department Dropdown */}
