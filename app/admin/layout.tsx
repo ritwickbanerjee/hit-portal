@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
     Users, ClipboardList, CheckSquare, FileText,
-    Upload, BarChart, BookOpen, LogOut, Menu, X, GraduationCap, Laptop, CalendarDays, LayoutGrid, Sparkles, ClipboardCheck, Building2
+    Upload, BarChart, BookOpen, LogOut, Menu, X, GraduationCap, Laptop, CalendarDays, LayoutGrid, Sparkles, ClipboardCheck, Building2, Shield, Trash2, UserPlus, Copy, Check
 } from 'lucide-react';
 import InstallPWA from '@/components/InstallPWA';
 import ActiveDeploymentToggle from '@/components/ActiveDeploymentToggle';
@@ -20,6 +20,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const [showGlobalAdminModal, setShowGlobalAdminModal] = useState(false);
     const [globalAdminPassword, setGlobalAdminPassword] = useState('');
     const [isGlobalAdmin, setIsGlobalAdmin] = useState(false);
+
+    // Admin list management
+    const [showAdminListModal, setShowAdminListModal] = useState(false);
+    const [adminList, setAdminList] = useState<any[]>([]);
+    const [adminListLoading, setAdminListLoading] = useState(false);
+    const [newAdminEmail, setNewAdminEmail] = useState('');
+    const [newAdminName, setNewAdminName] = useState('');
+    const [addingAdmin, setAddingAdmin] = useState(false);
+    const [tempPassword, setTempPassword] = useState<string | null>(null);
+    const [copiedPwd, setCopiedPwd] = useState(false);
+    const [adminListError, setAdminListError] = useState('');
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -75,6 +86,75 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         localStorage.removeItem('user');
         localStorage.removeItem('adminSessionStart');
         router.push('/admin/login');
+    };
+
+    const getAuthHeaders = () => {
+        const token = localStorage.getItem('auth_token');
+        const h: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (token) h['Authorization'] = `Bearer ${token}`;
+        if (user?.email) h['X-User-Email'] = user.email;
+        return h;
+    };
+
+    const fetchAdmins = async () => {
+        setAdminListLoading(true);
+        setAdminListError('');
+        try {
+            const res = await fetch('/api/admin/manage-admins', { headers: getAuthHeaders() });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to fetch admins');
+            setAdminList(data.admins);
+        } catch (e: any) {
+            setAdminListError(e.message);
+        } finally {
+            setAdminListLoading(false);
+        }
+    };
+
+    const handleAddAdmin = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setAddingAdmin(true);
+        setAdminListError('');
+        setTempPassword(null);
+        try {
+            const res = await fetch('/api/admin/manage-admins', {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({ email: newAdminEmail, name: newAdminName }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to create admin');
+            setTempPassword(data.tempPassword);
+            setNewAdminEmail('');
+            setNewAdminName('');
+            fetchAdmins();
+        } catch (e: any) {
+            setAdminListError(e.message);
+        } finally {
+            setAddingAdmin(false);
+        }
+    };
+
+    const handleDeleteAdmin = async (id: string, name: string) => {
+        if (!confirm(`Are you sure you want to delete admin "${name}"? They will immediately lose login access.`)) return;
+        try {
+            const res = await fetch('/api/admin/manage-admins', {
+                method: 'DELETE',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({ id }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to delete admin');
+            fetchAdmins();
+        } catch (e: any) {
+            setAdminListError(e.message);
+        }
+    };
+
+    const copyToClipboard = (text: string) => {
+        navigator.clipboard.writeText(text);
+        setCopiedPwd(true);
+        setTimeout(() => setCopiedPwd(false), 2000);
     };
 
     const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -338,6 +418,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                         <ActiveDeploymentToggle userEmail={user.email} />
                                     </div>
                                 )}
+                                {user.email === 'ritwick92@gmail.com' && (
+                                    <div className="p-1 border-b border-white/5">
+                                        <button
+                                            onClick={() => { setShowAdminListModal(true); fetchAdmins(); setTempPassword(null); setAdminListError(''); }}
+                                            className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-sm text-indigo-300 hover:bg-indigo-500/10 hover:text-indigo-200 transition-colors"
+                                        >
+                                            <Shield className="h-4 w-4" />
+                                            Manage Admin List
+                                        </button>
+                                    </div>
+                                )}
                                 <div className="p-1">
                                     <button
                                         onClick={() => setShowPasswordModal(true)}
@@ -360,6 +451,117 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
                     {children}
                 </main>
+
+                {/* Admin List Modal */}
+                {showAdminListModal && (
+                    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                        <div className="bg-slate-900 rounded-2xl border border-indigo-500/20 w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl shadow-indigo-500/10 flex flex-col relative">
+                            {/* Top accent */}
+                            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 to-violet-500" />
+                            {/* Header */}
+                            <div className="flex items-center justify-between px-6 pt-7 pb-4 border-b border-white/5">
+                                <div className="flex items-center gap-3">
+                                    <div className="h-9 w-9 rounded-lg bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center">
+                                        <Shield className="h-5 w-5 text-indigo-400" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-bold text-white">Admin Management</h3>
+                                        <p className="text-xs text-slate-500">Manage who can log in as admin</p>
+                                    </div>
+                                </div>
+                                <button onClick={() => { setShowAdminListModal(false); setTempPassword(null); setAdminListError(''); }} className="h-8 w-8 rounded-lg hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-white transition-colors">
+                                    <X className="h-5 w-5" />
+                                </button>
+                            </div>
+
+                            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                                {/* Add new admin form */}
+                                <div className="bg-slate-800/50 rounded-xl border border-white/5 p-5">
+                                    <h4 className="text-sm font-semibold text-slate-300 mb-4 flex items-center gap-2"><UserPlus className="h-4 w-4 text-indigo-400" /> Add New Admin</h4>
+                                    <form onSubmit={handleAddAdmin} className="space-y-3">
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="block text-xs text-slate-500 mb-1 font-medium uppercase tracking-wider">Full Name</label>
+                                                <input
+                                                    type="text" required placeholder="e.g. Dr. Rahul Sharma"
+                                                    value={newAdminName}
+                                                    onChange={e => setNewAdminName(e.target.value)}
+                                                    className="w-full bg-slate-950/60 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs text-slate-500 mb-1 font-medium uppercase tracking-wider">Email Address</label>
+                                                <input
+                                                    type="email" required placeholder="e.g. admin@heritageit.edu"
+                                                    value={newAdminEmail}
+                                                    onChange={e => setNewAdminEmail(e.target.value)}
+                                                    className="w-full bg-slate-950/60 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                                                />
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="submit" disabled={addingAdmin}
+                                            className="w-full py-2 px-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-semibold transition-all disabled:opacity-50 shadow-lg shadow-indigo-500/20"
+                                        >
+                                            {addingAdmin ? 'Creating...' : 'Create Admin Account'}
+                                        </button>
+                                    </form>
+
+                                    {/* Temp password display */}
+                                    {tempPassword && (
+                                        <div className="mt-4 p-4 rounded-xl bg-emerald-950/40 border border-emerald-500/30">
+                                            <p className="text-xs text-emerald-400 font-semibold mb-2">✓ Admin created! Share this temporary password with them:</p>
+                                            <div className="flex items-center gap-2">
+                                                <code className="flex-1 bg-slate-950/60 text-emerald-300 font-mono text-sm px-3 py-2 rounded-lg border border-emerald-500/20">{tempPassword}</code>
+                                                <button onClick={() => copyToClipboard(tempPassword)} className="h-9 w-9 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 hover:bg-emerald-500/20 transition-colors">
+                                                    {copiedPwd ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                                                </button>
+                                            </div>
+                                            <p className="text-xs text-slate-500 mt-2">The admin must use "Forgot Password" to set a permanent password on their first login.</p>
+                                        </div>
+                                    )}
+
+                                    {adminListError && (
+                                        <div className="mt-3 p-3 rounded-lg bg-red-950/40 border border-red-500/30 text-red-400 text-sm">{adminListError}</div>
+                                    )}
+                                </div>
+
+                                {/* Admin list */}
+                                <div>
+                                    <h4 className="text-sm font-semibold text-slate-300 mb-3 flex items-center gap-2"><Users className="h-4 w-4 text-slate-400" /> Current Admins ({adminList.length})</h4>
+                                    {adminListLoading ? (
+                                        <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500" /></div>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            {adminList.map(admin => (
+                                                <div key={admin._id} className={`flex items-center gap-3 p-3 rounded-xl border ${admin.email === 'ritwick92@gmail.com' ? 'bg-indigo-950/20 border-indigo-500/20' : 'bg-slate-800/30 border-white/5'} transition-all`}>
+                                                    <div className={`h-9 w-9 rounded-full flex items-center justify-center font-bold text-sm border ${admin.email === 'ritwick92@gmail.com' ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' : 'bg-slate-700/50 text-slate-300 border-slate-600/30'}`}>
+                                                        {admin.name?.[0]?.toUpperCase() || 'A'}
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-sm font-medium text-white truncate">{admin.name}</p>
+                                                        <p className="text-xs text-slate-500 truncate">{admin.email}</p>
+                                                    </div>
+                                                    {admin.email === 'ritwick92@gmail.com' ? (
+                                                        <span className="text-xs text-indigo-400 font-semibold px-2 py-1 bg-indigo-500/10 rounded-full border border-indigo-500/20">Super Admin</span>
+                                                    ) : (
+                                                        <button
+                                                            onClick={() => handleDeleteAdmin(admin._id, admin.name)}
+                                                            className="h-8 w-8 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-all"
+                                                            title="Remove admin access"
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Change Password Modal (Global) */}
                 {showPasswordModal && (
