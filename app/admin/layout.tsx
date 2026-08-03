@@ -21,6 +21,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const [globalAdminPassword, setGlobalAdminPassword] = useState('');
     const [isGlobalAdmin, setIsGlobalAdmin] = useState(false);
 
+    // Welcome Notification State
+    const [showWelcomeNotification, setShowWelcomeNotification] = useState(false);
+
     // Admin list management
     const [showAdminListModal, setShowAdminListModal] = useState(false);
     const [adminList, setAdminList] = useState<any[]>([]);
@@ -35,6 +38,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     useEffect(() => {
         if (typeof window !== 'undefined') {
             setIsGlobalAdmin(localStorage.getItem('globalAdminActive') === 'true');
+            if (!localStorage.getItem('adminWelcomeNotificationSeen')) {
+                setShowWelcomeNotification(true);
+            }
         }
     }, []);
 
@@ -199,9 +205,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             setGlobalAdminPassword('');
             window.location.reload(); // Reload to apply global admin powers
         } else {
-            alert('Incorrect password');
-            setGlobalAdminPassword('');
+            alert('Invalid Password');
         }
+    };
+
+    const handleDismissWelcome = () => {
+        localStorage.setItem('adminWelcomeNotificationSeen', 'true');
+        setShowWelcomeNotification(false);
     };
 
     // Check routine maker access
@@ -653,6 +663,69 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                         </button>
                                     </div>
                                 </form>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Welcome Notification Modal */}
+                {showWelcomeNotification && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+                        <div className="bg-slate-900 rounded-3xl border border-indigo-500/30 w-full max-w-2xl p-8 shadow-[0_0_50px_rgba(99,102,241,0.15)] relative overflow-hidden">
+                            {/* Decorative background accents */}
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+                            <div className="absolute bottom-0 left-0 w-64 h-64 bg-violet-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
+                            
+                            <div className="relative z-10">
+                                <div className="flex items-center gap-3 mb-6">
+                                    <div className="p-3 bg-indigo-500/20 rounded-xl border border-indigo-500/30">
+                                        <Sparkles className="h-8 w-8 text-indigo-400" />
+                                    </div>
+                                    <h3 className="text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400">
+                                        Welcome to the new portal updates!
+                                    </h3>
+                                </div>
+                                
+                                <div className="space-y-4 mb-8 text-slate-300">
+                                    <div className="flex gap-4 p-4 rounded-xl bg-slate-950/50 border border-white/5 hover:border-indigo-500/30 transition-colors">
+                                        <div className="shrink-0 mt-1"><Laptop className="h-5 w-5 text-indigo-400" /></div>
+                                        <div>
+                                            <p className="font-semibold text-white mb-1">Install as an App</p>
+                                            <p className="text-sm text-slate-400 leading-relaxed">You can save this portal on your phone just like an App! Simply go to the <span className="text-indigo-300 font-medium">Track Attendance Page</span> from your mobile browser and click the <span className="font-bold text-white">"Install App"</span> button.</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-4 p-4 rounded-xl bg-slate-950/50 border border-white/5 hover:border-violet-500/30 transition-colors">
+                                        <div className="shrink-0 mt-1"><CalendarDays className="h-5 w-5 text-violet-400" /></div>
+                                        <div>
+                                            <p className="font-semibold text-white mb-1">My Routine & CR Contacts</p>
+                                            <p className="text-sm text-slate-400 leading-relaxed">Your class routines are visible in the <span className="text-violet-300 font-medium">"My Routine"</span> tab. If you click on any class, you can easily save the phone number of the CR for that class to access it anytime.</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-4 p-4 rounded-xl bg-slate-950/50 border border-white/5 hover:border-emerald-500/30 transition-colors">
+                                        <div className="shrink-0 mt-1"><CheckSquare className="h-5 w-5 text-emerald-400" /></div>
+                                        <div>
+                                            <p className="font-semibold text-white mb-1">Multi-Select Departments for Attendance</p>
+                                            <p className="text-sm text-slate-400 leading-relaxed">You can now multi-select departments while marking attendance in one go! This saves time and increases convenience, especially when taking open electives across different departments.</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-4 p-4 rounded-xl bg-slate-950/50 border border-white/5 hover:border-pink-500/30 transition-colors">
+                                        <div className="shrink-0 mt-1"><Sparkles className="h-5 w-5 text-pink-400" /></div>
+                                        <div>
+                                            <p className="font-semibold text-white mb-1">Magic PPT Generator</p>
+                                            <p className="text-sm text-slate-400 leading-relaxed">Check out the new <span className="text-pink-300 font-medium">Magic PPT</span> button. You can use this AI-powered feature to create visually attractive course content in minutes!</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <button
+                                    onClick={handleDismissWelcome}
+                                    className="w-full py-4 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl font-bold text-lg shadow-lg shadow-indigo-500/25 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                                >
+                                    Ok Great!
+                                </button>
                             </div>
                         </div>
                     </div>
