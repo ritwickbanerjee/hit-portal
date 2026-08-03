@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Loader2, Calendar, Search, Save, Trash2, Edit, X, RefreshCw, Check, Clock, Users, Mic, MicOff } from 'lucide-react';
+import { Loader2, Calendar, Search, Save, Trash2, Edit, X, RefreshCw, Check, Clock, Users, Mic, MicOff, ChevronDown } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import InstallPWA from '@/components/InstallPWA';
 
@@ -16,7 +16,9 @@ export default function AdminAttendance() {
 
     // Take Attendance State
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-    const [filters, setFilters] = useState({ dept: '', year: '', course: '' });
+    const [filters, setFilters] = useState({ depts: [] as string[], year: '', course: '' });
+    const [deptDropdownOpen, setDeptDropdownOpen] = useState(false);
+    const deptDropdownRef = useRef<HTMLDivElement>(null);
     const [selectedTeacher, setSelectedTeacher] = useState('');
     const [selectedTimeSlots, setSelectedTimeSlots] = useState<string[]>([]);
     const [attendanceData, setAttendanceData] = useState<Record<string, boolean>>({}); // studentId -> present (true/false)
@@ -121,6 +123,27 @@ export default function AdminAttendance() {
         };
     }, [students, config, adminEmail]);
 
+    // Close dept dropdown on outside click
+    useEffect(() => {
+        const handler = (e: MouseEvent) => {
+            if (deptDropdownRef.current && !deptDropdownRef.current.contains(e.target as Node)) {
+                setDeptDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
+
+    // Dept color palette for multi-dept display
+    const DEPT_COLORS = [
+        { bg: 'bg-indigo-950/40', border: 'border-indigo-500/30', header: 'bg-indigo-900/50 border-indigo-500/40', text: 'text-indigo-300', badge: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' },
+        { bg: 'bg-violet-950/40', border: 'border-violet-500/30', header: 'bg-violet-900/50 border-violet-500/40', text: 'text-violet-300', badge: 'bg-violet-500/20 text-violet-300 border-violet-500/30' },
+        { bg: 'bg-cyan-950/40', border: 'border-cyan-500/30', header: 'bg-cyan-900/50 border-cyan-500/40', text: 'text-cyan-300', badge: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' },
+        { bg: 'bg-amber-950/40', border: 'border-amber-500/30', header: 'bg-amber-900/50 border-amber-500/40', text: 'text-amber-300', badge: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
+        { bg: 'bg-rose-950/40', border: 'border-rose-500/30', header: 'bg-rose-900/50 border-rose-500/40', text: 'text-rose-300', badge: 'bg-rose-500/20 text-rose-300 border-rose-500/30' },
+        { bg: 'bg-emerald-950/40', border: 'border-emerald-500/30', header: 'bg-emerald-900/50 border-emerald-500/40', text: 'text-emerald-300', badge: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
+    ];
+
     // Access Control & Filtering
     const visibleStudents = useMemo(() => {
         if (!adminEmail) return students;
@@ -136,15 +159,21 @@ export default function AdminAttendance() {
         });
     }, [students, config, adminEmail]);
 
-    // Filtered Students for Attendance Table
-    const tableStudents = useMemo(() => {
-        if (!filters.dept || !filters.year || !filters.course) return [];
-        return visibleStudents.filter(s =>
-            s.department === filters.dept &&
-            s.year === filters.year &&
-            s.course_code === filters.course
-        ).sort((a, b) => (a.roll || '').localeCompare(b.roll || ''));
+    // Filtered Students for Attendance Table - grouped by dept, sorted by roll within each dept
+    const tableStudentGroups = useMemo(() => {
+        if (!filters.depts.length || !filters.year || !filters.course) return [];
+        return filters.depts.map(dept => ({
+            dept,
+            students: visibleStudents.filter(s =>
+                s.department === dept &&
+                s.year === filters.year &&
+                s.course_code === filters.course
+            ).sort((a, b) => (a.roll || '').localeCompare(b.roll || '', undefined, { numeric: true }))
+        })).filter(g => g.students.length > 0);
     }, [visibleStudents, filters]);
+
+    // Flat list for backwards-compat (checkbox init, save, counts)
+    const tableStudents = useMemo(() => tableStudentGroups.flatMap(g => g.students), [tableStudentGroups]);
 
     // Initialize Checkboxes
     useEffect(() => {
@@ -156,10 +185,10 @@ export default function AdminAttendance() {
         }
     }, [tableStudents, editingRecordId]);
 
-    // Available Teachers for Selected Group
+    // Available Teachers for Selected Group (use first dept if multi)
     const availableTeachers = useMemo(() => {
-        if (!filters.dept || !filters.year || !filters.course) return [];
-        const key = `${filters.dept}_${filters.year}_${filters.course}`;
+        if (!filters.depts.length || !filters.year || !filters.course) return [];
+        const key = `${filters.depts[0]}_${filters.year}_${filters.course}`;
         return config.teacherAssignments?.[key] || [];
     }, [config, filters]);
 
@@ -167,7 +196,7 @@ export default function AdminAttendance() {
     useEffect(() => {
         if (availableTeachers.length > 0 && adminEmail && !editingRecordId) {
             const me = availableTeachers.find((t: any) => t.email?.toLowerCase() === adminEmail.toLowerCase());
-            if (me) {
+        if (me) {
                 setSelectedTeacher(JSON.stringify(me));
             } else {
                 setSelectedTeacher(''); // Not assigned to this course
@@ -300,7 +329,7 @@ export default function AdminAttendance() {
     const handleEditRecord = (record: any) => {
         setEditingRecordId(record._id);
         setDate(record.date);
-        setFilters({ dept: record.department, year: record.year, course: record.course_code });
+        setFilters({ depts: [record.department], year: record.year, course: record.course_code });
 
         const teacherObj = { name: record.teacherName, email: record.teacherEmail };
         setSelectedTeacher(JSON.stringify(teacherObj));
@@ -323,63 +352,60 @@ export default function AdminAttendance() {
         }
 
         const action = editingRecordId ? 'Update' : 'Save';
-        // Removed confirm dialog to streamline UX
-
         setLoading(true);
         const toastId = toast.loading(`${action === 'Update' ? 'Updating' : 'Saving'} attendance...`);
 
         try {
-            const presentIds = tableStudents.filter(s => attendanceData[s._id]).map(s => s._id);
-            const absentIds = tableStudents.filter(s => !attendanceData[s._id]).map(s => s._id);
-
             let teacherName = '';
             let teacherEmail = '';
-
             if (typeof selectedTeacher === 'string') {
-                try {
-                    const parsed = JSON.parse(selectedTeacher);
-                    teacherName = parsed.name;
-                    teacherEmail = parsed.email;
-                } catch (e) {
-                    teacherName = selectedTeacher; // Fallback
-                }
+                try { const p = JSON.parse(selectedTeacher); teacherName = p.name; teacherEmail = p.email; }
+                catch (e) { teacherName = selectedTeacher; }
             } else if (typeof selectedTeacher === 'object') {
                 teacherName = (selectedTeacher as any).name;
                 teacherEmail = (selectedTeacher as any).email;
             }
 
-            const payload = {
-                date,
-                teacherName,
-                teacherEmail,
-                department: filters.dept,
-                year: filters.year,
-                course_code: filters.course,
-                timeSlot: selectedTimeSlots[0],
-                presentStudentIds: presentIds,
-                absentStudentIds: absentIds
-            };
-
-            let res;
             if (editingRecordId) {
-                res = await fetch(`/api/admin/attendance/${editingRecordId}`, {
+                // Single-dept edit
+                const presentIds = tableStudents.filter(s => attendanceData[s._id]).map(s => s._id);
+                const absentIds = tableStudents.filter(s => !attendanceData[s._id]).map(s => s._id);
+                const payload = {
+                    date, teacherName, teacherEmail,
+                    department: filters.depts[0],
+                    year: filters.year, course_code: filters.course,
+                    timeSlot: selectedTimeSlots[0],
+                    presentStudentIds: presentIds, absentStudentIds: absentIds
+                };
+                const res = await fetch(`/api/admin/attendance/${editingRecordId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json', ...getHeaders() },
                     body: JSON.stringify(payload)
                 });
+                if (!res.ok) throw new Error('Failed to update');
             } else {
-                const records = selectedTimeSlots.map(slot => ({
-                    ...payload,
-                    timeSlot: slot
-                }));
-                res = await fetch('/api/admin/attendance', {
+                // Multi-dept: one record per dept per timeslot
+                const allRecords: any[] = [];
+                tableStudentGroups.forEach(({ dept, students }) => {
+                    const presentIds = students.filter(s => attendanceData[s._id]).map(s => s._id);
+                    const absentIds = students.filter(s => !attendanceData[s._id]).map(s => s._id);
+                    selectedTimeSlots.forEach(slot => {
+                        allRecords.push({
+                            date, teacherName, teacherEmail,
+                            department: dept,
+                            year: filters.year, course_code: filters.course,
+                            timeSlot: slot,
+                            presentStudentIds: presentIds, absentStudentIds: absentIds
+                        });
+                    });
+                });
+                const res = await fetch('/api/admin/attendance', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', ...getHeaders() },
-                    body: JSON.stringify({ records })
+                    body: JSON.stringify({ records: allRecords })
                 });
+                if (!res.ok) throw new Error('Failed to save');
             }
-
-            if (!res.ok) throw new Error(`Failed to ${action.toLowerCase()}`);
 
             toast.success(`Attendance ${action.toLowerCase()}d successfully!`, { id: toastId });
 
@@ -388,12 +414,10 @@ export default function AdminAttendance() {
                 setActiveTab('manage');
                 handleSearchRecords();
             } else {
-                // Reset form to "fresh" state
                 setSelectedTimeSlots([]);
-                setFilters({ dept: '', year: '', course: '' });
+                setFilters({ depts: [], year: '', course: '' });
                 setAttendanceData({});
                 setSelectAll(true);
-                // Removed switch to manage tab and search logic
             }
         } catch (error: any) {
             toast.error(error.message, { id: toastId });
@@ -407,6 +431,7 @@ export default function AdminAttendance() {
         setActiveTab('manage');
         setSelectedTimeSlots([]);
         setAttendanceData({});
+        setFilters({ depts: [], year: '', course: '' });
     };
 
     const handleSearchRecords = async () => {
@@ -520,33 +545,68 @@ export default function AdminAttendance() {
                         <div className="bg-slate-900/50 backdrop-blur-xl p-6 rounded-2xl border border-white/5 shadow-xl md:col-span-2">
                             <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Student Group</label>
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                <select
-                                    className="block w-full rounded-lg border border-white/10 bg-slate-950 text-slate-200 py-3 px-4 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 outline-none transition-all"
-                                    value={filters.dept} onChange={e => setFilters({ ...filters, dept: e.target.value })}
-                                >
-                                    <option value="">Select Dept</option>
-                                    {departments.map(d => <option key={d} value={d}>{d}</option>)}
-                                </select>
-                                <select
-                                    className="block w-full rounded-lg border border-white/10 bg-slate-950 text-slate-200 py-3 px-4 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 outline-none transition-all"
-                                    value={filters.year} onChange={e => setFilters({ ...filters, year: e.target.value })}
-                                >
-                                    <option value="">Select Year</option>
-                                    {years.map(y => <option key={y} value={y}>{y}</option>)}
-                                </select>
-                                <select
-                                    className="block w-full rounded-lg border border-white/10 bg-slate-950 text-slate-200 py-3 px-4 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 outline-none transition-all"
-                                    value={filters.course} onChange={e => setFilters({ ...filters, course: e.target.value })}
-                                >
-                                    <option value="">Select Course</option>
-                                    {courses.map(c => <option key={c} value={c}>{c}</option>)}
-                                </select>
+                                {/* Multi-select Department Dropdown */}
+                                <div className="relative" ref={deptDropdownRef}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setDeptDropdownOpen(o => !o)}
+                                        className="flex items-center justify-between w-full rounded-lg border border-white/10 bg-slate-950 text-slate-200 py-3 px-4 focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
+                                    >
+                                        <span className="truncate text-sm">
+                                            {filters.depts.length === 0
+                                                ? <span className="text-slate-500">Select Dept(s)</span>
+                                                : filters.depts.length === 1
+                                                ? filters.depts[0]
+                                                : <span>{filters.depts.length} Depts selected</span>
+                                            }
+                                        </span>
+                                        <ChevronDown className={`h-4 w-4 text-slate-400 shrink-0 ml-2 transition-transform ${deptDropdownOpen ? 'rotate-180' : ''}`} />
+                                    </button>
+                                    {deptDropdownOpen && (
+                                        <div className="absolute left-0 top-full mt-1 z-50 w-full min-w-[160px] bg-slate-900 border border-white/10 rounded-xl shadow-2xl py-1 overflow-auto max-h-56">
+                                            {departments.length === 0 && <div className="px-4 py-2 text-slate-500 text-xs italic">No departments available</div>}
+                                            {departments.map((d, idx) => {
+                                                const col = DEPT_COLORS[idx % DEPT_COLORS.length];
+                                                const checked = filters.depts.includes(d);
+                                                return (
+                                                    <label key={d} className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-white/5 transition-colors ${checked ? col.bg : ''}`}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={checked}
+                                                            onChange={() => setFilters(f => ({
+                                                                ...f,
+                                                                depts: checked ? f.depts.filter(x => x !== d) : [...f.depts, d]
+                                                            }))}
+                                                            className="rounded border-slate-600 bg-slate-800 text-indigo-500 focus:ring-indigo-500 h-4 w-4"
+                                                        />
+                                                        <span className={`text-sm font-medium ${checked ? col.text : 'text-slate-300'}`}>{d}</span>
+                                                        {checked && <Check className={`h-3.5 w-3.5 ml-auto ${col.text}`} />}
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+                                    <select
+                                        className="block w-full rounded-lg border border-white/10 bg-slate-950 text-slate-200 py-3 px-4 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 outline-none transition-all"
+                                        value={filters.year} onChange={e => setFilters({ ...filters, year: e.target.value })}
+                                    >
+                                        <option value="">Select Year</option>
+                                        {years.map(y => <option key={y} value={y}>{y}</option>)}
+                                    </select>
+                                    <select
+                                        className="block w-full rounded-lg border border-white/10 bg-slate-950 text-slate-200 py-3 px-4 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 outline-none transition-all"
+                                        value={filters.course} onChange={e => setFilters({ ...filters, course: e.target.value })}
+                                    >
+                                        <option value="">Select Course</option>
+                                        {courses.map(c => <option key={c} value={c}>{c}</option>)}
+                                    </select>
+                                </div>
                             </div>
-                        </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Teacher Display (Auto-selected) */}
+                        {/* Faculty display */}
                         <div className="bg-slate-900/50 backdrop-blur-xl p-6 rounded-2xl border border-white/5 shadow-xl">
                             <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Faculty</label>
                             <div className="w-full rounded-lg border border-white/10 bg-slate-950/50 py-3 px-4 text-slate-300">
@@ -600,7 +660,7 @@ export default function AdminAttendance() {
                                     <Users className="h-5 w-5 text-indigo-400" />
                                     Mark Attendance
                                 </span>
-                                <span className="text-slate-500 text-sm font-normal">({tableStudents.length} Students)</span>
+                                <span className="text-slate-500 text-sm font-normal">({tableStudents.length} Students{tableStudentGroups.length > 1 ? `, ${tableStudentGroups.length} Depts` : ''})</span>
                             </h3>
                             <div className="md:hidden flex flex-wrap w-full sm:w-auto items-center gap-2 mt-1 sm:mt-0">
                                 {isRecording ? (
@@ -673,28 +733,43 @@ export default function AdminAttendance() {
                                     {tableStudents.length === 0 ? (
                                         <tr><td colSpan={4} className="text-center py-12 text-slate-500 italic">Select a valid group above to load students.</td></tr>
                                     ) : (
-                                        tableStudents.map(s => (
-                                            <tr key={s._id} className="hover:bg-white/5 transition-colors cursor-pointer group" onClick={() => toggleStudent(s._id)}>
-                                                <td className="px-5 py-3">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={!!attendanceData[s._id]}
-                                                        onChange={() => toggleStudent(s._id)}
-                                                        className="rounded bg-slate-800 border-gray-600 text-indigo-500 focus:ring-indigo-500 h-4 w-4 transition-all cursor-pointer"
-                                                        onClick={e => e.stopPropagation()}
-                                                    />
-                                                </td>
-                                                <td className="px-5 py-3 text-sm text-slate-500 font-mono group-hover:text-slate-400 transition-colors">{s.roll}</td>
-                                                <td className="px-5 py-3 text-sm text-slate-200 font-medium group-hover:text-white transition-colors">{s.name}</td>
-                                                <td className="px-5 py-3 text-sm">
-                                                    {attendanceData[s._id] ? (
-                                                        <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-2.5 py-1 text-xs font-bold text-emerald-400 border border-emerald-500/20 shadow-[0_0_10px_rgba(16,185,129,0.2)]">Present</span>
-                                                    ) : (
-                                                        <span className="inline-flex items-center rounded-md bg-rose-500/10 px-2.5 py-1 text-xs font-bold text-rose-400 border border-rose-500/20 shadow-[0_0_10px_rgba(244,63,94,0.2)]">Absent</span>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        ))
+                                        tableStudentGroups.map((group, gIdx) => {
+                                            const col = DEPT_COLORS[gIdx % DEPT_COLORS.length];
+                                            return [
+                                                // Dept group header row
+                                                <tr key={`header-${group.dept}`}>
+                                                    <td colSpan={4} className={`px-5 py-2.5 ${col.header} border-y ${col.border}`}>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className={`text-xs font-bold uppercase tracking-widest ${col.text}`}>{group.dept}</span>
+                                                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${col.badge}`}>{group.students.length} students</span>
+                                                        </div>
+                                                    </td>
+                                                </tr>,
+                                                // Student rows for this dept
+                                                ...group.students.map(s => (
+                                                    <tr key={s._id} className={`hover:bg-white/5 transition-colors cursor-pointer group ${col.bg}`} onClick={() => toggleStudent(s._id)}>
+                                                        <td className="px-5 py-3">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={!!attendanceData[s._id]}
+                                                                onChange={() => toggleStudent(s._id)}
+                                                                className="rounded bg-slate-800 border-gray-600 text-indigo-500 focus:ring-indigo-500 h-4 w-4 transition-all cursor-pointer"
+                                                                onClick={e => e.stopPropagation()}
+                                                            />
+                                                        </td>
+                                                        <td className="px-5 py-3 text-sm text-slate-500 font-mono group-hover:text-slate-400 transition-colors">{s.roll}</td>
+                                                        <td className="px-5 py-3 text-sm text-slate-200 font-medium group-hover:text-white transition-colors">{s.name}</td>
+                                                        <td className="px-5 py-3 text-sm">
+                                                            {attendanceData[s._id] ? (
+                                                                <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-2.5 py-1 text-xs font-bold text-emerald-400 border border-emerald-500/20 shadow-[0_0_10px_rgba(16,185,129,0.2)]">Present</span>
+                                                            ) : (
+                                                                <span className="inline-flex items-center rounded-md bg-rose-500/10 px-2.5 py-1 text-xs font-bold text-rose-400 border border-rose-500/20 shadow-[0_0_10px_rgba(244,63,94,0.2)]">Absent</span>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            ];
+                                        })
                                     )}
                                 </tbody>
                             </table>
