@@ -81,10 +81,10 @@ export default function AssignmentSubmissionsPage() {
                     // Load saved weightages
                     if (configData.assignmentWeightages) {
                         const wMap: Record<string, string> = {};
-                        const entries = configData.assignmentWeightages instanceof Map
+                        const entries: [string, any][] = configData.assignmentWeightages instanceof Map
                             ? Array.from(configData.assignmentWeightages.entries())
                             : Object.entries(configData.assignmentWeightages);
-                        entries.forEach(([k, v]: [string, any]) => { wMap[k] = String(v); });
+                        entries.forEach(([k, v]) => { wMap[k] = String(v); });
                         setWeightageMap(wMap);
                     }
                 }
