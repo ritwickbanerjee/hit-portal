@@ -35,6 +35,11 @@ const ConfigSchema = new mongoose.Schema({
     routineMakerAuthorizedEmails: {
         type: [String],
         default: ['ritwick92@gmail.com']
+    },
+    assignmentWeightages: {
+        type: Map,
+        of: Number,
+        default: {}
     }
 }, { timestamps: true });
 

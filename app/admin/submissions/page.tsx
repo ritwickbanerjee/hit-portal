@@ -28,6 +28,11 @@ export default function AssignmentSubmissionsPage() {
     const [reportData, setReportData] = useState<any[]>([]);
     const [showReport, setShowReport] = useState(false);
 
+    // Weightage State
+    const [weightageMap, setWeightageMap] = useState<Record<string, string>>({}); // assignmentId -> weightage string
+    const [showWeightagePanel, setShowWeightagePanel] = useState(false);
+    const [savingWeightage, setSavingWeightage] = useState(false);
+
     // View Questions Modal State
     const [viewQuestionsModal, setViewQuestionsModal] = useState(false);
     const [viewQuestionsData, setViewQuestionsData] = useState<any[]>([]);
@@ -70,7 +75,19 @@ export default function AssignmentSubmissionsPage() {
                 setAssignments(await aRes.json());
                 setSubmissions(await subRes.json());
                 setAttendanceRecords(await attRes.json());
-                if (cRes.ok) setConfig(await cRes.json());
+                if (cRes.ok) {
+                    const configData = await cRes.json();
+                    setConfig(configData);
+                    // Load saved weightages
+                    if (configData.assignmentWeightages) {
+                        const wMap: Record<string, string> = {};
+                        const entries = configData.assignmentWeightages instanceof Map
+                            ? Array.from(configData.assignmentWeightages.entries())
+                            : Object.entries(configData.assignmentWeightages);
+                        entries.forEach(([k, v]: [string, any]) => { wMap[k] = String(v); });
+                        setWeightageMap(wMap);
+                    }
+                }
             }
         } catch (error) {
             console.error("Error fetching data", error);
@@ -113,6 +130,19 @@ export default function AssignmentSubmissionsPage() {
             courses: Array.from(c).sort()
         };
     }, [students, config, user]);
+
+    // Non-personalized assignments matching the current filter context (for weightage config)
+    const taggedAssignmentsForBatch = useMemo(() => {
+        if (filters.course === 'all' && filters.dept === 'all' && filters.year === 'all') return [];
+        return assignments.filter(asn => {
+            if (asn.type === 'personalized') return false;
+            if (filters.dept !== 'all' && asn.targetDepartments && !asn.targetDepartments.includes(filters.dept)) return false;
+            if (filters.year !== 'all' && asn.targetYear && asn.targetYear !== 'all' && asn.targetYear !== filters.year) return false;
+            const asnCourse = (asn.targetCourse || asn.course_code || '').trim().toUpperCase();
+            if (filters.course !== 'all' && asnCourse && asnCourse !== filters.course.trim().toUpperCase()) return false;
+            return true;
+        });
+    }, [assignments, filters]);
 
     useEffect(() => {
         // Dependencies changed, reset report if necessary
@@ -262,9 +292,32 @@ export default function AssignmentSubmissionsPage() {
 
                 const submittedCount = studentSubmissions.length + manualAdj;
                 let marks = 0;
-                if (totalTagged > 0) {
-                    marks = (submittedCount / totalTagged) * 10;
-                    if (marks > 10) marks = 10;
+
+                // Check if weightage is configured for any of the tagged assignments
+                const weightedAssignments = taggedAssignments.filter(a => a.type !== 'personalized');
+                const hasWeightage = weightedAssignments.some(a => {
+                    const w = parseFloat(weightageMap[a._id] || '');
+                    return !isNaN(w) && w > 0;
+                });
+
+                if (hasWeightage) {
+                    // Weighted formula: sum of weightage of submitted assignments
+                    let weightedMarks = 0;
+                    weightedAssignments.forEach(asn => {
+                        const w = parseFloat(weightageMap[asn._id] || '') || 0;
+                        const wasSubmitted = studentSubmissions.some(s => {
+                            const sid = s.assignment?._id || s.assignment;
+                            return sid?.toString() === asn._id?.toString();
+                        });
+                        if (wasSubmitted) weightedMarks += w;
+                    });
+                    marks = Math.min(10, weightedMarks + manualAdj);
+                } else {
+                    // Original equal-weight formula
+                    if (totalTagged > 0) {
+                        marks = (submittedCount / totalTagged) * 10;
+                        if (marks > 10) marks = 10;
+                    }
                 }
 
                 const overrideMap = student.marks_override || {};
@@ -565,6 +618,39 @@ Admin`;
         toast.success(`Finished syncing ${successCount} submissions.`, { id: toastId });
     };
 
+    const saveWeightageConfig = async () => {
+        setSavingWeightage(true);
+        const toastId = toast.loading('Saving weightage...');
+        try {
+            const isGA = typeof window !== 'undefined' && localStorage.getItem('globalAdminActive') === 'true';
+            const headers: any = { 'Content-Type': 'application/json' };
+            if (isGA) headers['X-Global-Admin-Key'] = 'globaladmin_25';
+            else if (user?.email) headers['X-User-Email'] = user.email;
+
+            // Convert string values to numbers, skip empty
+            const numericMap: Record<string, number> = {};
+            Object.entries(weightageMap).forEach(([k, v]) => {
+                const n = parseFloat(v);
+                if (!isNaN(n) && n > 0) numericMap[k] = n;
+            });
+
+            const res = await fetch('/api/admin/config', {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({ assignmentWeightages: numericMap })
+            });
+
+            if (!res.ok) throw new Error('Failed to save');
+            const updated = await res.json();
+            setConfig(updated);
+            toast.success('Weightage saved!', { id: toastId });
+        } catch (error: any) {
+            toast.error(error.message || 'Failed to save weightage', { id: toastId });
+        } finally {
+            setSavingWeightage(false);
+        }
+    };
+
     if (loading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin h-8 w-8 text-blue-500" /></div>;
 
     return (
@@ -573,7 +659,7 @@ Admin`;
                 <ul className="list-disc list-inside space-y-1">
                     <li>Select an <strong>Assignment</strong> to generate the comprehensive report.</li>
                     <li>The report shows submission status, <strong>Attendance Eligibility</strong> at the time of the deadline, and calculates overall course <strong>Marks</strong> out of 10.</li>
-                    <li>Marks Formula: <code>(Submitted + Manual Adj) / Total Assigned × 10</code>. Only assignments that have started are counted.</li>
+                    <li>Marks Formula: <code>(Submitted + Manual Adj) / Total Assigned × 10</code>. Only assignments that have started are counted. You can also configure custom <strong>Assignment Weightage</strong> below to assign specific marks to each assignment.</li>
                     <li>You can manually adjust the submission count and override the calculated marks for a student.</li>
                     <li>Use the <strong>Actions</strong> column to quickly copy a student's email or a ready-made email template for issues.</li>
                     <li>Use the <strong>Export CSV</strong> button to download the data containing Roll Number, Name, Department, and Marks.</li>
@@ -631,6 +717,112 @@ Admin`;
                     </select>
                 </div>
             </div>
+
+            {/* Weightage Configuration Panel */}
+            {taggedAssignmentsForBatch.length > 0 && (
+                <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+                    <button
+                        onClick={() => setShowWeightagePanel(prev => !prev)}
+                        className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-gray-700/30 transition-colors"
+                    >
+                        <div className="flex items-center gap-3">
+                            <BarChart className="h-5 w-5 text-purple-400" />
+                            <div>
+                                <h3 className="text-white font-semibold">Assignment Weightage Configuration</h3>
+                                <p className="text-gray-400 text-xs mt-0.5">
+                                    {(() => {
+                                        const totalW = taggedAssignmentsForBatch.reduce((s, a) => {
+                                            const w = parseFloat(weightageMap[a._id] || '');
+                                            return s + (isNaN(w) ? 0 : w);
+                                        }, 0);
+                                        return totalW > 0
+                                            ? `Weighted mode active — Total: ${totalW.toFixed(1)}/10`
+                                            : 'Optional — leave blank to use equal-weight formula';
+                                    })()}
+                                </p>
+                            </div>
+                        </div>
+                        <span className="text-gray-400 text-sm">{showWeightagePanel ? '▲' : '▼'}</span>
+                    </button>
+
+                    {showWeightagePanel && (
+                        <div className="px-6 pb-6 border-t border-gray-700">
+                            <p className="text-gray-400 text-sm mt-4 mb-4">
+                                Assign marks weight (out of 10) to each assignment below. If a student submits that assignment, they earn those marks. Leave blank to use the default equal-weight formula.
+                            </p>
+
+                            <div className="space-y-3">
+                                {taggedAssignmentsForBatch.map(asn => {
+                                    const w = weightageMap[asn._id] || '';
+                                    return (
+                                        <div key={asn._id} className="flex items-center gap-4 bg-gray-900/60 p-3 rounded-lg border border-gray-700">
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-white font-medium text-sm truncate">{asn.title}</p>
+                                                <p className="text-gray-500 text-xs mt-0.5">{asn.type?.replace('_', ' ').toUpperCase()}</p>
+                                            </div>
+                                            <div className="flex items-center gap-2 shrink-0">
+                                                <span className="text-gray-400 text-sm">Weight:</span>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    max="10"
+                                                    step="0.5"
+                                                    placeholder="0"
+                                                    value={w}
+                                                    onChange={e => setWeightageMap(prev => ({ ...prev, [asn._id]: e.target.value }))}
+                                                    className="w-20 bg-gray-800 border border-gray-600 rounded px-2 py-1.5 text-center text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                />
+                                                <span className="text-gray-500 text-sm">/ 10</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Total display */}
+                            <div className="mt-4 flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <span className="text-gray-400 text-sm">Total Weightage:</span>
+                                    {(() => {
+                                        const totalW = taggedAssignmentsForBatch.reduce((s, a) => {
+                                            const w = parseFloat(weightageMap[a._id] || '');
+                                            return s + (isNaN(w) ? 0 : w);
+                                        }, 0);
+                                        const color = Math.abs(totalW - 10) < 0.01 ? 'text-green-400' : totalW > 10 ? 'text-red-400' : 'text-yellow-400';
+                                        return (
+                                            <span className={`font-bold text-lg ${color}`}>
+                                                {totalW.toFixed(1)} / 10
+                                                {totalW > 10 && <span className="text-xs ml-2 text-red-400">(exceeds 10!)</span>}
+                                                {Math.abs(totalW - 10) < 0.01 && <span className="text-xs ml-2 text-green-400">✓ Perfect</span>}
+                                            </span>
+                                        );
+                                    })()}
+                                </div>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => {
+                                            const cleared: Record<string, string> = {};
+                                            taggedAssignmentsForBatch.forEach(a => { cleared[a._id] = ''; });
+                                            setWeightageMap(prev => ({ ...prev, ...cleared }));
+                                        }}
+                                        className="px-3 py-1.5 text-sm text-gray-400 hover:text-white border border-gray-600 rounded hover:bg-gray-700 transition-colors"
+                                    >
+                                        Clear
+                                    </button>
+                                    <button
+                                        onClick={saveWeightageConfig}
+                                        disabled={savingWeightage}
+                                        className="px-4 py-1.5 text-sm font-semibold bg-purple-600 hover:bg-purple-500 text-white rounded disabled:opacity-50 transition-colors flex items-center gap-2"
+                                    >
+                                        {savingWeightage ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                                        Save Weightage
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
 
             <div className="flex gap-4 items-center justify-between">
                 <div className="flex gap-2">

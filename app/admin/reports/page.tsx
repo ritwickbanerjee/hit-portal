@@ -26,7 +26,7 @@ export default function AdminReports() {
     const [reportFilters, setReportFilters] = useState({ dept: '', year: '', course: '' });
     const [selectedFaculties, setSelectedFaculties] = useState<string[]>([]);
     const [isFacultyDropdownOpen, setIsFacultyDropdownOpen] = useState(false);
-    const [reportData, setReportData] = useState<{ students: any[], records: any[] } | null>(null);
+    const [reportData, setReportData] = useState<{ students: any[], records: any[], allAdjustments: any[] } | null>(null);
 
     // Edit Modal
     const [editingStudent, setEditingStudent] = useState<any | null>(null);
@@ -390,7 +390,18 @@ export default function AdminReports() {
                 toast('No system attendance records found for this period. You can still view students and add adjustments.', { icon: 'ℹ️' });
             }
 
-            setReportData({ students: filteredStudents, records });
+            // Fetch per-faculty adjustment data for this batch
+            let allAdjustments: any[] = [];
+            if (reportFilters.dept && reportFilters.year && reportFilters.course) {
+                const batchKey = `${reportFilters.dept}_${reportFilters.year}_${reportFilters.course}`;
+                try {
+                    const adjRes = await fetch(`/api/admin/attendance-adjustments?batchKey=${batchKey}`, { headers: getHeaders() });
+                    if (adjRes.ok) allAdjustments = await adjRes.json();
+                } catch (e) {
+                    console.error('Failed to fetch adjustments', e);
+                }
+            }
+            setReportData({ students: filteredStudents, records, allAdjustments });
             setTimeout(() => {
                 reportRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }, 100);
@@ -441,7 +452,7 @@ export default function AdminReports() {
             const dateStr = r.date.split('-').reverse().slice(0, 2).join('/');
             csvContent += `"${dateStr} ${r.timeSlot} (${r.teacherName})",`;
         });
-        csvContent += "Attended,Total,Percentage\n";
+        csvContent += "Adjustment,Attended,Total,Percentage\n";
 
         // Rows
         reportData.students.forEach(student => {
@@ -449,8 +460,22 @@ export default function AdminReports() {
                 (r.presentStudentIds?.includes(student._id)) || (r.absentStudentIds?.includes(student._id))
             );
             const baseAttended = participated.filter((r: any) => r.presentStudentIds?.includes(student._id)).length;
-            const total = participated.length + (student.total_classes_adjustment || 0);
-            const attended = baseAttended + (student.attended_adjustment || 0);
+
+            // Faculty-scoped adjustment
+            let exportFacultyScopedAdj = 0;
+            if (selectedFaculties.length > 0) {
+                exportFacultyScopedAdj = (reportData.allAdjustments || []).filter((a: any) =>
+                    (a.studentId?.toString() === student._id?.toString() || a.studentRoll === student.roll) &&
+                    selectedFaculties.includes(a.facultyEmail)
+                ).reduce((sum: number, a: any) => sum + (a.delta || 0), 0);
+            } else {
+                exportFacultyScopedAdj = student.attended_adjustment || 0;
+            }
+
+            const total = selectedFaculties.length > 0
+                ? participated.length
+                : participated.length + (student.total_classes_adjustment || 0);
+            const attended = baseAttended + exportFacultyScopedAdj;
             const percent = total > 0 ? ((attended / total) * 100).toFixed(0) : 0;
 
             let row = `"${student.name}",${student.roll},${student.department},${student.year},${student.course_code},`;
@@ -461,7 +486,7 @@ export default function AdminReports() {
                 row += `${isPresent ? 'P' : isAbsent ? 'A' : '-'},`;
             });
 
-            row += `${attended},${total},${percent}%\n`;
+            row += `${exportFacultyScopedAdj},${attended},${total},${percent}%\n`;
             csvContent += row;
         });
 
@@ -984,6 +1009,7 @@ Treat this matter with extreme urgency.`;
                                                         <div className="text-slate-400 text-[10px] mt-1 px-1 truncate max-w-[90px] mx-auto opacity-70 group-hover:opacity-100" title={r.teacherName}>{r.teacherName.split(' ')[0]}</div>
                                                     </th>
                                                 ))}
+                                                <th className="px-3 py-3 text-center font-bold text-white min-w-[70px] border-l border-white/10 bg-slate-900/50">Adj.</th>
                                                 <th className="px-3 py-3 text-center font-bold text-white min-w-[80px] border-l border-white/10 bg-slate-900/50">Stats</th>
                                                 <th className="px-3 py-3 text-center font-bold text-white min-w-[100px] border-l border-white/5">Edit</th>
                                             </tr>
@@ -994,8 +1020,25 @@ Treat this matter with extreme urgency.`;
                                                     (r.presentStudentIds?.includes(student._id)) || (r.absentStudentIds?.includes(student._id))
                                                 );
                                                 const baseAttended = participated.filter((r: any) => r.presentStudentIds?.includes(student._id)).length;
-                                                const total = participated.length + (student.total_classes_adjustment || 0);
-                                                const attended = baseAttended + (student.attended_adjustment || 0);
+
+                                                // Compute faculty-scoped adjustment
+                                                let facultyScopedAdj = 0;
+                                                if (selectedFaculties.length > 0) {
+                                                    // Only sum deltas from selected faculties for this student
+                                                    facultyScopedAdj = (reportData.allAdjustments || []).filter((a: any) =>
+                                                        (a.studentId?.toString() === student._id?.toString() || a.studentRoll === student.roll) &&
+                                                        selectedFaculties.includes(a.facultyEmail)
+                                                    ).reduce((sum: number, a: any) => sum + (a.delta || 0), 0);
+                                                } else {
+                                                    facultyScopedAdj = student.attended_adjustment || 0;
+                                                }
+
+                                                // When faculty-scoped, denominator = only that faculty's classes (already in participated)
+                                                // When no filter, use total_classes_adjustment as before
+                                                const total = selectedFaculties.length > 0
+                                                    ? participated.length
+                                                    : participated.length + (student.total_classes_adjustment || 0);
+                                                const attended = baseAttended + facultyScopedAdj;
                                                 const percent = total > 0 ? ((attended / total) * 100).toFixed(0) : "0";
 
                                                 const configKey = `${student.department}_${student.year}_${student.course_code}`;
@@ -1034,6 +1077,14 @@ Treat this matter with extreme urgency.`;
                                                             );
                                                         })}
 
+                                                        <td className="px-3 py-3 text-center border-l border-white/10 bg-slate-900/30">
+                                                            <div className="flex flex-col items-center">
+                                                                <span className="text-sm font-bold text-amber-400">+{facultyScopedAdj}</span>
+                                                                <span className="text-[10px] text-slate-500">
+                                                                    {selectedFaculties.length > 0 ? 'this faculty' : 'total'}
+                                                                </span>
+                                                            </div>
+                                                        </td>
                                                         <td className="px-3 py-3 text-center border-l border-white/10 bg-slate-900/30">
                                                             <div className="flex flex-col items-center">
                                                                 <span className={`text-sm font-bold ${isLowAttendance ? 'text-red-400' : 'text-emerald-400'}`}>
@@ -1124,7 +1175,7 @@ Treat this matter with extreme urgency.`;
                                                             </td>
                                                         );
                                                     })}
-                                                    <td colSpan={2} className="px-3 py-3 border-l border-white/10 bg-slate-900"></td>
+                                                    <td colSpan={3} className="px-3 py-3 border-l border-white/10 bg-slate-900"></td>
                                                 </tr>
                                             </tfoot>
                                         )}
