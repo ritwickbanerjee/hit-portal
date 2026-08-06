@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Loader2, Plus, Trash2, Edit, Link as LinkIcon, FileText, Video, Brain, Copy, Check, Sparkles, X, AlertCircle, Code, Eye, Clock, RefreshCw } from 'lucide-react';
+import { Loader2, Plus, Trash2, Edit, Link as LinkIcon, FileText, Video, Brain, Copy, Check, Sparkles, X, AlertCircle, Code, Eye, Clock, RefreshCw, BarChart, Download } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import 'katex/dist/katex.min.css';
 
@@ -65,6 +65,12 @@ export default function Resources() {
     const [htmlEditForm, setHtmlEditForm] = useState({
         title: '', htmlContent: '', targetDepartments: [] as string[], targetYear: '', targetCourse: '', htmlDeadline: ''
     });
+
+    // HTML Submissions / Responses Modal State
+    const [htmlResponsesResource, setHtmlResponsesResource] = useState<any>(null);
+    const [htmlResponses, setHtmlResponses] = useState<any[]>([]);
+    const [htmlResponsesLoading, setHtmlResponsesLoading] = useState(false);
+    const [showSdkSnippet, setShowSdkSnippet] = useState(false);
 
     const [submitting, setSubmitting] = useState(false);
 
@@ -1746,9 +1752,27 @@ ${JSON.stringify(selectedData, null, 2)}`;
                                     <h3 className="text-white font-medium text-sm line-clamp-2">{r.title}</h3>
                                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                         {r.type === 'html_content' ? (
-                                            <button onClick={() => handleHtmlEdit(r)} className="text-gray-600 hover:text-emerald-400 transition-colors" title="View / Edit HTML">
-                                                <Eye className="h-4 w-4" />
-                                            </button>
+                                            <>
+                                                <button
+                                                    onClick={async () => {
+                                                        setHtmlResponsesResource(r);
+                                                        setHtmlResponsesLoading(true);
+                                                        setHtmlResponses([]);
+                                                        try {
+                                                            const res = await fetch(`/api/admin/html-submissions?resourceId=${r._id}`, { headers: getHeaders() });
+                                                            if (res.ok) setHtmlResponses(await res.json());
+                                                        } catch {}
+                                                        setHtmlResponsesLoading(false);
+                                                    }}
+                                                    className="text-gray-600 hover:text-indigo-400 transition-colors"
+                                                    title="View Responses"
+                                                >
+                                                    <BarChart className="h-4 w-4" />
+                                                </button>
+                                                <button onClick={() => handleHtmlEdit(r)} className="text-gray-600 hover:text-emerald-400 transition-colors" title="View / Edit HTML">
+                                                    <Eye className="h-4 w-4" />
+                                                </button>
+                                            </>
                                         ) : (
                                             <button onClick={() => handleEdit(r)} className="text-gray-600 hover:text-blue-400 transition-colors">
                                                 <Edit className="h-4 w-4" />
@@ -1791,6 +1815,183 @@ ${JSON.stringify(selectedData, null, 2)}`;
                     )}
                 </div>
             </div>
+
+            {/* HTML Responses Modal */}
+            {htmlResponsesResource && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+                    <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl">
+                        <div className="flex justify-between items-center px-6 py-4 border-b border-gray-700 shrink-0">
+                            <div>
+                                <h3 className="text-lg font-bold text-white">Responses</h3>
+                                <p className="text-sm text-gray-400 mt-0.5 truncate max-w-xs">{htmlResponsesResource.title}</p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                {!htmlResponsesLoading && (
+                                    <span className="text-sm font-bold text-indigo-400 bg-indigo-500/10 border border-indigo-500/30 px-3 py-1 rounded-full">
+                                        {htmlResponses.length} submitted
+                                    </span>
+                                )}
+                                <button
+                                    onClick={() => { setHtmlResponsesResource(null); setHtmlResponses([]); setShowSdkSnippet(false); }}
+                                    className="text-gray-400 hover:text-white transition-colors p-1 hover:bg-gray-800 rounded-md"
+                                >
+                                    <X className="h-5 w-5" />
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+                            {htmlResponsesLoading ? (
+                                <div className="flex justify-center py-10">
+                                    <Loader2 className="animate-spin h-6 w-6 text-indigo-400" />
+                                </div>
+                            ) : htmlResponses.length === 0 ? (
+                                <div className="text-center py-12 text-gray-500">
+                                    <FileText className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                                    <p className="font-medium">No submissions yet</p>
+                                    <p className="text-xs mt-1 text-gray-600">Students need to paste the SDK snippet in their HTML and click Submit</p>
+                                </div>
+                            ) : (
+                                <>
+                                    {/* Export CSV */}
+                                    <div className="flex justify-end">
+                                        <button
+                                            onClick={() => {
+                                                const header = 'Roll Number,Name,Department,Year,Email,Submitted At';
+                                                const rows = htmlResponses.map(s =>
+                                                    `"${s.studentRoll}","${s.studentName}","${s.studentDepartment}","${s.studentYear}","${s.studentEmail}","${new Date(s.submittedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}"`);
+                                                const csv = [header, ...rows].join('\n');
+                                                const blob = new Blob([csv], { type: 'text/csv' });
+                                                const a = document.createElement('a');
+                                                a.href = URL.createObjectURL(blob);
+                                                a.download = `${htmlResponsesResource.title}_responses.csv`;
+                                                a.click();
+                                            }}
+                                            className="text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors"
+                                        >
+                                            <Download className="h-3.5 w-3.5" /> Export CSV
+                                        </button>
+                                    </div>
+                                    {/* Table */}
+                                    <div className="overflow-x-auto rounded-xl border border-gray-700">
+                                        <table className="min-w-full text-xs text-gray-300">
+                                            <thead className="bg-gray-800 text-gray-400 uppercase tracking-wider">
+                                                <tr>
+                                                    <th className="px-4 py-3 text-left">#</th>
+                                                    <th className="px-4 py-3 text-left">Roll</th>
+                                                    <th className="px-4 py-3 text-left">Name</th>
+                                                    <th className="px-4 py-3 text-left">Dept / Year</th>
+                                                    <th className="px-4 py-3 text-left">Submitted At</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-800">
+                                                {htmlResponses.map((s, idx) => (
+                                                    <tr key={s._id} className="hover:bg-gray-800/50 transition-colors">
+                                                        <td className="px-4 py-3 text-gray-500">{idx + 1}</td>
+                                                        <td className="px-4 py-3 font-mono font-bold text-white">{s.studentRoll}</td>
+                                                        <td className="px-4 py-3 font-medium text-white">{s.studentName}</td>
+                                                        <td className="px-4 py-3 text-gray-400">{s.studentDepartment} {s.studentYear}</td>
+                                                        <td className="px-4 py-3 text-gray-400">
+                                                            {new Date(s.submittedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </>
+                            )}
+
+                            {/* SDK Snippet Panel */}
+                            <div className="border border-dashed border-gray-600 rounded-xl overflow-hidden">
+                                <button
+                                    onClick={() => setShowSdkSnippet(p => !p)}
+                                    className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-800/30 transition-colors"
+                                >
+                                    <span className="text-sm font-semibold text-gray-300 flex items-center gap-2">
+                                        <Code className="h-4 w-4 text-amber-400" />
+                                        SDK Snippet — paste this at the end of your HTML
+                                    </span>
+                                    <span className="text-gray-500 text-xs">{showSdkSnippet ? '▲ Hide' : '▼ Show'}</span>
+                                </button>
+                                {showSdkSnippet && (
+                                    <div className="px-4 pb-4">
+                                        <p className="text-xs text-gray-500 mb-2">Add this snippet just before <code className="text-amber-400">&lt;/body&gt;</code> in your HTML. Any form submit or button with <code className="text-amber-400">type="submit"</code> / <code className="text-amber-400">data-submit</code> will be detected automatically.</p>
+                                        <div className="relative">
+                                            <pre className="bg-gray-950 text-emerald-300 text-[11px] rounded-lg p-4 overflow-x-auto font-mono leading-relaxed">{`<script>
+(function() {
+  var submitted = false;
+  function portalSubmit() {
+    if (submitted) return;
+    var p = window.__PORTAL__;
+    if (!p || !p.studentId || !p.resourceId) return;
+    submitted = true;
+    fetch(p.apiBase + '/api/student/html-submissions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        studentId: p.studentId, studentName: p.studentName,
+        studentRoll: p.studentRoll, studentEmail: p.studentEmail,
+        studentDepartment: p.studentDepartment, studentYear: p.studentYear,
+        resourceId: p.resourceId
+      })
+    }).then(function(r) {
+      if (r.ok && window.opener)
+        window.opener.postMessage({ type: 'HIT_PORTAL_HTML_SUBMITTED', resourceId: p.resourceId }, p.apiBase);
+    }).catch(function() { submitted = false; });
+  }
+  document.addEventListener('submit', portalSubmit, true);
+  document.addEventListener('click', function(e) {
+    var el = e.target && e.target.closest ? e.target.closest('[type="submit"],[data-submit],[data-portal-submit]') : null;
+    if (el) portalSubmit();
+  }, true);
+})();
+<\/script>`}</pre>
+                                            <button
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText(`<script>
+(function() {
+  var submitted = false;
+  function portalSubmit() {
+    if (submitted) return;
+    var p = window.__PORTAL__;
+    if (!p || !p.studentId || !p.resourceId) return;
+    submitted = true;
+    fetch(p.apiBase + '/api/student/html-submissions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        studentId: p.studentId, studentName: p.studentName,
+        studentRoll: p.studentRoll, studentEmail: p.studentEmail,
+        studentDepartment: p.studentDepartment, studentYear: p.studentYear,
+        resourceId: p.resourceId
+      })
+    }).then(function(r) {
+      if (r.ok && window.opener)
+        window.opener.postMessage({ type: 'HIT_PORTAL_HTML_SUBMITTED', resourceId: p.resourceId }, p.apiBase);
+    }).catch(function() { submitted = false; });
+  }
+  document.addEventListener('submit', portalSubmit, true);
+  document.addEventListener('click', function(e) {
+    var el = e.target && e.target.closest ? e.target.closest('[type="submit"],[data-submit],[data-portal-submit]') : null;
+    if (el) portalSubmit();
+  }, true);
+})();
+<\/script>`);
+                                                    toast.success('Snippet copied!');
+                                                }}
+                                                className="absolute top-2 right-2 bg-gray-700 hover:bg-gray-600 text-white text-xs px-2 py-1 rounded transition-colors flex items-center gap-1"
+                                            >
+                                                <Copy className="h-3 w-3" /> Copy
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         );
     }
 }

@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
@@ -38,6 +38,7 @@ export default function StudentResources() {
     const [loading, setLoading] = useState(true);
     const [activeCourse, setActiveCourse] = useState<string | null>(null);
     const [activeView, setActiveView] = useState<'dashboard' | 'materials' | 'videos' | 'practice' | 'mock'>('dashboard');
+    const [submittedHtmlIds, setSubmittedHtmlIds] = useState<Set<string>>(new Set());
     const router = useRouter();
 
     useEffect(() => {
@@ -52,6 +53,7 @@ export default function StudentResources() {
             return;
         }
         fetchResources(parsedStudent.department, parsedStudent.year, parsedStudent.course_code);
+        if (parsedStudent._id) fetchHtmlSubmissions(parsedStudent._id);
     }, [router]);
 
     const fetchResources = async (dept: string, year: string, courseCode?: string | string[]) => {
@@ -67,6 +69,26 @@ export default function StudentResources() {
             else toast.error('Failed to fetch resources');
         } catch { toast.error('Something went wrong'); }
         finally { setLoading(false); }
+    };
+
+    const fetchHtmlSubmissions = async (studentId: string) => {
+        try {
+            const res = await fetch(`/api/student/html-submissions?studentId=${studentId}&resourceId=all`);
+            // We'll check individually per resource as they load — this is handled per-card
+        } catch { /* silent */ }
+    };
+
+    const checkAndMarkSubmitted = async (resourceId: string) => {
+        if (!student?._id) return;
+        try {
+            const res = await fetch(`/api/student/html-submissions?studentId=${student._id}&resourceId=${resourceId}`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.submitted) {
+                    setSubmittedHtmlIds(prev => new Set([...prev, resourceId]));
+                }
+            }
+        } catch { /* silent */ }
     };
 
     const courses = useMemo(() => {
@@ -89,11 +111,100 @@ export default function StudentResources() {
         });
     };
 
-    const openHtmlResource = (htmlContent: string) => {
-        const blob = new Blob([htmlContent], { type: 'text/html' });
+    const openHtmlResource = (resource: any) => {
+        if (!resource.htmlContent) return;
+
+        // Build the portal SDK script to inject — gives the HTML tab
+        // everything it needs to record the submission directly, even
+        // if this portal tab is later closed.
+        const apiBase = window.location.origin;
+        const portalContext = {
+            studentId:         student?._id || '',
+            studentName:       student?.name || '',
+            studentRoll:       student?.roll || '',
+            studentEmail:      student?.email || '',
+            studentDepartment: student?.department || '',
+            studentYear:       student?.year || '',
+            resourceId:        resource._id || '',
+            apiBase
+        };
+
+        const sdkScript = `
+<script>
+(function() {
+  window.__PORTAL__ = ${JSON.stringify(portalContext)};
+
+  var submitted = false;
+
+  function portalSubmit() {
+    if (submitted) return;
+    var p = window.__PORTAL__;
+    if (!p || !p.studentId || !p.resourceId) return;
+    submitted = true;
+
+    fetch(p.apiBase + '/api/student/html-submissions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        studentId:         p.studentId,
+        studentName:       p.studentName,
+        studentRoll:       p.studentRoll,
+        studentEmail:      p.studentEmail,
+        studentDepartment: p.studentDepartment,
+        studentYear:       p.studentYear,
+        resourceId:        p.resourceId
+      })
+    })
+    .then(function(r) {
+      if (r.status === 409) {
+        // Already submitted — that's fine
+        return;
+      }
+      if (r.ok) {
+        // Notify portal tab if still open
+        if (window.opener) {
+          window.opener.postMessage({ type: 'HIT_PORTAL_HTML_SUBMITTED', resourceId: p.resourceId }, p.apiBase);
+        }
+      }
+    })
+    .catch(function() {
+      submitted = false; // Allow retry on network error
+    });
+  }
+
+  document.addEventListener('submit', function(e) { portalSubmit(); }, true);
+  document.addEventListener('click', function(e) {
+    var el = e.target && (e.target.closest ? e.target.closest('[type="submit"],[data-submit],[data-portal-submit]') : null);
+    if (el) portalSubmit();
+  }, true);
+})();
+<\/script>`;
+
+        // Inject SDK just before </body> (or at end if no </body>)
+        let html = resource.htmlContent;
+        if (html.includes('</body>')) {
+            html = html.replace('</body>', sdkScript + '</body>');
+        } else {
+            html = html + sdkScript;
+        }
+
+        const blob = new Blob([html], { type: 'text/html' });
         const url = URL.createObjectURL(blob);
-        window.open(url, '_blank');
-        setTimeout(() => URL.revokeObjectURL(url), 10000);
+        const newTab = window.open(url, '_blank');
+        setTimeout(() => URL.revokeObjectURL(url), 15000);
+
+        // Listen for the submission signal if portal tab stays open
+        const messageHandler = (event: MessageEvent) => {
+            if (event.origin !== apiBase) return;
+            if (event.data?.type === 'HIT_PORTAL_HTML_SUBMITTED' && event.data?.resourceId === resource._id) {
+                setSubmittedHtmlIds(prev => new Set([...prev, resource._id]));
+                window.removeEventListener('message', messageHandler);
+            }
+        };
+        window.addEventListener('message', messageHandler);
+
+        // Also poll once after a delay to catch the case where user submitted then returned
+        setTimeout(() => checkAndMarkSubmitted(resource._id), 5000);
     };
 
     const materialsCount = getResourcesByType('materials').length;
@@ -200,25 +311,58 @@ export default function StudentResources() {
 
                                             if (resource.type === 'html_content') {
                                                 const isExpired = resource.htmlDeadline && new Date(resource.htmlDeadline) < new Date();
+                                                const isSubmitted = submittedHtmlIds.has(resource._id);
+
+                                                // Lazy-check submission status the first time this card is visible
+                                                if (!isSubmitted && student?._id) {
+                                                    checkAndMarkSubmitted(resource._id);
+                                                }
+
                                                 return (
                                                     <div key={resource._id}
-                                                        className={`p-3 sm:p-4 rounded-xl border transition-all ${isExpired ? 'bg-red-950/20 border-red-500/20' : 'bg-white/5 border-white/10'}`}>
+                                                        className={`p-3 sm:p-4 rounded-xl border transition-all ${
+                                                            isSubmitted ? 'bg-emerald-950/20 border-emerald-500/30' :
+                                                            isExpired   ? 'bg-red-950/20 border-red-500/20' :
+                                                                          'bg-white/5 border-white/10'
+                                                        }`}>
                                                         <div className="flex items-center gap-3">
-                                                            <div className={`p-2 rounded-lg shrink-0 ${isExpired ? 'bg-red-500/20' : 'bg-emerald-500/20'}`}>
-                                                                <Code className={`h-4 w-4 ${isExpired ? 'text-red-400' : 'text-emerald-400'}`} />
+                                                            <div className={`p-2 rounded-lg shrink-0 ${
+                                                                isSubmitted ? 'bg-emerald-500/20' :
+                                                                isExpired   ? 'bg-red-500/20' :
+                                                                              'bg-emerald-500/20'
+                                                            }`}>
+                                                                <Code className={`h-4 w-4 ${
+                                                                    isSubmitted ? 'text-emerald-400' :
+                                                                    isExpired   ? 'text-red-400' :
+                                                                                  'text-emerald-400'
+                                                                }`} />
                                                             </div>
                                                             <div className="flex-1 min-w-0">
                                                                 <h3 className="text-sm font-bold text-white truncate">{resource.title}</h3>
                                                                 {resource.facultyName && <p className="text-[10px] text-gray-500 flex items-center gap-1"><User className="h-3 w-3" /> {resource.facultyName}</p>}
                                                                 {resource.htmlDeadline && <HtmlCountdown deadline={resource.htmlDeadline} />}
                                                             </div>
-                                                            {isExpired ? (
+                                                            {isSubmitted ? (
+                                                                <div className="flex flex-col items-end gap-1 shrink-0">
+                                                                    <div className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold">
+                                                                        <span>✓ Submitted</span>
+                                                                    </div>
+                                                                    {/* Allow re-opening in read mode even after submission */}
+                                                                    {resource.htmlContent && (
+                                                                        <button onClick={() => openHtmlResource(resource)}
+                                                                            className="text-[10px] text-gray-500 hover:text-gray-300 underline"
+                                                                            title="View again (submission already recorded)">
+                                                                            View again
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            ) : isExpired ? (
                                                                 <div className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 text-[10px] font-bold shrink-0">
                                                                     <AlertTriangle className="h-3 w-3" />
                                                                     <span>Expired</span>
                                                                 </div>
                                                             ) : resource.htmlContent ? (
-                                                                <button onClick={() => openHtmlResource(resource.htmlContent)}
+                                                                <button onClick={() => openHtmlResource(resource)}
                                                                     className="px-3 py-1.5 rounded-lg shrink-0 bg-emerald-500 hover:bg-emerald-400 transition-colors text-white text-xs font-bold flex items-center gap-1.5"
                                                                     title="Open HTML page in browser">
                                                                     <Code className="h-3.5 w-3.5" /> Open
