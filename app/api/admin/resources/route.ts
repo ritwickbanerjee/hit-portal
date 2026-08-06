@@ -1,6 +1,7 @@
-﻿import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import Resource from '@/models/Resource';
+import HtmlSubmission from '@/models/HtmlSubmission';
 
 export const runtime = 'nodejs';
 
@@ -102,15 +103,17 @@ export async function DELETE(req: Request) {
         const email = req.headers.get('X-User-Email');
         const adminKey = req.headers.get('X-Global-Admin-Key');
 
+        if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
+
         if (!email && adminKey !== GLOBAL_ADMIN_KEY) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
         let resource;
         if (adminKey === GLOBAL_ADMIN_KEY) {
-            resource = await Resource.findById(id);
+            resource = await Resource.findById(id).lean() as any;
         } else {
-            resource = await Resource.findOne({ _id: id, uploadedBy: email });
+            resource = await Resource.findOne({ _id: id, uploadedBy: email }).lean() as any;
         }
 
         if (!resource) {
@@ -118,6 +121,12 @@ export async function DELETE(req: Request) {
         }
 
         await Resource.findByIdAndDelete(id);
+
+        // Cascade: wipe all student submission records for HTML resources
+        if (resource.type === 'html_content') {
+            await HtmlSubmission.deleteMany({ resourceId: id });
+        }
+
         return NextResponse.json({ message: 'Deleted' });
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });

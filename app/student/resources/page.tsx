@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, BookOpen, ExternalLink, Loader2, FileText, Video, Brain, Zap, Play, User, ChevronRight, Folder, Code, Clock, AlertTriangle } from 'lucide-react';
@@ -39,6 +39,7 @@ export default function StudentResources() {
     const [activeCourse, setActiveCourse] = useState<string | null>(null);
     const [activeView, setActiveView] = useState<'dashboard' | 'materials' | 'videos' | 'practice' | 'mock'>('dashboard');
     const [submittedHtmlIds, setSubmittedHtmlIds] = useState<Set<string>>(new Set());
+    const checkedHtmlIds = React.useRef<Set<string>>(new Set());
     const router = useRouter();
 
     useEffect(() => {
@@ -53,7 +54,6 @@ export default function StudentResources() {
             return;
         }
         fetchResources(parsedStudent.department, parsedStudent.year, parsedStudent.course_code);
-        if (parsedStudent._id) fetchHtmlSubmissions(parsedStudent._id);
     }, [router]);
 
     const fetchResources = async (dept: string, year: string, courseCode?: string | string[]) => {
@@ -71,12 +71,24 @@ export default function StudentResources() {
         finally { setLoading(false); }
     };
 
-    const fetchHtmlSubmissions = async (studentId: string) => {
-        try {
-            const res = await fetch(`/api/student/html-submissions?studentId=${studentId}&resourceId=all`);
-            // We'll check individually per resource as they load — this is handled per-card
-        } catch { /* silent */ }
-    };
+    // When resources load, check submission status for all HTML resources
+    useEffect(() => {
+        if (!student?._id || resources.length === 0) return;
+        const htmlResources = resources.filter((r: any) => r.type === 'html_content');
+        htmlResources.forEach(async (r: any) => {
+            if (checkedHtmlIds.current.has(r._id)) return;
+            checkedHtmlIds.current.add(r._id);
+            try {
+                const res = await fetch(`/api/student/html-submissions?studentId=${student._id}&resourceId=${r._id}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.submitted) {
+                        setSubmittedHtmlIds(prev => new Set([...prev, r._id]));
+                    }
+                }
+            } catch { /* silent */ }
+        });
+    }, [student, resources]);
 
     const checkAndMarkSubmitted = async (resourceId: string) => {
         if (!student?._id) return;
@@ -118,6 +130,7 @@ export default function StudentResources() {
         // everything it needs to record the submission directly, even
         // if this portal tab is later closed.
         const apiBase = window.location.origin;
+        const isAlreadySubmitted = submittedHtmlIds.has(resource._id);
         const portalContext = {
             studentId:         student?._id || '',
             studentName:       student?.name || '',
@@ -126,6 +139,7 @@ export default function StudentResources() {
             studentDepartment: student?.department || '',
             studentYear:       student?.year || '',
             resourceId:        resource._id || '',
+            alreadySubmitted:  isAlreadySubmitted,
             apiBase
         };
 
@@ -133,6 +147,16 @@ export default function StudentResources() {
 <script>
 (function() {
   window.__PORTAL__ = ${JSON.stringify(portalContext)};
+
+  // If already submitted, block all submit actions in the HTML
+  if (window.__PORTAL__.alreadySubmitted) {
+    document.addEventListener('submit', function(e) { e.preventDefault(); alert('You have already submitted this assignment.'); }, true);
+    document.addEventListener('click', function(e) {
+      var el = e.target && (e.target.closest ? e.target.closest('[type="submit"],[data-submit],[data-portal-submit]') : null);
+      if (el) { e.preventDefault(); alert('You have already submitted this assignment.'); }
+    }, true);
+    return;
+  }
 
   var submitted = false;
 
@@ -157,18 +181,17 @@ export default function StudentResources() {
     })
     .then(function(r) {
       if (r.status === 409) {
-        // Already submitted — that's fine
+        alert('You have already submitted this assignment.');
         return;
       }
       if (r.ok) {
-        // Notify portal tab if still open
         if (window.opener) {
           window.opener.postMessage({ type: 'HIT_PORTAL_HTML_SUBMITTED', resourceId: p.resourceId }, p.apiBase);
         }
       }
     })
     .catch(function() {
-      submitted = false; // Allow retry on network error
+      submitted = false;
     });
   }
 
@@ -313,10 +336,7 @@ export default function StudentResources() {
                                                 const isExpired = resource.htmlDeadline && new Date(resource.htmlDeadline) < new Date();
                                                 const isSubmitted = submittedHtmlIds.has(resource._id);
 
-                                                // Lazy-check submission status the first time this card is visible
-                                                if (!isSubmitted && student?._id) {
-                                                    checkAndMarkSubmitted(resource._id);
-                                                }
+
 
                                                 return (
                                                     <div key={resource._id}
@@ -357,9 +377,12 @@ export default function StudentResources() {
                                                                     )}
                                                                 </div>
                                                             ) : isExpired ? (
-                                                                <div className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 text-[10px] font-bold shrink-0">
-                                                                    <AlertTriangle className="h-3 w-3" />
-                                                                    <span>Expired</span>
+                                                                <div className="flex flex-col items-end gap-1 shrink-0">
+                                                                    <div className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 text-[10px] font-bold">
+                                                                        <AlertTriangle className="h-3 w-3" />
+                                                                        <span>Missed</span>
+                                                                    </div>
+                                                                    <span className="text-[9px] text-red-600 font-medium">Deadline over</span>
                                                                 </div>
                                                             ) : resource.htmlContent ? (
                                                                 <button onClick={() => openHtmlResource(resource)}

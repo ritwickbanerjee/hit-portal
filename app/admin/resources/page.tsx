@@ -1735,7 +1735,12 @@ ${JSON.stringify(selectedData, null, 2)}`;
     );
 
     function renderDeployedResources() {
+        const resDepts = htmlResponsesResource?.targetDepartments || [];
+        const resYear = htmlResponsesResource?.targetYear || '';
+        const resCourse = htmlResponsesResource?.targetCourse || '';
+        const batchOptions = resDepts.map((d: string) => ({ dept: d, year: resYear, course: resCourse, label: `${d} · ${resYear} · ${resCourse}` }));
         return (
+            <>
             <div className="bg-slate-900/50 backdrop-blur-sm rounded-xl border border-white/10 overflow-hidden sticky top-6">
                 <div className="p-4 border-b border-white/10 bg-white/5">
                     <h2 className="text-lg font-bold text-white">Deployed Resources</h2>
@@ -1818,107 +1823,60 @@ ${JSON.stringify(selectedData, null, 2)}`;
 
             {/* HTML Responses Modal */}
             {htmlResponsesResource && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-                    <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl">
-                        <div className="flex justify-between items-center px-6 py-4 border-b border-gray-700 shrink-0">
-                            <div>
-                                <h3 className="text-lg font-bold text-white">Responses</h3>
-                                <p className="text-sm text-gray-400 mt-0.5 truncate max-w-xs">{htmlResponsesResource.title}</p>
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-3">
+                    <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-3xl max-h-[92vh] flex flex-col shadow-2xl">
+
+                        {/* Header */}
+                        <div className="flex justify-between items-start px-6 py-4 border-b border-gray-700 shrink-0">
+                            <div className="min-w-0">
+                                <h3 className="text-lg font-bold text-white">Submission Tracker</h3>
+                                <p className="text-sm text-gray-400 mt-0.5 truncate">{htmlResponsesResource.title}</p>
                             </div>
-                            <div className="flex items-center gap-3">
-                                {!htmlResponsesLoading && (
-                                    <span className="text-sm font-bold text-indigo-400 bg-indigo-500/10 border border-indigo-500/30 px-3 py-1 rounded-full">
-                                        {htmlResponses.length} submitted
-                                    </span>
-                                )}
-                                <button
-                                    onClick={() => { setHtmlResponsesResource(null); setHtmlResponses([]); setShowSdkSnippet(false); }}
-                                    className="text-gray-400 hover:text-white transition-colors p-1 hover:bg-gray-800 rounded-md"
-                                >
-                                    <X className="h-5 w-5" />
-                                </button>
-                            </div>
+                            <button
+                                onClick={() => { setHtmlResponsesResource(null); setHtmlResponses([]); setShowSdkSnippet(false); }}
+                                className="ml-3 shrink-0 text-gray-400 hover:text-white p-1 hover:bg-gray-800 rounded-md transition-colors"
+                            >
+                                <X className="h-5 w-5" />
+                            </button>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-                            {htmlResponsesLoading ? (
-                                <div className="flex justify-center py-10">
-                                    <Loader2 className="animate-spin h-6 w-6 text-indigo-400" />
-                                </div>
-                            ) : htmlResponses.length === 0 ? (
-                                <div className="text-center py-12 text-gray-500">
-                                    <FileText className="h-10 w-10 mx-auto mb-3 opacity-30" />
-                                    <p className="font-medium">No submissions yet</p>
-                                    <p className="text-xs mt-1 text-gray-600">Students need to paste the SDK snippet in their HTML and click Submit</p>
-                                </div>
-                            ) : (
-                                <>
-                                    {/* Export CSV */}
-                                    <div className="flex justify-end">
-                                        <button
-                                            onClick={() => {
-                                                const header = 'Roll Number,Name,Department,Year,Email,Submitted At';
-                                                const rows = htmlResponses.map(s =>
-                                                    `"${s.studentRoll}","${s.studentName}","${s.studentDepartment}","${s.studentYear}","${s.studentEmail}","${new Date(s.submittedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}"`);
-                                                const csv = [header, ...rows].join('\n');
-                                                const blob = new Blob([csv], { type: 'text/csv' });
-                                                const a = document.createElement('a');
-                                                a.href = URL.createObjectURL(blob);
-                                                a.download = `${htmlResponsesResource.title}_responses.csv`;
-                                                a.click();
-                                            }}
-                                            className="text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors"
-                                        >
-                                            <Download className="h-3.5 w-3.5" /> Export CSV
-                                        </button>
-                                    </div>
-                                    {/* Table */}
-                                    <div className="overflow-x-auto rounded-xl border border-gray-700">
-                                        <table className="min-w-full text-xs text-gray-300">
-                                            <thead className="bg-gray-800 text-gray-400 uppercase tracking-wider">
-                                                <tr>
-                                                    <th className="px-4 py-3 text-left">#</th>
-                                                    <th className="px-4 py-3 text-left">Roll</th>
-                                                    <th className="px-4 py-3 text-left">Name</th>
-                                                    <th className="px-4 py-3 text-left">Dept / Year</th>
-                                                    <th className="px-4 py-3 text-left">Submitted At</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-gray-800">
-                                                {htmlResponses.map((s, idx) => (
-                                                    <tr key={s._id} className="hover:bg-gray-800/50 transition-colors">
-                                                        <td className="px-4 py-3 text-gray-500">{idx + 1}</td>
-                                                        <td className="px-4 py-3 font-mono font-bold text-white">{s.studentRoll}</td>
-                                                        <td className="px-4 py-3 font-medium text-white">{s.studentName}</td>
-                                                        <td className="px-4 py-3 text-gray-400">{s.studentDepartment} {s.studentYear}</td>
-                                                        <td className="px-4 py-3 text-gray-400">
-                                                            {new Date(s.submittedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </>
-                            )}
+                        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
 
-                            {/* SDK Snippet Panel */}
-                            <div className="border border-dashed border-gray-600 rounded-xl overflow-hidden">
-                                <button
-                                    onClick={() => setShowSdkSnippet(p => !p)}
-                                    className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-800/30 transition-colors"
-                                >
-                                    <span className="text-sm font-semibold text-gray-300 flex items-center gap-2">
+                            {/* ── SDK Notice (always visible, highlighted) ── */}
+                            <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4">
+                                <div className="flex items-start gap-3">
+                                    <div className="shrink-0 p-2 bg-amber-500/20 rounded-lg mt-0.5">
                                         <Code className="h-4 w-4 text-amber-400" />
-                                        SDK Snippet — paste this at the end of your HTML
-                                    </span>
-                                    <span className="text-gray-500 text-xs">{showSdkSnippet ? '▲ Hide' : '▼ Show'}</span>
-                                </button>
-                                {showSdkSnippet && (
-                                    <div className="px-4 pb-4">
-                                        <p className="text-xs text-gray-500 mb-2">Add this snippet just before <code className="text-amber-400">&lt;/body&gt;</code> in your HTML. Any form submit or button with <code className="text-amber-400">type="submit"</code> / <code className="text-amber-400">data-submit</code> will be detected automatically.</p>
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-bold text-amber-300 mb-1">⚠ Required: Paste this SDK snippet in your HTML</p>
+                                        <p className="text-xs text-amber-200/70 mb-3">
+                                            For submission tracking to work, add the snippet below just before <code className="bg-amber-950/50 px-1 py-0.5 rounded text-amber-300">&lt;/body&gt;</code> in your HTML file. Any <code className="bg-amber-950/50 px-1 py-0.5 rounded text-amber-300">type=&quot;submit&quot;</code> button or form submission will be automatically detected.
+                                        </p>
+
+                                        {/* Visual demo of where to paste */}
+                                        <div className="bg-gray-950 rounded-lg p-3 font-mono text-[10px] leading-5 mb-3 border border-gray-700">
+                                            <div className="text-gray-600">  &lt;button type=&quot;submit&quot;&gt;Submit&lt;/button&gt;</div>
+                                            <div className="text-gray-600">&lt;/form&gt;</div>
+                                            <div className="text-gray-600">&lt;/div&gt;</div>
+                                            <div className="text-emerald-400 font-bold bg-emerald-950/30 px-1 rounded border-l-2 border-emerald-400 ml-0">
+                                                &lt;script&gt; &lt;!-- ✦ Paste SDK here --&gt; &lt;/script&gt;  ← HERE
+                                            </div>
+                                            <div className="text-gray-600">&lt;/body&gt;</div>
+                                            <div className="text-gray-600">&lt;/html&gt;</div>
+                                        </div>
+
+                                        {/* Snippet + copy */}
                                         <div className="relative">
-                                            <pre className="bg-gray-950 text-emerald-300 text-[11px] rounded-lg p-4 overflow-x-auto font-mono leading-relaxed">{`<script>
+                                            <button
+                                                onClick={() => setShowSdkSnippet(p => !p)}
+                                                className="text-xs text-amber-400 hover:text-amber-300 underline mb-2 block"
+                                            >
+                                                {showSdkSnippet ? '▲ Hide snippet' : '▼ Show full snippet to copy'}
+                                            </button>
+                                            {showSdkSnippet && (
+                                                <div className="relative">
+                                                    <pre className="bg-gray-950 text-emerald-300 text-[10px] rounded-lg p-3 overflow-x-auto font-mono leading-relaxed border border-gray-700">{`<script>
 (function() {
   var submitted = false;
   function portalSubmit() {
@@ -1932,66 +1890,179 @@ ${JSON.stringify(selectedData, null, 2)}`;
       body: JSON.stringify({
         studentId: p.studentId, studentName: p.studentName,
         studentRoll: p.studentRoll, studentEmail: p.studentEmail,
-        studentDepartment: p.studentDepartment, studentYear: p.studentYear,
-        resourceId: p.resourceId
+        studentDepartment: p.studentDepartment,
+        studentYear: p.studentYear, resourceId: p.resourceId
       })
     }).then(function(r) {
       if (r.ok && window.opener)
-        window.opener.postMessage({ type: 'HIT_PORTAL_HTML_SUBMITTED', resourceId: p.resourceId }, p.apiBase);
+        window.opener.postMessage(
+          { type: 'HIT_PORTAL_HTML_SUBMITTED', resourceId: p.resourceId }, p.apiBase);
     }).catch(function() { submitted = false; });
   }
   document.addEventListener('submit', portalSubmit, true);
   document.addEventListener('click', function(e) {
-    var el = e.target && e.target.closest ? e.target.closest('[type="submit"],[data-submit],[data-portal-submit]') : null;
+    var el = e.target && e.target.closest
+      ? e.target.closest('[type="submit"],[data-submit],[data-portal-submit]')
+      : null;
     if (el) portalSubmit();
   }, true);
 })();
 <\/script>`}</pre>
-                                            <button
-                                                onClick={() => {
-                                                    navigator.clipboard.writeText(`<script>
-(function() {
-  var submitted = false;
-  function portalSubmit() {
-    if (submitted) return;
-    var p = window.__PORTAL__;
-    if (!p || !p.studentId || !p.resourceId) return;
-    submitted = true;
-    fetch(p.apiBase + '/api/student/html-submissions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        studentId: p.studentId, studentName: p.studentName,
-        studentRoll: p.studentRoll, studentEmail: p.studentEmail,
-        studentDepartment: p.studentDepartment, studentYear: p.studentYear,
-        resourceId: p.resourceId
-      })
-    }).then(function(r) {
-      if (r.ok && window.opener)
-        window.opener.postMessage({ type: 'HIT_PORTAL_HTML_SUBMITTED', resourceId: p.resourceId }, p.apiBase);
-    }).catch(function() { submitted = false; });
-  }
-  document.addEventListener('submit', portalSubmit, true);
-  document.addEventListener('click', function(e) {
-    var el = e.target && e.target.closest ? e.target.closest('[type="submit"],[data-submit],[data-portal-submit]') : null;
-    if (el) portalSubmit();
-  }, true);
-})();
-<\/script>`);
-                                                    toast.success('Snippet copied!');
-                                                }}
-                                                className="absolute top-2 right-2 bg-gray-700 hover:bg-gray-600 text-white text-xs px-2 py-1 rounded transition-colors flex items-center gap-1"
-                                            >
-                                                <Copy className="h-3 w-3" /> Copy
-                                            </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            navigator.clipboard.writeText(`<script>\n(function() {\n  var submitted = false;\n  function portalSubmit() {\n    if (submitted) return;\n    var p = window.__PORTAL__;\n    if (!p || !p.studentId || !p.resourceId) return;\n    submitted = true;\n    fetch(p.apiBase + '/api/student/html-submissions', {\n      method: 'POST',\n      headers: { 'Content-Type': 'application/json' },\n      body: JSON.stringify({\n        studentId: p.studentId, studentName: p.studentName,\n        studentRoll: p.studentRoll, studentEmail: p.studentEmail,\n        studentDepartment: p.studentDepartment,\n        studentYear: p.studentYear, resourceId: p.resourceId\n      })\n    }).then(function(r) {\n      if (r.ok && window.opener)\n        window.opener.postMessage(\n          { type: 'HIT_PORTAL_HTML_SUBMITTED', resourceId: p.resourceId }, p.apiBase);\n    }).catch(function() { submitted = false; });\n  }\n  document.addEventListener('submit', portalSubmit, true);\n  document.addEventListener('click', function(e) {\n    var el = e.target && e.target.closest\n      ? e.target.closest('[type="submit"],[data-submit],[data-portal-submit]')\n      : null;\n    if (el) portalSubmit();\n  }, true);\n})();\n<\/script>`);
+                                                            toast.success('Snippet copied!');
+                                                        }}
+                                                        className="absolute top-2 right-2 bg-gray-700 hover:bg-gray-600 text-white text-xs px-2 py-1 rounded flex items-center gap-1 transition-colors"
+                                                    >
+                                                        <Copy className="h-3 w-3" /> Copy
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
-                                )}
+                                </div>
                             </div>
+
+                            {/* ── Batch Selector ── */}
+                            {batchOptions.length > 0 && (
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-400 mb-2">Select Batch to View Full Roster</label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {batchOptions.map((opt: any, i: number) => (
+                                            <button
+                                                key={i}
+                                                onClick={async () => {
+                                                    setHtmlResponsesLoading(true);
+                                                    setHtmlResponses([]);
+                                                    try {
+                                                        const url = `/api/admin/html-submissions?resourceId=${htmlResponsesResource._id}&dept=${encodeURIComponent(opt.dept)}&year=${encodeURIComponent(opt.year)}&course=${encodeURIComponent(opt.course)}`;
+                                                        const res = await fetch(url, { headers: getHeaders() });
+                                                        if (res.ok) {
+                                                            const data = await res.json();
+                                                            // Store roster in htmlResponses with a flag
+                                                            setHtmlResponses(data.roster || []);
+                                                        }
+                                                    } catch {}
+                                                    setHtmlResponsesLoading(false);
+                                                }}
+                                                className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-colors flex items-center gap-1.5"
+                                            >
+                                                <BarChart className="h-3 w-3" />
+                                                {opt.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* ── Roster / Results ── */}
+                            {htmlResponsesLoading ? (
+                                <div className="flex justify-center py-8">
+                                    <Loader2 className="animate-spin h-6 w-6 text-indigo-400" />
+                                </div>
+                            ) : htmlResponses.length === 0 ? (
+                                <div className="text-center py-8 text-gray-600 border border-dashed border-gray-700 rounded-xl">
+                                    <FileText className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                                    <p className="text-sm">Select a batch above to view the student roster</p>
+                                </div>
+                            ) : (() => {
+                                const submitted   = htmlResponses.filter((s: any) => s.submitted);
+                                const notSubmitted = htmlResponses.filter((s: any) => !s.submitted);
+                                return (
+                                    <>
+                                        {/* Stats bar */}
+                                        <div className="flex items-center gap-4 p-3 rounded-xl bg-gray-800/60 border border-gray-700">
+                                            <div className="text-center">
+                                                <div className="text-xl font-black text-emerald-400">{submitted.length}</div>
+                                                <div className="text-[10px] text-gray-500">Submitted</div>
+                                            </div>
+                                            <div className="text-center">
+                                                <div className="text-xl font-black text-red-400">{notSubmitted.length}</div>
+                                                <div className="text-[10px] text-gray-500">Pending</div>
+                                            </div>
+                                            <div className="text-center">
+                                                <div className="text-xl font-black text-white">{htmlResponses.length}</div>
+                                                <div className="text-[10px] text-gray-500">Total</div>
+                                            </div>
+                                            <div className="flex-1 ml-2">
+                                                <div className="h-2 rounded-full bg-gray-700 overflow-hidden">
+                                                    <div
+                                                        className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all"
+                                                        style={{ width: `${htmlResponses.length > 0 ? (submitted.length / htmlResponses.length) * 100 : 0}%` }}
+                                                    />
+                                                </div>
+                                                <div className="text-[10px] text-gray-500 mt-1 text-right">
+                                                    {htmlResponses.length > 0 ? Math.round((submitted.length / htmlResponses.length) * 100) : 0}% submitted
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={() => {
+                                                    const header = 'Roll,Name,Department,Year,Status,Submitted At';
+                                                    const rows = htmlResponses.map((s: any) =>
+                                                        `"${s.studentRoll}","${s.studentName}","${s.studentDepartment}","${s.studentYear}","${s.submitted ? 'Submitted' : 'Not Submitted'}","${s.submittedAt ? new Date(s.submittedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : '-'}"`
+                                                    );
+                                                    const csv = [header, ...rows].join('\n');
+                                                    const blob = new Blob([csv], { type: 'text/csv' });
+                                                    const a = document.createElement('a');
+                                                    a.href = URL.createObjectURL(blob);
+                                                    a.download = `${htmlResponsesResource.title}_roster.csv`;
+                                                    a.click();
+                                                }}
+                                                className="text-xs bg-emerald-700 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors shrink-0"
+                                            >
+                                                <Download className="h-3.5 w-3.5" /> CSV
+                                            </button>
+                                        </div>
+
+                                        {/* Full table */}
+                                        <div className="overflow-x-auto rounded-xl border border-gray-700">
+                                            <table className="min-w-full text-xs text-gray-300">
+                                                <thead className="bg-gray-800 text-gray-400 uppercase tracking-wider text-[10px]">
+                                                    <tr>
+                                                        <th className="px-4 py-3 text-left">#</th>
+                                                        <th className="px-4 py-3 text-left">Roll</th>
+                                                        <th className="px-4 py-3 text-left">Name</th>
+                                                        <th className="px-4 py-3 text-left">Status</th>
+                                                        <th className="px-4 py-3 text-left">Submitted At</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-gray-800">
+                                                    {htmlResponses.map((s: any, idx: number) => (
+                                                        <tr key={String(s.studentId)} className={`transition-colors ${s.submitted ? 'hover:bg-emerald-950/20' : 'hover:bg-red-950/10'}`}>
+                                                            <td className="px-4 py-2.5 text-gray-600">{idx + 1}</td>
+                                                            <td className="px-4 py-2.5 font-mono font-bold text-white">{s.studentRoll}</td>
+                                                            <td className="px-4 py-2.5 font-medium text-white">{s.studentName}</td>
+                                                            <td className="px-4 py-2.5">
+                                                                {s.submitted ? (
+                                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold">
+                                                                        ✓ Submitted
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] font-bold">
+                                                                        ✗ Not submitted
+                                                                    </span>
+                                                                )}
+                                                            </td>
+                                                            <td className="px-4 py-2.5 text-gray-500">
+                                                                {s.submittedAt
+                                                                    ? new Date(s.submittedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+                                                                    : <span className="text-gray-700">—</span>
+                                                                }
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </>
+                                );
+                            })()}
                         </div>
                     </div>
                 </div>
             )}
+        </>
         );
     }
 }
