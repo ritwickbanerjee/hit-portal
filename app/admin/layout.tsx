@@ -671,12 +671,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 {/* Welcome Notification Modal */}
                 {showWelcomeNotification && (
                     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-                        <div className="bg-slate-900 rounded-3xl border border-indigo-500/30 w-full max-w-2xl p-8 shadow-[0_0_50px_rgba(99,102,241,0.15)] relative overflow-hidden">
+                        <div className="bg-slate-900 rounded-3xl border border-indigo-500/30 w-full max-w-2xl shadow-[0_0_50px_rgba(99,102,241,0.15)] relative overflow-hidden flex flex-col max-h-[90vh]">
                             {/* Decorative background accents */}
-                            <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-                            <div className="absolute bottom-0 left-0 w-64 h-64 bg-violet-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+                            <div className="absolute bottom-0 left-0 w-64 h-64 bg-violet-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2 pointer-events-none"></div>
                             
-                            <div className="relative z-10">
+                            {/* Scrollable content area */}
+                            <div className="relative z-10 overflow-y-auto flex-1 p-8 pb-4">
                                 <div className="flex items-center gap-3 mb-6">
                                     <div className="p-3 bg-indigo-500/20 rounded-xl border border-indigo-500/30">
                                         <Sparkles className="h-8 w-8 text-indigo-400" />
@@ -686,7 +687,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                     </h3>
                                 </div>
                                 
-                                <div className="space-y-4 mb-8 text-slate-300">
+                                <div className="space-y-4 text-slate-300">
                                     <div className="flex gap-4 p-4 rounded-xl bg-slate-950/50 border border-white/5 hover:border-indigo-500/30 transition-colors">
                                         <div className="shrink-0 mt-1"><Laptop className="h-5 w-5 text-indigo-400" /></div>
                                         <div>
@@ -719,7 +720,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                         </div>
                                     </div>
                                 </div>
-                                
+                            </div>
+                            
+                            {/* OK button — always visible, never scrolls away */}
+                            <div className="relative z-10 p-6 pt-4 border-t border-white/5">
                                 <button
                                     onClick={handleDismissWelcome}
                                     className="w-full py-4 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl font-bold text-lg shadow-lg shadow-indigo-500/25 transition-all hover:scale-[1.02] active:scale-[0.98]"
