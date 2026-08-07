@@ -86,6 +86,9 @@ export async function GET(req: Request) {
         const saIdSet = new Set(allStudentAssignments.map(sa => sa.assignmentId.toString()));
 
         assignments = assignments.filter(a => {
+            // Exclude assignments that haven't opened yet (startTime is the schema field)
+            if (a.startTime && new Date(a.startTime) > new Date()) return false;
+
             // Personalized: must have a StudentAssignment record
             if (a.type === 'personalized') {
                 return saIdSet.has(a._id.toString());
