@@ -203,10 +203,11 @@ export default function StudentResources() {
 })();
 <\/script>`;
 
-        // Inject SDK just before </body> (or at end if no </body>)
+        // Inject SDK just before the LAST </body> (to avoid breaking embedded string literals containing </body>)
         let html = resource.htmlContent;
-        if (html.includes('</body>')) {
-            html = html.replace('</body>', sdkScript + '</body>');
+        const lastBodyIndex = html.lastIndexOf('</body>');
+        if (lastBodyIndex !== -1) {
+            html = html.substring(0, lastBodyIndex) + sdkScript + html.substring(lastBodyIndex);
         } else {
             html = html + sdkScript;
         }
